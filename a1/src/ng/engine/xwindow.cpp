@@ -1,5 +1,8 @@
 #include "ng/engine/xwindow.hpp"
 
+#include "ng/engine/xdisplay.hpp"
+#include "ng/engine/xvisualinfo.hpp"
+
 #include <X11/X.h>
 #include <X11/Xlib.h>
 #include <GL/glx.h>
@@ -16,46 +19,6 @@ static int ngXErrorHandler(Display* dpy, XErrorEvent* error)
     XGetErrorText(dpy, error->error_code, errorBuf, sizeof(errorBuf));
     throw std::runtime_error(errorBuf);
 }
-
-class ngXDisplay
-{
-public:
-    Display* mHandle;
-
-    ngXDisplay()
-    {
-        mHandle = XOpenDisplay(NULL);
-        if (!mHandle)
-        {
-            throw std::runtime_error("Cannot connect to X server");
-        }
-    }
-
-    ~ngXDisplay()
-    {
-        XCloseDisplay(mHandle);
-    }
-};
-
-class ngXVisualInfo
-{
-public:
-    XVisualInfo* mHandle;
-
-    ngXVisualInfo(Display* dpy, int screen, int* attribList)
-    {
-        mHandle = glXChooseVisual(display, screen, attribList);
-        if (!mHandle)
-        {
-            throw std::runtime_error("No appropriate visual found");
-        }
-    }
-
-    ~ngXVisualInfo()
-    {
-        XFree(mHandle);
-    }
-};
 
 class ngXColormap
 {
@@ -159,12 +122,9 @@ public:
     { }
 };
 
-std::unique_ptr<IWindow> CreateXWindow(const char* title, int x, int y, int width, int height)
+std::unique_ptr<IWindow> CreateXWindow(const char* title, int x, int y, int width, int height, const int* attribList)
 {
     XSetErrorHandler(ngXErrorHandler);
-
-    const int attribList[] = { GLX_RGBA, GLX_DEPTH_SIZE, 24, GLX_DOUBLEBUFFER, None };
-
     return new ngXWindowContainer(title, x, y, width, height, attribList);
 }
 

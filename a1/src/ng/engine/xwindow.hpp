@@ -8,7 +8,7 @@ namespace ng
 
 class IWindow;
 
-std::unique_ptr<IWindow> CreateXWindow(const char* title, int x, int y, int width, int height);
+std::unique_ptr<IWindow> CreateXWindow(const char* title, int x, int y, int width, int height, const int* attribList);
 
 } // end namespace ng
 

@@ -8,7 +8,7 @@ namespace ng
 
 class IGLContext;
 
-std::unique_ptr<IGLContext> CreateXGLContext();
+std::unique_ptr<IGLContext> CreateXGLContext(const int* attribList);
 
 } // end namespace ng
 
