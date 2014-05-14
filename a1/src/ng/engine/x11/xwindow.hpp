@@ -6,13 +6,9 @@
 namespace ng
 {
 
-class IWindow;
-class WindowFlags;
+class IWindowManager;
 
-std::unique_ptr<IWindow> CreateXWindow(const char* title,
-                                       int width, int height,
-                                       int x, int y,
-                                       const WindowFlags& flags);
+std::unique_ptr<IWindowManager> CreateXWindowManager();
 
 } // end namespace ng
 
