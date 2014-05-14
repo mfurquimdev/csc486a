@@ -1,5 +1,5 @@
-#ifndef NG_IGLCONTEXT_HPP
-#define NG_IGLCONTEXT_HPP
+#ifndef NG_GLCONTEXT_HPP
+#define NG_GLCONTEXT_HPP
 
 namespace ng
 {
@@ -12,4 +12,4 @@ public:
 
 } // end namespace ng
 
-#endif // NG_IGLCONTEXT_HPP
+#endif // NG_GLCONTEXT_HPP

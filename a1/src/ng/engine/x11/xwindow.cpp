@@ -1,11 +1,10 @@
 #include "ng/engine/x11/xwindow.hpp"
 
-#include "ng/engine/iwindow.hpp"
+#include "ng/engine/window.hpp"
 
 #include "ng/engine/x11/xglcontext.hpp"
 
 #include "ng/engine/x11/xdisplay.hpp"
-#include "ng/engine/x11/xvisualinfo.hpp"
 #include "ng/engine/x11/xerrorhandler.hpp"
 
 #include "ng/engine/x11/pthreadhack.hpp"
@@ -191,12 +190,30 @@ public:
 
 std::unique_ptr<IWindow> CreateXWindow(
         const char* title,
-        int x, int y,
         int width, int height,
-        const int* attribList)
+        int x, int y,
+        const WindowFlags& flags)
 {
     // arbitrarily put here to force the linker to realize pthreads is necessary... driver bug. (see pthreadhack.hpp)
     ForcePosixThreadsLink();
+
+    const int attribList[] =
+    {
+        GLX_X_RENDERABLE    , True,
+        GLX_DRAWABLE_TYPE   , GLX_WINDOW_BIT,
+        GLX_RENDER_TYPE     , GLX_RGBA_BIT,
+        GLX_X_VISUAL_TYPE   , GLX_TRUE_COLOR,
+        GLX_RED_SIZE        , flags.RedSize,
+        GLX_GREEN_SIZE      , flags.GreenSize,
+        GLX_BLUE_SIZE       , flags.BlueSize,
+        GLX_ALPHA_SIZE      , flags.AlphaSize,
+        GLX_DEPTH_SIZE      , flags.DepthSize,
+        GLX_STENCIL_SIZE    , flags.StencilSize,
+        GLX_DOUBLEBUFFER    , flags.DoubleBuffered ? True : False,
+        //GLX_SAMPLE_BUFFERS  , 1,
+        //GLX_SAMPLES         , 4,
+        None
+    };
 
     ScopedErrorHandler errorHandler(ngXErrorHandler);
 
@@ -271,11 +288,11 @@ std::unique_ptr<IWindow> CreateXWindow(
     // Create color map
     ngXColormap colormap(display, RootWindow(display, vi->screen), vi->visual, AllocNone);
 
-    ngXSetWindowAttributes setWindowAttributes;
-    setWindowAttributes.SetColormap(colormap.mHandle);
-    setWindowAttributes.SetBackgroundPixmap(None);
-    setWindowAttributes.SetBorderPixel(0);
-    setWindowAttributes.SetEventMask(StructureNotifyMask);
+    XSetWindowAttributes setWindowAttributes;
+    setWindowAttributes.colormap = colormap.mHandle;
+    setWindowAttributes.background_pixmap = None;
+    setWindowAttributes.border_pixel = 0;
+    setWindowAttributes.event_mask = StructureNotifyMask;
 
     Window root = DefaultRootWindow(display);
     return std::unique_ptr<IWindow>(
@@ -283,8 +300,8 @@ std::unique_ptr<IWindow> CreateXWindow(
                     std::move(ngDisplay),
                     std::move(colormap),
                     root,
-                    &setWindowAttributes.mAttributes,
-                    setWindowAttributes.mAttributeMask,
+                    &setWindowAttributes,
+                    CWColormap | CWBackPixmap | CWBorderPixel | CWEventMask,
                     title,
                     x, y,
                     width, height,
