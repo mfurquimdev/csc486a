@@ -2,6 +2,7 @@
 #define NG_WINDOWEVENT_HPP
 
 #include <ostream>
+#include <memory>
 
 namespace ng
 {
@@ -54,7 +55,7 @@ struct MouseButtonEvent
 
 struct WindowEvent
 {
-    IWindow* source;
+    std::weak_ptr<IWindow> source;
 
     union
     {

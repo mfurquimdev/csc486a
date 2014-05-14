@@ -577,7 +577,7 @@ public:
                 continue;
             }
 
-            we.source = nullptr;
+            we.source.reset();
 
             if (source != None)
             {
@@ -585,7 +585,7 @@ public:
                 {
                     if (!pWindow.expired() && pWindow.lock()->mWindow.mHandle == source)
                     {
-                        we.source = pWindow.lock().get();
+                        we.source = pWindow;
                         break;
                     }
                 }
