@@ -200,6 +200,7 @@ public:
     ngXColormap& operator=(ngXColormap&& other)
     {
         swap(other);
+        return *this;
     }
 
     void swap(ngXColormap& other)
@@ -342,6 +343,7 @@ public:
     ngXDisplay& operator=(ngXDisplay&& other)
     {
         swap(other);
+        return *this;
     }
 
     void swap(ngXDisplay& other)
@@ -450,7 +452,7 @@ public:
                     continue;
                 }
 
-                if (bestFBCIndex < 0 || sampleBuffers && samples > bestNumSamples)
+                if (bestFBCIndex < 0 || (sampleBuffers && samples > bestNumSamples))
                 {
                     bestFBCIndex = i;
                     bestNumSamples = samples;
@@ -472,7 +474,7 @@ public:
         setWindowAttributes.colormap = colormap.mHandle;
         setWindowAttributes.background_pixmap = None;
         setWindowAttributes.border_pixel = 0;
-        setWindowAttributes.event_mask = StructureNotifyMask | PointerMotionMask;
+        setWindowAttributes.event_mask = StructureNotifyMask | PointerMotionMask | ButtonPressMask | ButtonReleaseMask;
 
         Window root = DefaultRootWindow(display);
         std::shared_ptr<ngXWindow> createdWindow(new ngXWindow(
@@ -499,6 +501,29 @@ public:
         return createdWindow;
     }
 
+    static bool MapXButton(unsigned int xbutton, MouseButton& button)
+    {
+        if (xbutton == Button1)
+        {
+            button = MouseButton::Left;
+            return true;
+        }
+        else if (xbutton == Button2)
+        {
+            button = MouseButton::Middle;
+            return true;
+        }
+        else if (xbutton == Button3)
+        {
+            button = MouseButton::Right;
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
     bool PollEventImpl(WindowEvent& we) override
     {
         while (XPending(mDisplay.mHandle) > 0)
@@ -508,7 +533,7 @@ public:
             Window source = None;
 
             if (ev.type == ClientMessage &&
-                ev.xclient.data.l[0] == mWMDeleteMessage)
+                (Atom) ev.xclient.data.l[0] == mWMDeleteMessage)
             {
                 source = ev.xdestroywindow.window;
                 we.type = WindowEventType::Quit;
@@ -516,9 +541,35 @@ public:
             else if (ev.type == MotionNotify)
             {
                 source = ev.xmotion.window;
-                we.type = WindowEventType::Motion;
+                we.motion.type = WindowEventType::MouseMotion;
                 we.motion.x = ev.xmotion.x;
                 we.motion.y = ev.xmotion.y;
+            }
+            else if (ev.type == ButtonPress)
+            {
+                if (!MapXButton(ev.xbutton.button, we.button.button))
+                {
+                    continue;
+                }
+
+                source = ev.xbutton.window;
+                we.button.type = WindowEventType::MouseButton;
+                we.button.state = ButtonState::Pressed;
+                we.button.x = ev.xbutton.x;
+                we.button.y = ev.xbutton.y;
+            }
+            else if (ev.type == ButtonRelease)
+            {
+                if (!MapXButton(ev.xbutton.button, we.button.button))
+                {
+                    continue;
+                }
+
+                source = ev.xbutton.window;
+                we.button.type = WindowEventType::MouseButton;
+                we.button.state = ButtonState::Released;
+                we.button.x = ev.xbutton.x;
+                we.button.y = ev.xbutton.y;
             }
             else
             {

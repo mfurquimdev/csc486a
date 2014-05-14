@@ -25,9 +25,15 @@ int main()
             {
                 return 0;
             }
-            else if (e.type == ng::WindowEventType::Motion)
+            else if (e.type == ng::WindowEventType::MouseMotion)
             {
                 std::cout << e.motion.x << ", " << e.motion.y << std::endl;
+            }
+            else if (e.type == ng::WindowEventType::MouseButton)
+            {
+                std::cout << e.button.state << " button " << e.button.button
+                          << " at (" << e.button.x << ", " << e.button.y << ")"
+                          << std::endl;
             }
         }
 
