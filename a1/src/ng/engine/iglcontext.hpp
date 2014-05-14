@@ -7,7 +7,7 @@ namespace ng
 class IGLContext
 {
 public:
-    virtual ~IGLContext() = 0;
+    virtual ~IGLContext() = default;
 };
 
 } // end namespace ng

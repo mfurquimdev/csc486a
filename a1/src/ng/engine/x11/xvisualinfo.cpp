@@ -1,11 +1,15 @@
-#include "ng/engine/xvisualinfo.hpp"
+#include "ng/engine/x11/xvisualinfo.hpp"
+
+#include <GL/glx.h>
+
+#include <stdexcept>
 
 namespace ng
 {
 
 ngXVisualInfo::ngXVisualInfo(Display* dpy, int screen, const int* attribList)
 {
-    mHandle = glXChooseVisual(display, screen, attribList);
+    mHandle = glXChooseVisual(dpy, screen, (int*) attribList);
     if (!mHandle)
     {
         throw std::runtime_error("No appropriate visual found");

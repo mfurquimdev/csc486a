@@ -1,7 +1,14 @@
-#include "ng/engine/xwindow.hpp"
+#include "ng/engine/x11/xwindow.hpp"
 
-#include "ng/engine/xdisplay.hpp"
-#include "ng/engine/xvisualinfo.hpp"
+#include "ng/engine/iwindow.hpp"
+
+#include "ng/engine/x11/xglcontextimpl.hpp"
+
+#include "ng/engine/x11/xdisplay.hpp"
+#include "ng/engine/x11/xvisualinfo.hpp"
+#include "ng/engine/x11/xerrorhandler.hpp"
+
+#include "ng/engine/x11/pthreadhack.hpp"
 
 #include <X11/X.h>
 #include <X11/Xlib.h>
@@ -11,14 +18,6 @@
 
 namespace ng
 {
-
-static int ngXErrorHandler(Display* dpy, XErrorEvent* error)
-{
-    char errorBuf[256];
-    errorBuf[0] = '\0';
-    XGetErrorText(dpy, error->error_code, errorBuf, sizeof(errorBuf));
-    throw std::runtime_error(errorBuf);
-}
 
 class ngXColormap
 {
@@ -63,13 +62,13 @@ public:
     }
 };
 
-class ngXWindow
+class ngXWindowImpl
 {
 public:
-    Display mDisplay;
+    Display* mDisplay;
     Window mHandle;
 
-    ngXWindow(const char* title,
+    ngXWindowImpl(const char* title,
               Display* display, Window parent,
               int x, int y,
               unsigned int width, unsigned int height,
@@ -87,13 +86,13 @@ public:
         XStoreName(mDisplay, mHandle, title);
     }
 
-    ~ngXWindow()
+    ~ngXWindowImpl()
     {
         XDestroyWindow(mDisplay, mHandle);
     }
 };
 
-class ngXWindowContainer : public IWindow
+class ngXWindow : public IWindow
 {
 public:
     ngXDisplay mDisplay;
@@ -101,9 +100,9 @@ public:
     ngXVisualInfo mVisualInfo;
     ngXColormap mColorMap;
     ngXSetWindowAttributes mSetWindowAttributes;
-    ngXWindow mWindow;
+    ngXWindowImpl mWindow;
 
-    ngXWindowContainer(const char*  title, int x, int y, int width, int height, const int* attribList)
+    ngXWindow(const char*  title, int x, int y, int width, int height, const int* attribList)
         : mRoot(DefaultRootWindow(mDisplay.mHandle))
         , mVisualInfo(mDisplay.mHandle, 0, attribList)
         , mColorMap(mDisplay.mHandle, mRoot, mVisualInfo.mHandle->visual, None)
@@ -120,12 +119,35 @@ public:
                   mVisualInfo.mHandle->visual,
                   mSetWindowAttributes.mAttributeMask, &mSetWindowAttributes.mAttributes)
     { }
+
+    void SwapBuffers() override
+    {
+        glXSwapBuffers(mDisplay.mHandle, mWindow.mHandle);
+    }
+
+    void GetSize(int* width, int* height) override
+    {
+        XWindowAttributes attributes;
+        XGetWindowAttributes(mDisplay.mHandle, mWindow.mHandle, &attributes);
+
+        if (width) *width = attributes.width;
+        if (height) *height = attributes.height;
+    }
+
+    void MakeCurrent(const IGLContext& context) override
+    {
+        const ngXGLContext& xcontext = static_cast<const ngXGLContext&>(context);
+        glXMakeCurrent(mDisplay.mHandle, mWindow.mHandle, xcontext.mContext.mHandle);
+    }
 };
 
 std::unique_ptr<IWindow> CreateXWindow(const char* title, int x, int y, int width, int height, const int* attribList)
 {
+    // arbitrarily put here to force the linker to realize pthreads is necessary... driver bug. (see pthreadhack.hpp)
+    ForcePosixThreadsLink();
+
     XSetErrorHandler(ngXErrorHandler);
-    return new ngXWindowContainer(title, x, y, width, height, attribList);
+    return std::unique_ptr<IWindow>(new ngXWindow(title, x, y, width, height, attribList));
 }
 
 } // end namespace ng

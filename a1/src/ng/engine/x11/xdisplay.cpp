@@ -1,4 +1,6 @@
-#include "ng/engine/xdisplay.hpp"
+#include "ng/engine/x11/xdisplay.hpp"
+
+#include <stdexcept>
 
 namespace ng
 {
