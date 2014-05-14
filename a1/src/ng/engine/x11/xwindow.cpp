@@ -583,7 +583,7 @@ public:
             {
                 for (const auto& pWindow : mWindows)
                 {
-                    if (pWindow.lock()->mWindow.mHandle == source)
+                    if (!pWindow.expired() && pWindow.lock()->mWindow.mHandle == source)
                     {
                         we.source = pWindow.lock().get();
                         break;
