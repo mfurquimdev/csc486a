@@ -8,6 +8,10 @@ class IGLContext
 {
 public:
     virtual ~IGLContext() = default;
+
+    virtual bool IsExtensionSupported(const char* extension) = 0;
+
+    virtual void* GetProcAddress(const char* proc) = 0;
 };
 
 } // end namespace ng

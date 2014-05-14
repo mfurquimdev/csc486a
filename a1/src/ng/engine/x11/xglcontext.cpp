@@ -1,12 +1,12 @@
 #include "ng/engine/x11/xglcontext.hpp"
 
 #include "ng/engine/x11/xerrorhandler.hpp"
-#include "ng/engine/x11/glxextensions.hpp"
 
 #include <X11/Xlib.h>
 
-#include <cassert>
 #include <stdexcept>
+#include <cassert>
+#include <cstring>
 
 namespace ng
 {
@@ -16,13 +16,10 @@ ngXGLContext::ngXGLContext(Display* dpy, GLXFBConfig fbConfig)
 {
     using glXCreateContextAttribsARBProc = GLXContext(*)(Display*, GLXFBConfig, GLXContext, Bool, const int*);
 
-    const char *glxExts = glXQueryExtensionsString(dpy, DefaultScreen(dpy));
-
     glXCreateContextAttribsARBProc glXCreateContextAttribsARB = 0;
-    glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc)
-            glXGetProcAddressARB((const GLubyte*) "glXCreateContextAttribsARB");
+    glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc) GetProcAddress("glXCreateContextAttribsARB");
 
-    if (!IsExtensionSupported(glxExts, "GLX_ARB_create_context") ||
+    if (!IsExtensionSupported("GLX_ARB_create_context") ||
         !glXCreateContextAttribsARB)
     {
         // glXCreateContextAttribsARB() not found
@@ -89,6 +86,45 @@ ngXGLContext::ngXGLContext(Display* dpy, GLXFBConfig fbConfig)
 ngXGLContext::~ngXGLContext()
 {
     glXDestroyContext(mDisplay, mHandle);
+}
+
+bool ngXGLContext::IsExtensionSupported(const char* extension)
+{
+    const char *extList = glXQueryExtensionsString(mDisplay, DefaultScreen(mDisplay));
+
+    const char *start;
+    const char *where, *terminator;
+
+    /* Extension names should not have spaces. */
+    where = std::strchr(extension, ' ');
+    if (where || *extension == '\0')
+        return false;
+
+    size_t extlen = std::strlen(extension);
+    /* It takes a bit of care to be fool-proof about parsing the
+         OpenGL extensions string. Don't be fooled by sub-strings,
+         etc. */
+    for (start=extList;;) {
+        where = std::strstr(start, extension);
+
+        if (!where)
+            break;
+
+        terminator = where + extlen;
+
+        if ( where == start || *(where - 1) == ' ' )
+            if ( *terminator == ' ' || *terminator == '\0' )
+                return true;
+
+        start = terminator;
+    }
+
+    return false;
+}
+
+void* ngXGLContext::GetProcAddress(const char *proc)
+{
+    return (void*) glXGetProcAddressARB((const GLubyte*) proc);
 }
 
 } // end namespace ng

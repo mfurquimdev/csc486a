@@ -18,6 +18,10 @@ public:
 
     ngXGLContext(Display* dpy, GLXFBConfig config);
     ~ngXGLContext();
+
+    bool IsExtensionSupported(const char *extension) override;
+
+    void* GetProcAddress(const char *proc) override;
 };
 
 } // end namespace ng

@@ -13,7 +13,6 @@ int main()
 
     for (int i = 0; i < 5; i++)
     {
-        glClearColor(0,0,0,1);
         glClear(GL_COLOR_BUFFER_BIT);
         window->SwapBuffers();
         sleep(1);

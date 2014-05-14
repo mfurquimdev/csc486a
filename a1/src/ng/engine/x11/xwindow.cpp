@@ -63,41 +63,6 @@ void swap(ngXColormap& a, ngXColormap& b)
     a.swap(b);
 }
 
-class ngXSetWindowAttributes
-{
-public:
-    XSetWindowAttributes mAttributes;
-    unsigned long mAttributeMask;
-
-    ngXSetWindowAttributes()
-        : mAttributeMask(0)
-    { }
-
-    void SetColormap(Colormap colormap)
-    {
-        mAttributes.colormap = colormap;
-        mAttributeMask |= CWColormap;
-    }
-
-    void SetBackgroundPixmap(Pixmap pixmap)
-    {
-        mAttributes.background_pixmap = pixmap;
-        mAttributeMask |= CWBackPixmap;
-    }
-
-    void SetBorderPixel(unsigned long border_pixel)
-    {
-        mAttributes.border_pixel = border_pixel;
-        mAttributeMask |= CWBorderPixel;
-    }
-
-    void SetEventMask(long event_mask)
-    {
-        mAttributes.event_mask = event_mask;
-        mAttributeMask |= CWEventMask;
-    }
-};
-
 class ngXWindowImpl
 {
 public:
