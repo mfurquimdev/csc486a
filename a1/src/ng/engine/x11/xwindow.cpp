@@ -4,7 +4,6 @@
 
 #include "ng/engine/x11/xglcontext.hpp"
 
-#include "ng/engine/x11/xdisplay.hpp"
 #include "ng/engine/x11/xerrorhandler.hpp"
 
 #include "ng/engine/x11/pthreadhack.hpp"
@@ -92,6 +91,51 @@ public:
         XDestroyWindow(mDisplay, mHandle);
     }
 };
+
+class ngXDisplay
+{
+public:
+    Display* mHandle;
+
+    ngXDisplay()
+    {
+        mHandle = XOpenDisplay(NULL);
+        if (!mHandle)
+        {
+            throw std::runtime_error("Cannot connect to X server");
+        }
+    }
+
+    ~ngXDisplay()
+    {
+        if (mHandle)
+        {
+            XCloseDisplay(mHandle);
+        }
+    }
+
+    ngXDisplay(ngXDisplay&& other)
+        : mHandle(nullptr)
+    {
+        swap(other);
+    }
+
+    ngXDisplay& operator=(ngXDisplay&& other)
+    {
+        swap(other);
+    }
+
+    void swap(ngXDisplay& other)
+    {
+        using std::swap;
+        swap(mHandle, other.mHandle);
+    }
+};
+
+void swap(ngXDisplay& a, ngXDisplay& b)
+{
+    a.swap(b);
+}
 
 class ngXWindow : public IWindow
 {

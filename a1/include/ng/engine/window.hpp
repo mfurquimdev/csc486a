@@ -30,7 +30,6 @@ struct WindowFlags
     int AlphaSize = 8;
     int DepthSize = 24;
     int StencilSize = 8;
-
     bool DoubleBuffered = true;
 };
 

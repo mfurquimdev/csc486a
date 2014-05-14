@@ -1,8 +1,6 @@
 #ifndef NG_XGLCONTEXT_HPP
 #define NG_XGLCONTEXT_HPP
 
-#include "ng/engine/x11/xdisplay.hpp"
-
 #include "ng/engine/glcontext.hpp"
 
 #include <GL/glx.h>
