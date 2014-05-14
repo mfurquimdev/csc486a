@@ -8,6 +8,16 @@ namespace ng
 
 int ngXErrorHandler(Display* dpy, XErrorEvent* error);
 
+struct ScopedErrorHandler
+{
+    using ErrorHandler = int(*)(Display*, XErrorEvent*);
+
+    ErrorHandler mOldHandler;
+
+    ScopedErrorHandler(ErrorHandler newHandler);
+    ~ScopedErrorHandler();
+};
+
 } // end namespace ng
 
 #endif // NG_XERRORHANDLER_HPP

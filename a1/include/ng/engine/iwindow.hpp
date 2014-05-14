@@ -1,6 +1,8 @@
 #ifndef NG_IWINDOW_HPP
 #define NG_IWINDOW_HPP
 
+#include <memory>
+
 namespace ng
 {
 
@@ -14,6 +16,8 @@ public:
     virtual void SwapBuffers() = 0;
 
     virtual void GetSize(int* width, int* height) = 0;
+
+    virtual std::unique_ptr<IGLContext> CreateContext() = 0;
 
     virtual void MakeCurrent(const IGLContext& context) = 0;
 };

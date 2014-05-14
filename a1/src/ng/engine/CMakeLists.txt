@@ -22,7 +22,7 @@ if(UNIX AND NOT APPLE)
         ${X11_SOURCES})
 endif()
 
-include_directories(${NG_DIRECTORY})
+include_directories(${NG_INCLUDE_DIR} ${NG_SRC_DIR})
 
 add_library(engine ${SOURCES})
 target_link_libraries(engine ${X11_LIBRARIES} ${OPENGL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})

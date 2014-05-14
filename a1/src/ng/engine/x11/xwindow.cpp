@@ -2,7 +2,7 @@
 
 #include "ng/engine/iwindow.hpp"
 
-#include "ng/engine/x11/xglcontextimpl.hpp"
+#include "ng/engine/x11/xglcontext.hpp"
 
 #include "ng/engine/x11/xdisplay.hpp"
 #include "ng/engine/x11/xvisualinfo.hpp"
@@ -33,9 +33,36 @@ public:
 
     ~ngXColormap()
     {
-        XFreeColormap(mDisplay, mHandle);
+        if (mHandle)
+        {
+            XFreeColormap(mDisplay, mHandle);
+        }
+    }
+
+    ngXColormap(ngXColormap&& other)
+        : mDisplay(nullptr)
+        , mHandle(0)
+    {
+        swap(other);
+    }
+
+    ngXColormap& operator=(ngXColormap&& other)
+    {
+        swap(other);
+    }
+
+    void swap(ngXColormap& other)
+    {
+        using std::swap;
+        swap(mDisplay, other.mDisplay);
+        swap(mHandle, other.mHandle);
     }
 };
+
+void swap(ngXColormap& a, ngXColormap& b)
+{
+    a.swap(b);
+}
 
 class ngXSetWindowAttributes
 {
@@ -47,18 +74,28 @@ public:
         : mAttributeMask(0)
     { }
 
-    ngXSetWindowAttributes& SetColormap(Colormap colormap)
+    void SetColormap(Colormap colormap)
     {
         mAttributes.colormap = colormap;
         mAttributeMask |= CWColormap;
-        return *this;
     }
 
-    ngXSetWindowAttributes& SetEventMask(long event_mask)
+    void SetBackgroundPixmap(Pixmap pixmap)
+    {
+        mAttributes.background_pixmap = pixmap;
+        mAttributeMask |= CWBackPixmap;
+    }
+
+    void SetBorderPixel(unsigned long border_pixel)
+    {
+        mAttributes.border_pixel = border_pixel;
+        mAttributeMask |= CWBorderPixel;
+    }
+
+    void SetEventMask(long event_mask)
     {
         mAttributes.event_mask = event_mask;
         mAttributeMask |= CWEventMask;
-        return *this;
     }
 };
 
@@ -96,28 +133,34 @@ class ngXWindow : public IWindow
 {
 public:
     ngXDisplay mDisplay;
-    Window mRoot;
-    ngXVisualInfo mVisualInfo;
-    ngXColormap mColorMap;
-    ngXSetWindowAttributes mSetWindowAttributes;
+    ngXColormap mColormap;
     ngXWindowImpl mWindow;
+    GLXFBConfig mChosenFBC;
 
-    ngXWindow(const char*  title, int x, int y, int width, int height, const int* attribList)
-        : mRoot(DefaultRootWindow(mDisplay.mHandle))
-        , mVisualInfo(mDisplay.mHandle, 0, attribList)
-        , mColorMap(mDisplay.mHandle, mRoot, mVisualInfo.mHandle->visual, None)
-        , mSetWindowAttributes(ngXSetWindowAttributes()
-                               .SetColormap(mColorMap.mHandle)
-                               .SetEventMask(ExposureMask | KeyPressMask))
+    ngXWindow(ngXDisplay&& display,
+              ngXColormap&& colormap,
+              Window parent,
+              const XSetWindowAttributes* setAttributes,
+              unsigned long setAttributeMask,
+              const char*  title,
+              int x, int y,
+              int width, int height,
+              int depth,
+              Visual* visual,
+              const int* attribList,
+              GLXFBConfig chosenFBC)
+        : mDisplay(std::move(display))
+        , mColormap(std::move(colormap))
         , mWindow(title,
-                  mDisplay.mHandle, mRoot,
+                  mDisplay.mHandle, parent,
                   x, y,
                   width, height,
                   0,
-                  mVisualInfo.mHandle->depth,
+                  depth,
                   InputOutput,
-                  mVisualInfo.mHandle->visual,
-                  mSetWindowAttributes.mAttributeMask, &mSetWindowAttributes.mAttributes)
+                  visual,
+                  setAttributeMask, (XSetWindowAttributes*) setAttributes)
+        , mChosenFBC(chosenFBC)
     { }
 
     void SwapBuffers() override
@@ -134,20 +177,121 @@ public:
         if (height) *height = attributes.height;
     }
 
+    std::unique_ptr<IGLContext> CreateContext() override
+    {
+        return std::unique_ptr<IGLContext>(new ngXGLContext(mDisplay.mHandle, mChosenFBC));
+    }
+
     void MakeCurrent(const IGLContext& context) override
     {
         const ngXGLContext& xcontext = static_cast<const ngXGLContext&>(context);
-        glXMakeCurrent(mDisplay.mHandle, mWindow.mHandle, xcontext.mContext.mHandle);
+        glXMakeCurrent(mDisplay.mHandle, mWindow.mHandle, xcontext.mHandle);
     }
 };
 
-std::unique_ptr<IWindow> CreateXWindow(const char* title, int x, int y, int width, int height, const int* attribList)
+std::unique_ptr<IWindow> CreateXWindow(
+        const char* title,
+        int x, int y,
+        int width, int height,
+        const int* attribList)
 {
     // arbitrarily put here to force the linker to realize pthreads is necessary... driver bug. (see pthreadhack.hpp)
     ForcePosixThreadsLink();
 
-    XSetErrorHandler(ngXErrorHandler);
-    return std::unique_ptr<IWindow>(new ngXWindow(title, x, y, width, height, attribList));
+    ScopedErrorHandler errorHandler(ngXErrorHandler);
+
+    ngXDisplay ngDisplay{};
+    Display* display = ngDisplay.mHandle;
+
+    // Check glx version
+    int glxMajorVersion = 0, glxMinorVersion = 0;
+    if (!glXQueryVersion(display, &glxMajorVersion, &glxMinorVersion)
+            || glxMajorVersion < 1 || (glxMajorVersion == 1 && glxMinorVersion < 3))
+    {
+        std::string msg;
+
+        if (glxMajorVersion == 0 && glxMinorVersion == 0)
+        {
+            msg = "Failed to query version with glxQueryVersion";
+        }
+        else
+        {
+            msg = "Invalid GLX Version: "
+                    + std::to_string(glxMajorVersion) + "." + std::to_string(glxMinorVersion)
+                    + " (need GLX version 1.3 for FBConfigs";
+        }
+
+        throw std::runtime_error(msg);
+    }
+
+    // Get framebuffer configs
+    int fbCount;
+    std::unique_ptr<GLXFBConfig, int(*)(void*)> fbConfigList(
+                glXChooseFBConfig(display, DefaultScreen(display), attribList, &fbCount),
+                XFree);
+    if (!fbConfigList)
+    {
+        throw std::runtime_error("Failed to retrieve a framebuffer config");
+    }
+    GLXFBConfig* fbc = fbConfigList.get();
+
+    // Pick the FB config/visual with the most samples per pixel
+    int bestFBCIndex = -1, bestNumSamples = -1;
+    for (int i = 0; i < fbCount; i++)
+    {
+        std::unique_ptr<XVisualInfo, int(*)(void*)> vi(
+                    glXGetVisualFromFBConfig(display, fbc[i]),
+                    XFree);
+        if (vi)
+        {
+            int sampleBuffers, samples;
+            int sampleBufferSupport = glXGetFBConfigAttrib(display, fbc[i], GLX_SAMPLE_BUFFERS, &sampleBuffers);
+            int samplesSupport = glXGetFBConfigAttrib(display, fbc[i], GLX_SAMPLES, &samples);
+            if (sampleBufferSupport == GLX_NO_EXTENSION || sampleBufferSupport == GLX_BAD_ATTRIBUTE
+                || samplesSupport == GLX_NO_EXTENSION || samplesSupport == GLX_BAD_ATTRIBUTE)
+            {
+                continue;
+            }
+
+            if (bestFBCIndex < 0 || sampleBuffers && samples > bestNumSamples)
+            {
+                bestFBCIndex = i;
+                bestNumSamples = samples;
+            }
+        }
+    }
+
+    GLXFBConfig bestFBC = fbc[bestFBCIndex];
+
+    // Get a visual
+    std::unique_ptr<XVisualInfo, int(*)(void*)> vi(
+                glXGetVisualFromFBConfig(display, bestFBC),
+                XFree);
+
+    // Create color map
+    ngXColormap colormap(display, RootWindow(display, vi->screen), vi->visual, AllocNone);
+
+    ngXSetWindowAttributes setWindowAttributes;
+    setWindowAttributes.SetColormap(colormap.mHandle);
+    setWindowAttributes.SetBackgroundPixmap(None);
+    setWindowAttributes.SetBorderPixel(0);
+    setWindowAttributes.SetEventMask(StructureNotifyMask);
+
+    Window root = DefaultRootWindow(display);
+    return std::unique_ptr<IWindow>(
+                new ngXWindow(
+                    std::move(ngDisplay),
+                    std::move(colormap),
+                    root,
+                    &setWindowAttributes.mAttributes,
+                    setWindowAttributes.mAttributeMask,
+                    title,
+                    x, y,
+                    width, height,
+                    vi->depth,
+                    vi->visual,
+                    attribList,
+                    bestFBC));
 }
 
 } // end namespace ng

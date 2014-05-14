@@ -13,7 +13,13 @@ public:
 
     ngXDisplay();
     ~ngXDisplay();
+
+    ngXDisplay(ngXDisplay&& other);
+    ngXDisplay& operator=(ngXDisplay&& other);
+    void swap(ngXDisplay& other);
 };
+
+void swap(ngXDisplay& a, ngXDisplay& b);
 
 } // end namespace ng
 
