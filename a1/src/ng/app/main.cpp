@@ -4,7 +4,6 @@
 #include "ng/engine/windowevent.hpp"
 
 #include <GL/gl.h>
-#include <unistd.h>
 
 #include <iostream>
 
