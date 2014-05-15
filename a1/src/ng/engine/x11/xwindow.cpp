@@ -299,17 +299,6 @@ public:
         if (width) *width = attributes.width;
         if (height) *height = attributes.height;
     }
-
-    std::shared_ptr<IGLContext> CreateContext() override
-    {
-        return std::shared_ptr<IGLContext>(new ngXGLContext(mDisplay, mChosenFBC));
-    }
-
-    void MakeCurrent(const IGLContext& context) override
-    {
-        const ngXGLContext& xcontext = static_cast<const ngXGLContext&>(context);
-        glXMakeCurrent(mDisplay, mWindow.mHandle, xcontext.mHandle);
-    }
 };
 
 class ngXDisplay
@@ -364,6 +353,7 @@ class ngXWindowManager : public IWindowManager
     Atom mWMDeleteMessage;
 
     std::vector<std::weak_ptr<ngXWindow>> mWindows;
+    std::vector<std::weak_ptr<ngXGLContext>> mContexts;
 
 public:
     ngXWindowManager()
@@ -373,16 +363,9 @@ public:
         mWMDeleteMessage = XInternAtom(mDisplay.mHandle, "WM_DELETE_WINDOW", False);
     }
 
-    std::shared_ptr<IWindow> CreateWindowImpl(const char* title,
-                                              int width, int height,
-                                              int x, int y,
-                                              const WindowFlags& flags) override
+    static std::vector<int> WindowFlagsToAttribList(const WindowFlags& flags)
     {
-        // arbitrarily put here to force the linker to realize pthreads is necessary... driver bug.
-        // see // https://bugs.launchpad.net/ubuntu/+source/nvidia-graphics-drivers-319/+bug/1248642
-        pthread_getconcurrency();
-
-        const int attribList[] =
+        return
         {
             GLX_X_RENDERABLE    , True,
             GLX_DRAWABLE_TYPE   , GLX_WINDOW_BIT,
@@ -399,13 +382,15 @@ public:
             //GLX_SAMPLES         , 4,
             None
         };
+    }
 
-        Display* display = mDisplay.mHandle;
-
+    static GLXFBConfig GetBestFBConfig(Display* display, const int* attribList)
+    {
         // Check glx version
         int glxMajorVersion = 0, glxMinorVersion = 0;
         if (!glXQueryVersion(display, &glxMajorVersion, &glxMinorVersion)
-                || glxMajorVersion < 1 || (glxMajorVersion == 1 && glxMinorVersion < 3))
+                || glxMajorVersion < 1
+                || (glxMajorVersion == 1 && glxMinorVersion < 3))
         {
             std::string msg;
 
@@ -460,7 +445,24 @@ public:
             }
         }
 
-        GLXFBConfig bestFBC = fbc[bestFBCIndex];
+        return fbc[bestFBCIndex];
+    }
+
+    std::shared_ptr<IWindow> CreateWindow(const char* title,
+                                          int width, int height,
+                                          int x, int y,
+                                          const WindowFlags& flags) override
+    {
+        // arbitrarily put here to force the linker to realize pthreads is necessary... driver bug.
+        // see // https://bugs.launchpad.net/ubuntu/+source/nvidia-graphics-drivers-319/+bug/1248642
+        pthread_getconcurrency();
+
+        std::vector<int> attribVector = WindowFlagsToAttribList(flags);
+        int* attribList = attribVector.data();
+
+        Display* display = mDisplay.mHandle;
+
+        GLXFBConfig bestFBC = GetBestFBConfig(display, attribList);
 
         // Get a visual
         std::unique_ptr<XVisualInfo, int(*)(void*)> vi(
@@ -477,26 +479,27 @@ public:
         setWindowAttributes.event_mask = StructureNotifyMask | PointerMotionMask | ButtonPressMask | ButtonReleaseMask;
 
         Window root = DefaultRootWindow(display);
-        std::shared_ptr<ngXWindow> createdWindow(new ngXWindow(
-                                                     display,
-                                                     std::move(colormap),
-                                                     root,
-                                                     &setWindowAttributes,
-                                                     CWColormap | CWBackPixmap | CWBorderPixel | CWEventMask,
-                                                     title,
-                                                     x, y, width, height,
-                                                     vi->depth, vi->visual,
-                                                     bestFBC,
-                                                     &mWMDeleteMessage, 1));
+        std::shared_ptr<ngXWindow> createdWindow(
+                    new ngXWindow(
+                        display,
+                        std::move(colormap),
+                        root,
+                        &setWindowAttributes,
+                        CWColormap | CWBackPixmap | CWBorderPixel | CWEventMask,
+                        title,
+                        x, y, width, height,
+                        vi->depth, vi->visual,
+                        bestFBC,
+                        &mWMDeleteMessage, 1));
 
-        // take this opportunity to clean up the window list
+        // take this opportunity to GC the window list
         mWindows.erase(std::remove_if(mWindows.begin(), mWindows.end(),
-                                      [](const std::weak_ptr<IWindow>& pWindow)
+                                      [](const std::weak_ptr<ngXWindow>& pWindow)
         {
             return pWindow.expired();
         }), mWindows.end());
 
-        mWindows.emplace_back(createdWindow);
+        mWindows.push_back(createdWindow);
 
         return createdWindow;
     }
@@ -524,7 +527,7 @@ public:
         }
     }
 
-    bool PollEventImpl(WindowEvent& we) override
+    bool PollEvent(WindowEvent& we) override
     {
         while (XPending(mDisplay.mHandle) > 0)
         {
@@ -596,6 +599,65 @@ public:
 
         return false;
     }
+
+    std::shared_ptr<IGLContext> CreateContext(const WindowFlags& flags) override
+    {
+        std::vector<int> attribVector = WindowFlagsToAttribList(flags);
+
+        GLXFBConfig bestFBC = GetBestFBConfig(mDisplay.mHandle, attribVector.data());
+        std::shared_ptr<ngXGLContext> context(new ngXGLContext(mDisplay.mHandle, bestFBC));
+
+        // take the opportunity to GC the contexts
+        mContexts.erase(std::remove_if(mContexts.begin(), mContexts.end(),
+                                      [](const std::weak_ptr<ngXGLContext>& pContext)
+        {
+            return pContext.expired();
+        }), mContexts.end());
+
+        mContexts.push_back(context);
+
+        return context;
+    }
+
+    void SetCurrentContext(const std::shared_ptr<IWindow>& window,
+                           const std::shared_ptr<IGLContext>& context) override
+    {
+        bool foundWindow = false;
+        for (const auto& pWindow : mWindows)
+        {
+            std::weak_ptr<IWindow> pIWindow = pWindow;
+            if (!pIWindow.expired() && pIWindow.lock() == window)
+            {
+                foundWindow = true;
+                break;
+            }
+        }
+        if (!foundWindow)
+        {
+            throw std::logic_error("Window not managed by this WindowManager");
+        }
+
+        bool foundContext = false;
+        for (const auto& pContext : mContexts)
+        {
+            std::weak_ptr<IGLContext> pIContext = pContext;
+            if (!pIContext.expired() && pIContext.lock() == context)
+            {
+                foundContext = true;
+                break;
+            }
+        }
+        if (!foundContext)
+        {
+            throw std::logic_error("Context not managed by this WindowManager");
+        }
+
+        const ngXWindow& xwindow = static_cast<const ngXWindow&>(*window);
+        const ngXGLContext& xcontext = static_cast<const ngXGLContext&>(*context);
+
+        glXMakeCurrent(mDisplay.mHandle, xwindow.mWindow.mHandle, xcontext.mHandle);
+    }
+
 };
 
 std::unique_ptr<IWindowManager> CreateXWindowManager()

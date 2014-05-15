@@ -7,6 +7,7 @@ namespace ng
 {
 
 class IWindow;
+class IGLContext;
 struct WindowEvent;
 
 struct WindowFlags
@@ -25,26 +26,17 @@ class IWindowManager
 public:
     virtual ~IWindowManager() = default;
 
-    std::shared_ptr<IWindow> CreateWindow(const char* title,
-                                          int width, int height,
-                                          int x = 0, int y = 0,
-                                          const WindowFlags& flags = WindowFlags())
-    {
-        return CreateWindowImpl(title, width, height, x, y, flags);
-    }
+    virtual std::shared_ptr<IWindow> CreateWindow(const char* title,
+                                                  int width, int height,
+                                                  int, int y,
+                                                  const WindowFlags& flags) = 0;
 
-    bool PollEvent(WindowEvent& we)
-    {
-        return PollEventImpl(we);
-    }
+    virtual bool PollEvent(WindowEvent& we) = 0;
 
-protected:
-    virtual std::shared_ptr<IWindow> CreateWindowImpl(const char* title,
-                                                      int width, int height,
-                                                      int x, int y,
-                                                      const WindowFlags& flags) = 0;
+    virtual std::shared_ptr<IGLContext> CreateContext(const WindowFlags& flags) = 0;
 
-    virtual bool PollEventImpl(WindowEvent& we) = 0;
+    virtual void SetCurrentContext(const std::shared_ptr<IWindow>& window,
+                                   const std::shared_ptr<IGLContext>& context) = 0;
 };
 
 std::unique_ptr<IWindowManager> CreateWindowManager();

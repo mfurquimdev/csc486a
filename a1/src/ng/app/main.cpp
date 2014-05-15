@@ -10,10 +10,11 @@
 int main()
 {
     auto windowManager = ng::CreateWindowManager();
-    auto window = windowManager->CreateWindow("test", 640, 480);
-    auto context = window->CreateContext();
+    ng::WindowFlags windowFlags;
+    auto window = windowManager->CreateWindow("test", 640, 480, 0, 0, windowFlags);
+    auto context = windowManager->CreateContext(windowFlags);
 
-    window->MakeCurrent(*context);
+    windowManager->SetCurrentContext(window, context);
 
     while (true)
     {
