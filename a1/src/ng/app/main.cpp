@@ -36,7 +36,7 @@ int main()
             }
         }
 
-        glClear(GL_COLOR_BUFFER_BIT);
-        window->SwapBuffers();
+        // glClear(GL_COLOR_BUFFER_BIT);
+        // window->SwapBuffers();
     }
 }

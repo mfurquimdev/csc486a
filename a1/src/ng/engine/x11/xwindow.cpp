@@ -701,6 +701,11 @@ public:
 
 std::shared_ptr<IWindowManager> CreateXWindowManager()
 {
+    if (!XInitThreads())
+    {
+        throw std::runtime_error("XInitThreads() failed");
+    }
+
     std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
     ScopedErrorHandler scopedErrors(ngXErrorHandler);
     return std::shared_ptr<IWindowManager>(new ngXWindowManager(),

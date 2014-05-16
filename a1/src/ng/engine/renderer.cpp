@@ -9,14 +9,28 @@
 namespace ng
 {
 
-static void RenderingThreadEntry()
+struct RenderingThreadData
 {
+    std::shared_ptr<IWindowManager> mWindowManager;
+    std::shared_ptr<IWindow> mWindow;
+    std::shared_ptr<IGLContext> mContext;
+};
 
+struct ResourceThreadData
+{
+    std::shared_ptr<IWindowManager> mWindowManager;
+    std::shared_ptr<IWindow> mWindow;
+    std::shared_ptr<IGLContext> mContext;
+};
+
+static void RenderingThreadEntry(RenderingThreadData threadData)
+{
+    threadData.mWindowManager->SetCurrentContext(threadData.mWindow, threadData.mContext);
 }
 
-static void ResourceThreadEntry()
+static void ResourceThreadEntry(ResourceThreadData threadData)
 {
-
+    threadData.mWindowManager->SetCurrentContext(threadData.mWindow, threadData.mContext);
 }
 
 class GL3Renderer: public IRenderer
@@ -30,17 +44,14 @@ public:
     std::thread mResourceThread;
 
     GL3Renderer(
-            const std::shared_ptr<IWindow>& window,
-            const std::shared_ptr<IGLContext>& renderingContext,
-            const std::shared_ptr<IGLContext>& resourceContext)
+            const std::shared_ptr<IWindowManager>& windowManager,
+            const std::shared_ptr<IWindow>& window)
         : mWindow(window)
-        , mRenderingContext(renderingContext)
-        , mResourceContext(resourceContext)
-        , mRenderingThread(RenderingThreadEntry)
-        , mResourceThread(ResourceThreadEntry)
-    {
-
-    }
+        , mRenderingContext(windowManager->CreateContext(window->GetVideoFlags(), nullptr))
+        , mResourceContext(windowManager->CreateContext(window->GetVideoFlags(), mRenderingContext))
+        , mRenderingThread(RenderingThreadEntry, RenderingThreadData { windowManager, window, mRenderingContext })
+        , mResourceThread(ResourceThreadEntry, ResourceThreadData { windowManager, window, mResourceContext })
+    { }
 
     ~GL3Renderer()
     {
@@ -54,9 +65,7 @@ std::shared_ptr<IRenderer> CreateRenderer(
         std::shared_ptr<IWindowManager> windowManager,
         std::shared_ptr<IWindow> window)
 {
-    std::shared_ptr<IGLContext> renderingContext = windowManager->CreateContext(window->GetVideoFlags(), nullptr);
-    std::shared_ptr<IGLContext> resourceContext = windowManager->CreateContext(window->GetVideoFlags(), renderingContext);
-    return std::shared_ptr<GL3Renderer>(new GL3Renderer(window, renderingContext, resourceContext));
+    return std::shared_ptr<GL3Renderer>(new GL3Renderer(windowManager, window));
 }
 
 } // end namespace ng
