@@ -10,8 +10,8 @@
 #include <limits>
 #include <cstring>
 #include <algorithm>
-#include <stdexcept>
 #include <cstddef>
+#include <condition_variable>
 
 namespace ng
 {
@@ -154,30 +154,24 @@ struct GPUInstructionRingBuffer
     }
 };
 
-struct RenderingThreadData
+struct CommonGPUThreadData
 {
     std::shared_ptr<IWindowManager> mWindowManager;
     std::shared_ptr<IWindow> mWindow;
     std::shared_ptr<IGLContext> mContext;
-    GPUInstructionRingBuffer& mCommandBuffer;
+
+    GPUInstructionRingBuffer mCommandBuffer[2];
+    size_t mWriteCommandBuffer;
 };
 
-struct ResourceThreadData
+static void RenderingThreadEntry(CommonGPUThreadData* threadData)
 {
-    std::shared_ptr<IWindowManager> mWindowManager;
-    std::shared_ptr<IWindow> mWindow;
-    std::shared_ptr<IGLContext> mContext;
-    GPUInstructionRingBuffer& mCommandBuffer;
-};
-
-static void RenderingThreadEntry(RenderingThreadData threadData)
-{
-    threadData.mWindowManager->SetCurrentContext(threadData.mWindow, threadData.mContext);
+    threadData->mWindowManager->SetCurrentContext(threadData->mWindow, threadData->mContext);
 }
 
-static void ResourceThreadEntry(ResourceThreadData threadData)
+static void ResourceThreadEntry(CommonGPUThreadData* threadData)
 {
-    threadData.mWindowManager->SetCurrentContext(threadData.mWindow, threadData.mContext);
+    threadData->mWindowManager->SetCurrentContext(threadData->mWindow, threadData->mContext);
 }
 
 class GL3Renderer: public IRenderer
@@ -187,8 +181,8 @@ public:
     std::shared_ptr<IGLContext> mRenderingContext;
     std::shared_ptr<IGLContext> mResourceContext;
 
-    GPUInstructionRingBuffer mRenderingCommandBuffers[2];
-    GPUInstructionRingBuffer mResourceCommandBuffers[2];
+    CommonGPUThreadData mRenderingThreadCommonData;
+    CommonGPUThreadData mResourceThreadCommonData;
 
     std::thread mRenderingThread;
     std::thread mResourceThread;
@@ -203,18 +197,22 @@ public:
         : mWindow(window)
         , mRenderingContext(windowManager->CreateContext(window->GetVideoFlags(), nullptr))
         , mResourceContext(windowManager->CreateContext(window->GetVideoFlags(), mRenderingContext))
-        , mRenderingCommandBuffer(RenderingCommandBufferSize)
-        , mResourceCommandBuffer(ResourceCommandBufferSize)
-        , mRenderingThread(RenderingThreadEntry, RenderingThreadData {
-                           windowManager,
-                           window,
-                           mRenderingContext,
-                           mRenderingCommandBuffer })
-        , mResourceThread(ResourceThreadEntry, ResourceThreadData {
-                          windowManager,
-                          window,
-                          mResourceContext,
-                          mResourceCommandBuffer })
+        , mRenderingThreadCommonData(CommonGPUThreadData {
+                                     windowManager,
+                                     window,
+                                     mRenderingContext,
+                                     { RenderingCommandBufferSize, RenderingCommandBufferSize },
+                                     0
+                                    })
+        , mResourceThreadCommonData(CommonGPUThreadData {
+                                     windowManager,
+                                     window,
+                                     mResourceContext,
+                                     { ResourceCommandBufferSize, ResourceCommandBufferSize },
+                                     0
+                                    })
+        , mRenderingThread(RenderingThreadEntry, &mRenderingThreadCommonData)
+        , mResourceThread(ResourceThreadEntry, &mResourceThreadCommonData)
     { }
 
     ~GL3Renderer()
