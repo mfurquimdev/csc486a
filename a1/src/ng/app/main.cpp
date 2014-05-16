@@ -10,9 +10,9 @@
 int main()
 {
     auto windowManager = ng::CreateWindowManager();
-    ng::WindowFlags windowFlags;
-    auto window = windowManager->CreateWindow("test", 640, 480, 0, 0, windowFlags);
-    auto context = windowManager->CreateContext(windowFlags);
+    ng::VideoFlags videoFlags;
+    auto window = windowManager->CreateWindow("test", 640, 480, 0, 0, videoFlags);
+    auto context = windowManager->CreateContext(videoFlags);
 
     windowManager->SetCurrentContext(window, context);
 

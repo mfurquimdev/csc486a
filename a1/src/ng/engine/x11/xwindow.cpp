@@ -13,9 +13,12 @@
 #include <stdexcept>
 #include <algorithm>
 #include <cstring>
+#include <mutex>
 
 namespace ng
 {
+
+static std::mutex gX11Lock;
 
 int ngXErrorHandler(Display* dpy, XErrorEvent* error)
 {
@@ -47,6 +50,15 @@ struct ScopedErrorHandler
     }
 };
 
+
+template<class T>
+static void ngXLockedDelete(T* ptr)
+{
+    std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
+    ScopedErrorHandler errorHandler(ngXErrorHandler);
+    delete ptr;
+}
+
 class ngXGLContext : public IGLContext
 {
 public:
@@ -59,9 +71,9 @@ public:
         using glXCreateContextAttribsARBProc = GLXContext(*)(Display*, GLXFBConfig, GLXContext, Bool, const int*);
 
         glXCreateContextAttribsARBProc glXCreateContextAttribsARB = 0;
-        glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc) GetProcAddress("glXCreateContextAttribsARB");
+        glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc) GetProcAddress_NoLock("glXCreateContextAttribsARB");
 
-        if (!IsExtensionSupported("GLX_ARB_create_context") ||
+        if (!IsExtensionSupported_NoLock("GLX_ARB_create_context") ||
             !glXCreateContextAttribsARB)
         {
             // glXCreateContextAttribsARB() not found
@@ -130,7 +142,7 @@ public:
         glXDestroyContext(mDisplay, mHandle);
     }
 
-    bool IsExtensionSupported(const char *extension) override
+    bool IsExtensionSupported_NoLock(const char* extension)
     {
         const char *extList = glXQueryExtensionsString(mDisplay, DefaultScreen(mDisplay));
 
@@ -164,9 +176,23 @@ public:
         return false;
     }
 
-    void* GetProcAddress(const char *proc) override
+    bool IsExtensionSupported(const char* extension) override
+    {
+        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
+        ScopedErrorHandler errorHandler(ngXErrorHandler);
+        return IsExtensionSupported_NoLock(extension);
+    }
+
+    void* GetProcAddress_NoLock(const char *proc)
     {
         return (void*) glXGetProcAddressARB((const GLubyte*) proc);
+    }
+
+    void* GetProcAddress(const char *proc) override
+    {
+        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
+        ScopedErrorHandler errorHandler(ngXErrorHandler);
+        return GetProcAddress_NoLock(proc);
     }
 };
 
@@ -288,11 +314,17 @@ public:
 
     void SwapBuffers() override
     {
+        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
+        ScopedErrorHandler scopedErrors(ngXErrorHandler);
+
         glXSwapBuffers(mDisplay, mWindow.mHandle);
     }
 
     void GetSize(int* width, int* height) override
     {
+        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
+        ScopedErrorHandler scopedErrors(ngXErrorHandler);
+
         XWindowAttributes attributes;
         XGetWindowAttributes(mDisplay, mWindow.mHandle, &attributes);
 
@@ -352,18 +384,23 @@ class ngXWindowManager : public IWindowManager
     ngXDisplay mDisplay;
     Atom mWMDeleteMessage;
 
-    std::vector<std::weak_ptr<ngXWindow>> mWindows;
+    struct WindowRecord
+    {
+        std::weak_ptr<ngXWindow> mWeakRef;
+        Window mHandle;
+    };
+
+    std::vector<WindowRecord> mWindows;
     std::vector<std::weak_ptr<ngXGLContext>> mContexts;
 
 public:
     ngXWindowManager()
         : mDisplay()
     {
-        XSetErrorHandler(ngXErrorHandler);
         mWMDeleteMessage = XInternAtom(mDisplay.mHandle, "WM_DELETE_WINDOW", False);
     }
 
-    static std::vector<int> WindowFlagsToAttribList(const WindowFlags& flags)
+    static std::vector<int> VideoFlagsToAttribList(const VideoFlags& flags)
     {
         return
         {
@@ -451,13 +488,17 @@ public:
     std::shared_ptr<IWindow> CreateWindow(const char* title,
                                           int width, int height,
                                           int x, int y,
-                                          const WindowFlags& flags) override
+                                          const VideoFlags& flags) override
     {
         // arbitrarily put here to force the linker to realize pthreads is necessary... driver bug.
         // see // https://bugs.launchpad.net/ubuntu/+source/nvidia-graphics-drivers-319/+bug/1248642
         pthread_getconcurrency();
 
-        std::vector<int> attribVector = WindowFlagsToAttribList(flags);
+        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
+
+        ScopedErrorHandler scopedErrors(ngXErrorHandler);
+
+        std::vector<int> attribVector = VideoFlagsToAttribList(flags);
         int* attribList = attribVector.data();
 
         Display* display = mDisplay.mHandle;
@@ -490,16 +531,17 @@ public:
                         x, y, width, height,
                         vi->depth, vi->visual,
                         bestFBC,
-                        &mWMDeleteMessage, 1));
+                        &mWMDeleteMessage, 1),
+                    ngXLockedDelete<ngXWindow>);
 
         // take this opportunity to GC the window list
         mWindows.erase(std::remove_if(mWindows.begin(), mWindows.end(),
-                                      [](const std::weak_ptr<ngXWindow>& pWindow)
+                                      [](const WindowRecord& windowRecord)
         {
-            return pWindow.expired();
+            return windowRecord.mWeakRef.expired();
         }), mWindows.end());
 
-        mWindows.push_back(createdWindow);
+        mWindows.push_back({createdWindow, createdWindow->mWindow.mHandle});
 
         return createdWindow;
     }
@@ -529,6 +571,9 @@ public:
 
     bool PollEvent(WindowEvent& we) override
     {
+        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
+        ScopedErrorHandler scopedErrors(ngXErrorHandler);
+
         while (XPending(mDisplay.mHandle) > 0)
         {
             XEvent ev;
@@ -584,11 +629,11 @@ public:
 
             if (source != None)
             {
-                for (const auto& pWindow : mWindows)
+                for (const auto& windowRecord : mWindows)
                 {
-                    if (!pWindow.expired() && pWindow.lock()->mWindow.mHandle == source)
+                    if (windowRecord.mHandle == source)
                     {
-                        we.source = pWindow;
+                        we.source = windowRecord.mWeakRef;
                         break;
                     }
                 }
@@ -600,12 +645,16 @@ public:
         return false;
     }
 
-    std::shared_ptr<IGLContext> CreateContext(const WindowFlags& flags) override
+    std::shared_ptr<IGLContext> CreateContext(const VideoFlags& flags) override
     {
-        std::vector<int> attribVector = WindowFlagsToAttribList(flags);
+        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
+        ScopedErrorHandler scopedErrors(ngXErrorHandler);
+
+        std::vector<int> attribVector = VideoFlagsToAttribList(flags);
 
         GLXFBConfig bestFBC = GetBestFBConfig(mDisplay.mHandle, attribVector.data());
-        std::shared_ptr<ngXGLContext> context(new ngXGLContext(mDisplay.mHandle, bestFBC));
+        std::shared_ptr<ngXGLContext> context(new ngXGLContext(mDisplay.mHandle, bestFBC),
+                                              ngXLockedDelete<ngXGLContext>);
 
         // take the opportunity to GC the contexts
         mContexts.erase(std::remove_if(mContexts.begin(), mContexts.end(),
@@ -619,38 +668,11 @@ public:
         return context;
     }
 
-    void SetCurrentContext(const std::shared_ptr<IWindow>& window,
-                           const std::shared_ptr<IGLContext>& context) override
+    void SetCurrentContext(std::shared_ptr<IWindow> window,
+                           std::shared_ptr<IGLContext> context) override
     {
-        bool foundWindow = false;
-        for (const auto& pWindow : mWindows)
-        {
-            std::weak_ptr<IWindow> pIWindow = pWindow;
-            if (!pIWindow.expired() && pIWindow.lock() == window)
-            {
-                foundWindow = true;
-                break;
-            }
-        }
-        if (!foundWindow)
-        {
-            throw std::logic_error("Window not managed by this WindowManager");
-        }
-
-        bool foundContext = false;
-        for (const auto& pContext : mContexts)
-        {
-            std::weak_ptr<IGLContext> pIContext = pContext;
-            if (!pIContext.expired() && pIContext.lock() == context)
-            {
-                foundContext = true;
-                break;
-            }
-        }
-        if (!foundContext)
-        {
-            throw std::logic_error("Context not managed by this WindowManager");
-        }
+        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
+        ScopedErrorHandler scopedErrors(ngXErrorHandler);
 
         const ngXWindow& xwindow = static_cast<const ngXWindow&>(*window);
         const ngXGLContext& xcontext = static_cast<const ngXGLContext&>(*context);
@@ -660,9 +682,12 @@ public:
 
 };
 
-std::unique_ptr<IWindowManager> CreateXWindowManager()
+std::shared_ptr<IWindowManager> CreateXWindowManager()
 {
-    return std::unique_ptr<IWindowManager>(new ngXWindowManager());
+    std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
+    ScopedErrorHandler scopedErrors(ngXErrorHandler);
+    return std::shared_ptr<IWindowManager>(new ngXWindowManager(),
+                                           ngXLockedDelete<ngXWindowManager>);
 }
 
 } // end namespace ng

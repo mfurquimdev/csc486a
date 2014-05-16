@@ -7,7 +7,7 @@
 namespace ng
 {
 
-std::unique_ptr<IWindowManager> CreateWindowManager()
+std::shared_ptr<IWindowManager> CreateWindowManager()
 {
 #ifdef NG_USE_X11
     return CreateXWindowManager();

@@ -10,7 +10,7 @@ class IWindow;
 class IGLContext;
 struct WindowEvent;
 
-struct WindowFlags
+struct VideoFlags
 {
     int RedSize = 8;
     int GreenSize = 8;
@@ -29,17 +29,17 @@ public:
     virtual std::shared_ptr<IWindow> CreateWindow(const char* title,
                                                   int width, int height,
                                                   int, int y,
-                                                  const WindowFlags& flags) = 0;
+                                                  const VideoFlags& flags) = 0;
 
     virtual bool PollEvent(WindowEvent& we) = 0;
 
-    virtual std::shared_ptr<IGLContext> CreateContext(const WindowFlags& flags) = 0;
+    virtual std::shared_ptr<IGLContext> CreateContext(const VideoFlags& flags) = 0;
 
-    virtual void SetCurrentContext(const std::shared_ptr<IWindow>& window,
-                                   const std::shared_ptr<IGLContext>& context) = 0;
+    virtual void SetCurrentContext(std::shared_ptr<IWindow> window,
+                                   std::shared_ptr<IGLContext> context) = 0;
 };
 
-std::unique_ptr<IWindowManager> CreateWindowManager();
+std::shared_ptr<IWindowManager> CreateWindowManager();
 
 } // end namespace ng
 

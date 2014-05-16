@@ -8,7 +8,7 @@ namespace ng
 
 class IWindowManager;
 
-std::unique_ptr<IWindowManager> CreateXWindowManager();
+std::shared_ptr<IWindowManager> CreateXWindowManager();
 
 } // end namespace ng
 
