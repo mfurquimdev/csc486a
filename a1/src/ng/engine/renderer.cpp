@@ -16,7 +16,7 @@
 namespace ng
 {
 
-struct GPUInstruction
+struct OpenGLInstruction
 {
     std::uint32_t OpCode;
     size_t NumParams;
@@ -24,19 +24,19 @@ struct GPUInstruction
 
     size_t GetByteSize() const
     {
-        return sizeof(GPUInstruction) + (NumParams - 1) * sizeof(Params[0]);
+        return sizeof(OpenGLInstruction) + (NumParams - 1) * sizeof(Params[0]);
     }
 };
 
-static_assert(std::is_pod<GPUInstruction>::value, "GPUInstructions must be plain old data.");
+static_assert(std::is_pod<OpenGLInstruction>::value, "GPUInstructions must be plain old data.");
 
-struct GPUInstructionRingBuffer
+struct OpenGLInstructionRingBuffer
 {
     std::vector<char> mBuffer;
     size_t mReadHead;
     size_t mWriteHead;
 
-    GPUInstructionRingBuffer(size_t commandBufferSize)
+    OpenGLInstructionRingBuffer(size_t commandBufferSize)
         : mBuffer(commandBufferSize)
         , mReadHead(0)
         , mWriteHead(0)
@@ -45,7 +45,7 @@ struct GPUInstructionRingBuffer
     // Returns true on success, false on failure.
     // On failure, the instruction is not pushed. Failure happens due to not enough memory.
     // Failure can be handled either by increasing commandBufferSize, or by flushing the instructions.
-    bool PushInstruction(const GPUInstruction& inst)
+    bool PushInstruction(const OpenGLInstruction& inst)
     {
         size_t bytesToWrite = inst.GetByteSize();
 
@@ -98,7 +98,7 @@ struct GPUInstructionRingBuffer
     // returns true and writes to inst if there was something to pop that was popped.
     // returns false otherwise.
     // nice pattern: while (PopInstruction(inst))
-    bool PopInstruction(GPUInstruction& inst)
+    bool PopInstruction(OpenGLInstruction& inst)
     {
         // TODO: Implement.
         // Should be able to pop a full instruction as long as CanPopInstruction() is true.
@@ -109,7 +109,7 @@ struct GPUInstructionRingBuffer
         }
 
         // first read OpCode and NumParams
-        const size_t offsetOfParams = offsetof(GPUInstruction, Params);
+        const size_t offsetOfParams = offsetof(OpenGLInstruction, Params);
         size_t bytesToRead = offsetOfParams;
         char* instdata = reinterpret_cast<char*>(&inst);
 
@@ -131,7 +131,7 @@ struct GPUInstructionRingBuffer
         }
 
         // now that we know NumParams, we can read the params too.
-        bytesToRead = sizeof(GPUInstruction().Params[0]) * inst.NumParams;
+        bytesToRead = sizeof(OpenGLInstruction().Params[0]) * inst.NumParams;
 
         // can it be done in one read?
         if (mBuffer.size() - mReadHead >= bytesToRead)
@@ -154,24 +154,49 @@ struct GPUInstructionRingBuffer
     }
 };
 
-struct CommonGPUThreadData
+struct CommonOpenGLThreadData
 {
+    CommonOpenGLThreadData(
+            const std::shared_ptr<IWindowManager>& windowManager,
+            const std::shared_ptr<IWindow>& window,
+            const std::shared_ptr<IGLContext>& context,
+            size_t commandBufferSize)
+            : mWindowManager(windowManager)
+            , mWindow(window)
+            , mContext(context)
+            , mCommandBuffers{commandBufferSize, commandBufferSize}
+            , mWriteCommandBuffer(0)
+    { }
+
     std::shared_ptr<IWindowManager> mWindowManager;
     std::shared_ptr<IWindow> mWindow;
     std::shared_ptr<IGLContext> mContext;
 
-    GPUInstructionRingBuffer mCommandBuffer[2];
+    OpenGLInstructionRingBuffer mCommandBuffers[2];
     size_t mWriteCommandBuffer;
+
+    std::mutex mBufferSwapMutex;
+    std::condition_variable mBufferSwapCondition;
 };
 
-static void RenderingThreadEntry(CommonGPUThreadData* threadData)
+static void OpenGLThreadEntry(CommonOpenGLThreadData* threadData)
 {
     threadData->mWindowManager->SetCurrentContext(threadData->mWindow, threadData->mContext);
-}
 
-static void ResourceThreadEntry(CommonGPUThreadData* threadData)
-{
-    threadData->mWindowManager->SetCurrentContext(threadData->mWindow, threadData->mContext);
+    // TODO: Stare at this really hard
+//    int CurrentReadCommandBuffer = !threadData->mWriteCommandBuffer;
+
+//    while (true)
+//    {
+//        {
+//            std::unique_lock<std::mutex> lock(threadData->mBufferSwapMutex);
+//            threadData->mBufferSwapCondition.wait(lock, [&]{
+//                return CurrentReadCommandBuffer != threadData->mWriteCommandBuffer;
+//            });
+//        }
+
+//        CurrentReadCommandBuffer = !CurrentReadCommandBuffer;
+//    }
 }
 
 class GL3Renderer: public IRenderer
@@ -181,8 +206,8 @@ public:
     std::shared_ptr<IGLContext> mRenderingContext;
     std::shared_ptr<IGLContext> mResourceContext;
 
-    CommonGPUThreadData mRenderingThreadCommonData;
-    CommonGPUThreadData mResourceThreadCommonData;
+    CommonOpenGLThreadData mRenderingThreadCommonData;
+    CommonOpenGLThreadData mResourceThreadCommonData;
 
     std::thread mRenderingThread;
     std::thread mResourceThread;
@@ -197,22 +222,16 @@ public:
         : mWindow(window)
         , mRenderingContext(windowManager->CreateContext(window->GetVideoFlags(), nullptr))
         , mResourceContext(windowManager->CreateContext(window->GetVideoFlags(), mRenderingContext))
-        , mRenderingThreadCommonData(CommonGPUThreadData {
-                                     windowManager,
+        , mRenderingThreadCommonData(windowManager,
                                      window,
                                      mRenderingContext,
-                                     { RenderingCommandBufferSize, RenderingCommandBufferSize },
-                                     0
-                                    })
-        , mResourceThreadCommonData(CommonGPUThreadData {
-                                     windowManager,
+                                     RenderingCommandBufferSize)
+        , mResourceThreadCommonData(windowManager,
                                      window,
                                      mResourceContext,
-                                     { ResourceCommandBufferSize, ResourceCommandBufferSize },
-                                     0
-                                    })
-        , mRenderingThread(RenderingThreadEntry, &mRenderingThreadCommonData)
-        , mResourceThread(ResourceThreadEntry, &mResourceThreadCommonData)
+                                     ResourceCommandBufferSize)
+        , mRenderingThread(OpenGLThreadEntry, &mRenderingThreadCommonData)
+        , mResourceThread(OpenGLThreadEntry, &mResourceThreadCommonData)
     { }
 
     ~GL3Renderer()
