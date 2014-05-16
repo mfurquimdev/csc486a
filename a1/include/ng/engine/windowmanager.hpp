@@ -33,7 +33,8 @@ public:
 
     virtual bool PollEvent(WindowEvent& we) = 0;
 
-    virtual std::shared_ptr<IGLContext> CreateContext(const VideoFlags& flags) = 0;
+    virtual std::shared_ptr<IGLContext> CreateContext(const VideoFlags& flags,
+                                                      std::shared_ptr<IGLContext> sharedWith) = 0;
 
     virtual void SetCurrentContext(std::shared_ptr<IWindow> window,
                                    std::shared_ptr<IGLContext> context) = 0;

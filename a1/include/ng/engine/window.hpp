@@ -7,6 +7,7 @@ namespace ng
 {
 
 class IGLContext;
+class VideoFlags;
 
 class IWindow
 {
@@ -16,6 +17,8 @@ public:
     virtual void SwapBuffers() = 0;
 
     virtual void GetSize(int* width, int* height) = 0;
+
+    virtual const VideoFlags& GetVideoFlags() const = 0;
 };
 
 } // end namespace ng

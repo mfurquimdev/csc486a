@@ -2,6 +2,7 @@
 #include "ng/engine/glcontext.hpp"
 #include "ng/engine/windowmanager.hpp"
 #include "ng/engine/windowevent.hpp"
+#include "ng/engine/renderer.hpp"
 
 #include <GL/gl.h>
 
@@ -10,11 +11,9 @@
 int main()
 {
     auto windowManager = ng::CreateWindowManager();
-    ng::VideoFlags videoFlags;
+    ng::VideoFlags videoFlags{};
     auto window = windowManager->CreateWindow("test", 640, 480, 0, 0, videoFlags);
-    auto context = windowManager->CreateContext(videoFlags);
-
-    windowManager->SetCurrentContext(window, context);
+    auto renderer = ng::CreateRenderer(windowManager, window);
 
     while (true)
     {

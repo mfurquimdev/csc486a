@@ -65,7 +65,7 @@ public:
     Display* mDisplay;
     GLXContext mHandle;
 
-    ngXGLContext(Display* dpy, GLXFBConfig config)
+    ngXGLContext(Display* dpy, GLXFBConfig config, GLXContext shareList)
         : mDisplay(dpy)
     {
         using glXCreateContextAttribsARBProc = GLXContext(*)(Display*, GLXFBConfig, GLXContext, Bool, const int*);
@@ -78,7 +78,7 @@ public:
         {
             // glXCreateContextAttribsARB() not found
             // use old style GLX context
-            mHandle = glXCreateNewContext(dpy, config, GLX_RGBA_TYPE, 0, True);
+            mHandle = glXCreateNewContext(dpy, config, GLX_RGBA_TYPE, shareList, True);
         }
         else
         {
@@ -115,7 +115,7 @@ public:
                 None
             };
 
-            mHandle = glXCreateContextAttribsARB(dpy, config, 0, True, contextAttribs);
+            mHandle = glXCreateContextAttribsARB(dpy, config, shareList, True, contextAttribs);
 
             // flush errors
             XSync(dpy, False);
@@ -125,7 +125,7 @@ public:
                 contextAttribs[1] = 1;
                 contextAttribs[3] = 0;
 
-                mHandle = glXCreateContextAttribsARB(dpy, config, 0, True, contextAttribs);
+                mHandle = glXCreateContextAttribsARB(dpy, config, shareList, True, contextAttribs);
                 XSync(dpy, False);
             }
         }
@@ -278,12 +278,14 @@ public:
 class ngXWindow : public IWindow
 {
 public:
+    VideoFlags mVideoFlags;
     Display* mDisplay;
     ngXColormap mColormap;
     ngXWindowImpl mWindow;
     GLXFBConfig mChosenFBC;
 
-    ngXWindow(Display* display,
+    ngXWindow(const VideoFlags& videoFlags,
+              Display* display,
               ngXColormap&& colormap,
               Window parent,
               const XSetWindowAttributes* setAttributes,
@@ -296,7 +298,8 @@ public:
               GLXFBConfig chosenFBC,
               Atom* protocols,
               int protocolCount)
-        : mDisplay(display)
+        : mVideoFlags(videoFlags)
+        , mDisplay(display)
         , mColormap(std::move(colormap))
         , mWindow(title,
                   mDisplay, parent,
@@ -330,6 +333,11 @@ public:
 
         if (width) *width = attributes.width;
         if (height) *height = attributes.height;
+    }
+
+    const VideoFlags& GetVideoFlags() const override
+    {
+        return mVideoFlags;
     }
 };
 
@@ -522,6 +530,7 @@ public:
         Window root = DefaultRootWindow(display);
         std::shared_ptr<ngXWindow> createdWindow(
                     new ngXWindow(
+                        flags,
                         display,
                         std::move(colormap),
                         root,
@@ -645,15 +654,23 @@ public:
         return false;
     }
 
-    std::shared_ptr<IGLContext> CreateContext(const VideoFlags& flags) override
+    std::shared_ptr<IGLContext> CreateContext(const VideoFlags& flags,
+                                              std::shared_ptr<IGLContext> sharedWith) override
     {
         std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
         ScopedErrorHandler scopedErrors(ngXErrorHandler);
 
         std::vector<int> attribVector = VideoFlagsToAttribList(flags);
 
+        GLXContext shareList = 0;
+        if (sharedWith)
+        {
+            const ngXGLContext& toShareWith = static_cast<const ngXGLContext&>(*sharedWith);
+            shareList = toShareWith.mHandle;
+        }
+
         GLXFBConfig bestFBC = GetBestFBConfig(mDisplay.mHandle, attribVector.data());
-        std::shared_ptr<ngXGLContext> context(new ngXGLContext(mDisplay.mHandle, bestFBC),
+        std::shared_ptr<ngXGLContext> context(new ngXGLContext(mDisplay.mHandle, bestFBC, shareList),
                                               ngXLockedDelete<ngXGLContext>);
 
         // take the opportunity to GC the contexts
