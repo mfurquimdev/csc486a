@@ -171,16 +171,20 @@ struct CommonOpenGLThreadData
     static const int InitialWriteBufferIndex = 0;
 
     CommonOpenGLThreadData(
+            const std::string& threadName,
             const std::shared_ptr<IWindowManager>& windowManager,
             const std::shared_ptr<IWindow>& window,
             const std::shared_ptr<IGLContext>& context,
             size_t commandBufferSize)
-            : mWindowManager(windowManager)
+            : mThreadName(threadName)
+            , mWindowManager(windowManager)
             , mWindow(window)
             , mContext(context)
             , mCommandBuffers{commandBufferSize, commandBufferSize}
             , mCurrentWriteBufferIndex(InitialWriteBufferIndex)
     { }
+
+    std::string mThreadName;
 
     std::shared_ptr<IWindowManager> mWindowManager;
     std::shared_ptr<IWindow> mWindow;
@@ -289,14 +293,15 @@ public:
         : mWindow(window)
         , mRenderingContext(windowManager->CreateContext(window->GetVideoFlags(), nullptr))
         , mResourceContext(windowManager->CreateContext(window->GetVideoFlags(), mRenderingContext))
-        , mRenderingThreadData(windowManager,
-                                     window,
-                                     mRenderingContext,
-                                     RenderingCommandBufferSize)
-        , mResourceThreadData(windowManager,
-                                     window,
-                                     mResourceContext,
-                                     ResourceCommandBufferSize)
+        , mRenderingThreadData("OpenGL_Rendering",
+                               windowManager,
+                               window,
+                               mRenderingContext,
+                               RenderingCommandBufferSize)
+        , mResourceThreadData("OpenGL_Resources",windowManager,
+                              window,
+                              mResourceContext,
+                              ResourceCommandBufferSize)
         , mRenderingThread(OpenGLThreadEntry, &mRenderingThreadData)
         , mResourceThread(OpenGLThreadEntry, &mResourceThreadData)
     { }
