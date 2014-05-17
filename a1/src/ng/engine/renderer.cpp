@@ -4,6 +4,8 @@
 #include "ng/engine/window.hpp"
 #include "ng/engine/glcontext.hpp"
 
+#include <GL/gl.h>
+
 #include <thread>
 #include <cstdint>
 #include <vector>
@@ -13,18 +15,31 @@
 #include <cstddef>
 #include <condition_variable>
 
+
 namespace ng
 {
 
 struct OpenGLInstruction
 {
+    static const size_t MaxParams = 16;
+
     std::uint32_t OpCode;
     size_t NumParams;
     std::uintptr_t Params[1]; // note: flexible array sized by NumParams
 
     size_t GetByteSize() const
     {
-        return sizeof(OpenGLInstruction) + (NumParams - 1) * sizeof(Params[0]);
+        return GetSizeForNumParams(NumParams);
+    }
+
+    static size_t GetMaxByteSize()
+    {
+        return GetSizeForNumParams(MaxParams);
+    }
+
+    constexpr static size_t GetSizeForNumParams(size_t params)
+    {
+        return sizeof(OpenGLInstruction) + (params - 1) * sizeof(Params[0]);
     }
 };
 
@@ -100,9 +115,6 @@ struct OpenGLInstructionRingBuffer
     // nice pattern: while (PopInstruction(inst))
     bool PopInstruction(OpenGLInstruction& inst)
     {
-        // TODO: Implement.
-        // Should be able to pop a full instruction as long as CanPopInstruction() is true.
-        // Begin by reading the OpCode and NumParams, then use NumParams to know how to read the rest.
         if (!CanPopInstruction())
         {
             return false;
@@ -156,6 +168,8 @@ struct OpenGLInstructionRingBuffer
 
 struct CommonOpenGLThreadData
 {
+    static const int InitialWriteBufferIndex = 0;
+
     CommonOpenGLThreadData(
             const std::shared_ptr<IWindowManager>& windowManager,
             const std::shared_ptr<IWindow>& window,
@@ -165,7 +179,7 @@ struct CommonOpenGLThreadData
             , mWindow(window)
             , mContext(context)
             , mCommandBuffers{commandBufferSize, commandBufferSize}
-            , mWriteCommandBuffer(0)
+            , mCurrentWriteBufferIndex(InitialWriteBufferIndex)
     { }
 
     std::shared_ptr<IWindowManager> mWindowManager;
@@ -173,30 +187,83 @@ struct CommonOpenGLThreadData
     std::shared_ptr<IGLContext> mContext;
 
     OpenGLInstructionRingBuffer mCommandBuffers[2];
-    size_t mWriteCommandBuffer;
+    size_t mCurrentWriteBufferIndex;
 
     std::mutex mBufferSwapMutex;
     std::condition_variable mBufferSwapCondition;
+};
+
+enum class OpenGLOpCode : decltype(OpenGLInstruction().OpCode)
+{
+    Clear, // params: same as glClear.
+    SwapBuffers, // special instruction to signal a buffer swap.
+    Quit   // special instruction to stop the graphics thread.
+};
+
+struct NoInitTag { };
+
+template<size_t NParams>
+struct SizedOpenGLInstruction
+{
+    union
+    {
+        char InstructionData[OpenGLInstruction::GetSizeForNumParams(NParams)];
+        OpenGLInstruction Instruction;
+    };
+
+    SizedOpenGLInstruction(NoInitTag){ }
+    SizedOpenGLInstruction()
+    {
+        Instruction.NumParams = NParams;
+    }
+
+    SizedOpenGLInstruction(OpenGLOpCode code)
+        : SizedOpenGLInstruction()
+    {
+        Instruction.OpCode = static_cast<decltype(Instruction.OpCode)>(code);
+    }
 };
 
 static void OpenGLThreadEntry(CommonOpenGLThreadData* threadData)
 {
     threadData->mWindowManager->SetCurrentContext(threadData->mWindow, threadData->mContext);
 
-    // TODO: Stare at this really hard
-//    int CurrentReadCommandBuffer = !threadData->mWriteCommandBuffer;
+    size_t CurrentReadBufferIndex = !CommonOpenGLThreadData::InitialWriteBufferIndex;
 
-//    while (true)
-//    {
-//        {
-//            std::unique_lock<std::mutex> lock(threadData->mBufferSwapMutex);
-//            threadData->mBufferSwapCondition.wait(lock, [&]{
-//                return CurrentReadCommandBuffer != threadData->mWriteCommandBuffer;
-//            });
-//        }
+    while (true)
+    {
+        {
+            // wait for the write buffer to be done writing, and for it to want to start writing to the read buffer
+            std::unique_lock<std::mutex> lock(threadData->mBufferSwapMutex);
+            threadData->mBufferSwapCondition.wait(lock, [&]{
+                return CurrentReadBufferIndex == threadData->mCurrentWriteBufferIndex;
+            });
+        }
 
-//        CurrentReadCommandBuffer = !CurrentReadCommandBuffer;
-//    }
+        // switch away from the write buffer to the read buffer
+        CurrentReadBufferIndex = !CurrentReadBufferIndex;
+
+        SizedOpenGLInstruction<OpenGLInstruction::MaxParams> sizedInst(NoInitTag{});
+        OpenGLInstruction& inst = sizedInst.Instruction;
+
+        OpenGLInstructionRingBuffer& instructionBuffer = threadData->mCommandBuffers[CurrentReadBufferIndex];
+        while (instructionBuffer.PopInstruction(inst))
+        {
+            switch (static_cast<OpenGLOpCode>(inst.OpCode))
+            {
+            case OpenGLOpCode::Clear: {
+                GLbitfield mask = inst.Params[0];
+                glClear(mask);
+            } break;
+            case OpenGLOpCode::SwapBuffers: {
+                threadData->mWindow->SwapBuffers();
+            } break;
+            case OpenGLOpCode::Quit: {
+                return;
+            } break;
+            }
+        }
+    }
 }
 
 class GL3Renderer: public IRenderer
@@ -206,8 +273,8 @@ public:
     std::shared_ptr<IGLContext> mRenderingContext;
     std::shared_ptr<IGLContext> mResourceContext;
 
-    CommonOpenGLThreadData mRenderingThreadCommonData;
-    CommonOpenGLThreadData mResourceThreadCommonData;
+    CommonOpenGLThreadData mRenderingThreadData;
+    CommonOpenGLThreadData mResourceThreadData;
 
     std::thread mRenderingThread;
     std::thread mResourceThread;
@@ -222,23 +289,68 @@ public:
         : mWindow(window)
         , mRenderingContext(windowManager->CreateContext(window->GetVideoFlags(), nullptr))
         , mResourceContext(windowManager->CreateContext(window->GetVideoFlags(), mRenderingContext))
-        , mRenderingThreadCommonData(windowManager,
+        , mRenderingThreadData(windowManager,
                                      window,
                                      mRenderingContext,
                                      RenderingCommandBufferSize)
-        , mResourceThreadCommonData(windowManager,
+        , mResourceThreadData(windowManager,
                                      window,
                                      mResourceContext,
                                      ResourceCommandBufferSize)
-        , mRenderingThread(OpenGLThreadEntry, &mRenderingThreadCommonData)
-        , mResourceThread(OpenGLThreadEntry, &mResourceThreadCommonData)
+        , mRenderingThread(OpenGLThreadEntry, &mRenderingThreadData)
+        , mResourceThread(OpenGLThreadEntry, &mResourceThreadData)
     { }
+
+    void PushInstruction(CommonOpenGLThreadData& threadData, const OpenGLInstruction& inst)
+    {
+        threadData.mCommandBuffers[threadData.mCurrentWriteBufferIndex].PushInstruction(inst);
+    }
+
+    void SendSwapBuffers(CommonOpenGLThreadData& threadData)
+    {
+        SizedOpenGLInstruction<0> sizedInst(OpenGLOpCode::SwapBuffers);
+        PushInstruction(threadData, sizedInst.Instruction);
+    }
+
+    void SendQuit(CommonOpenGLThreadData& threadData)
+    {
+        SizedOpenGLInstruction<0> sizedInst(OpenGLOpCode::Quit);
+        PushInstruction(threadData, sizedInst.Instruction);
+    }
+
+    void SwapCommandQueues(CommonOpenGLThreadData& threadData)
+    {
+        threadData.mCurrentWriteBufferIndex = !threadData.mCurrentWriteBufferIndex;
+    }
 
     ~GL3Renderer()
     {
-        // TODO: Must give the threads a signal to tell them that they should start shutting down.
+        SendQuit(mResourceThreadData);
+        SwapCommandQueues(mResourceThreadData);
+        mResourceThreadData.mBufferSwapCondition.notify_one();
+
+        SendQuit(mRenderingThreadData);
+        SwapCommandQueues(mRenderingThreadData);
+        mRenderingThreadData.mBufferSwapCondition.notify_one();
+
         mResourceThread.join();
         mRenderingThread.join();
+    }
+
+    void Clear(bool color, bool depth, bool stencil) override
+    {
+        SizedOpenGLInstruction<1> sizedInst(OpenGLOpCode::Clear);
+        sizedInst.Instruction.Params[0] = (color   ? GL_COLOR_BUFFER_BIT   : 0)
+                                        | (depth   ? GL_DEPTH_BUFFER_BIT   : 0)
+                                        | (stencil ? GL_STENCIL_BUFFER_BIT : 0);
+        PushInstruction(mRenderingThreadData, sizedInst.Instruction);
+    }
+
+    void SwapBuffers() override
+    {
+        SendSwapBuffers(mRenderingThreadData);
+        SwapCommandQueues(mRenderingThreadData);
+        mRenderingThreadData.mBufferSwapCondition.notify_one();
     }
 };
 

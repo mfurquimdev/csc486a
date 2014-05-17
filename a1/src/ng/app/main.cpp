@@ -7,6 +7,7 @@
 #include <GL/gl.h>
 
 #include <iostream>
+#include <chrono>
 
 int main()
 {
@@ -15,8 +16,17 @@ int main()
     auto window = windowManager->CreateWindow("test", 640, 480, 0, 0, videoFlags);
     auto renderer = ng::CreateRenderer(windowManager, window);
 
+    std::chrono::time_point<std::chrono::high_resolution_clock> now, then;
+    then = std::chrono::high_resolution_clock::now();
+    std::chrono::milliseconds lag(0);
+
     while (true)
     {
+        now = std::chrono::high_resolution_clock::now();
+        std::chrono::milliseconds dt = std::chrono::duration_cast<std::chrono::milliseconds>(now - then);
+        then = now;
+        lag += dt;
+
         ng::WindowEvent e;
         while (windowManager->PollEvent(e))
         {
@@ -36,7 +46,13 @@ int main()
             }
         }
 
-        // glClear(GL_COLOR_BUFFER_BIT);
-        // window->SwapBuffers();
+        while (lag >= std::chrono::milliseconds(1000/60))
+        {
+            // TODO: update(1000/60 milliseconds)
+            lag -= std::chrono::milliseconds(1000/60);
+        }
+
+        renderer->Clear(true, true, false);
+        renderer->SwapBuffers();
     }
 }

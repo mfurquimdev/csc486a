@@ -13,6 +13,10 @@ class IRenderer
 {
 public:
     virtual ~IRenderer() = default;
+
+    virtual void Clear(bool color, bool depth, bool stencil) = 0;
+
+    virtual void SwapBuffers() = 0;
 };
 
 std::shared_ptr<IRenderer> CreateRenderer(
