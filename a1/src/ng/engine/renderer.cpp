@@ -3,6 +3,8 @@
 #include "ng/engine/windowmanager.hpp"
 #include "ng/engine/window.hpp"
 #include "ng/engine/glcontext.hpp"
+#include "ng/engine/profiler.hpp"
+#include "ng/engine/debug.hpp"
 
 #include <GL/gl.h>
 
@@ -15,6 +17,17 @@
 #include <cstddef>
 #include <condition_variable>
 
+#if 0
+#define RenderDebugPrintf(...) DebugPrintf(__VA_ARGS__)
+#else
+#define RenderDebugPrintf(...)
+#endif
+
+#if 1
+#define RenderProfilePrintf(...) DebugPrintf(__VA_ARGS__)
+#else
+#define RenderProfilePrintf(...)
+#endif
 
 namespace ng
 {
@@ -45,13 +58,13 @@ struct OpenGLInstruction
 
 static_assert(std::is_pod<OpenGLInstruction>::value, "GPUInstructions must be plain old data.");
 
-struct OpenGLInstructionRingBuffer
+struct OpenGLInstructionBuffer
 {
     std::vector<char> mBuffer;
     size_t mReadHead;
     size_t mWriteHead;
 
-    OpenGLInstructionRingBuffer(size_t commandBufferSize)
+    OpenGLInstructionBuffer(size_t commandBufferSize)
         : mBuffer(commandBufferSize)
         , mReadHead(0)
         , mWriteHead(0)
@@ -64,41 +77,17 @@ struct OpenGLInstructionRingBuffer
     {
         size_t bytesToWrite = inst.GetByteSize();
 
-        // can the write be done in a single step?
+        // is there room to write it?
         if (bytesToWrite <= mBuffer.size() - mWriteHead)
         {
-            // is the read head in the way? this happens if the reading lags behind the writing
-            if (mReadHead > mWriteHead && mReadHead - mWriteHead < bytesToWrite)
-            {
-                return false;
-            }
-            else
-            {
-                // in this case, the read head is not in the way. easy!
-                std::memcpy(&mBuffer[mWriteHead], &inst, bytesToWrite);
-                mWriteHead += bytesToWrite;
-            }
+            // then write it and move the write head up
+            std::memcpy(&mBuffer[mWriteHead], &inst, bytesToWrite);
+            mWriteHead += bytesToWrite;
         }
         else
         {
-            // otherwise, do the write in two steps.
-            size_t firstHalfSize = mBuffer.size() - mWriteHead;
-            size_t secondHalfSize = bytesToWrite - firstHalfSize;
-
-            // Is the read head in the way?
-            if (mReadHead > mWriteHead      // in this case, the read head interrupts the first half.
-             || mReadHead < secondHalfSize) // in this case, the read head interrupts the second half.
-            {
-                return false;
-            }
-            else
-            {
-                // otherwise, can write the first half.
-                std::memcpy(&mBuffer[mWriteHead], &inst, firstHalfSize);
-                // next, write the second half
-                std::memcpy(&mBuffer[0], &inst, secondHalfSize);
-                mWriteHead = secondHalfSize;
-            }
+            // Possible improvement: resize the buffer?
+            return false;
         }
 
         return true;
@@ -120,69 +109,53 @@ struct OpenGLInstructionRingBuffer
             return false;
         }
 
-        // first read OpCode and NumParams
+        // first read the header: OpCode and NumParams
         const size_t offsetOfParams = offsetof(OpenGLInstruction, Params);
-        size_t bytesToRead = offsetOfParams;
+        size_t headerSize = offsetOfParams;
         char* instdata = reinterpret_cast<char*>(&inst);
 
-        // can it be done in one read?
-        if (mBuffer.size() - mReadHead >= bytesToRead)
-        {
-            // then do it in one read
-            std::memcpy(instdata, &mBuffer[mReadHead], bytesToRead);
-            mReadHead += bytesToRead;
-        }
-        else
-        {
-            // otherwise do it in two reads
-            size_t firstHalfSize = mBuffer.size() - mReadHead;
-            size_t secondHalfSize = bytesToRead - firstHalfSize;
-            std::memcpy(instdata, &mBuffer[mReadHead], firstHalfSize);
-            std::memcpy(instdata + firstHalfSize, &mBuffer[0], secondHalfSize);
-            mReadHead = secondHalfSize;
-        }
+        // copy the header into the data structure.
+        std::memcpy(instdata, &mBuffer[mReadHead], headerSize);
+        mReadHead += headerSize;
 
-        // now that we know NumParams, we can read the params too.
-        bytesToRead = sizeof(OpenGLInstruction().Params[0]) * inst.NumParams;
-
-        // can it be done in one read?
-        if (mBuffer.size() - mReadHead >= bytesToRead)
-        {
-            // then do it in one read
-            std::memcpy(instdata + offsetOfParams, &mBuffer[mReadHead], bytesToRead);
-            mReadHead += bytesToRead;
-        }
-        else
-        {
-            // otherwise do it in two reads
-            size_t firstHalfSize = mBuffer.size() - mReadHead;
-            size_t secondHalfSize = bytesToRead - firstHalfSize;
-            std::memcpy(instdata + offsetOfParams, &mBuffer[mReadHead], firstHalfSize);
-            std::memcpy(instdata + offsetOfParams + firstHalfSize, &mBuffer[0], secondHalfSize);
-            mReadHead = secondHalfSize;
-        }
+        // next, read the params
+        size_t paramsSize = sizeof(OpenGLInstruction().Params[0]) * inst.NumParams;
+        std::memcpy(instdata + offsetOfParams, &mBuffer[mReadHead], paramsSize);
+        mReadHead += paramsSize;
 
         return true;
+    }
+
+    void Reset()
+    {
+        mReadHead = mWriteHead = 0;
     }
 };
 
 struct CommonOpenGLThreadData
 {
-    static const int InitialWriteBufferIndex = 0;
+    static const size_t InitialWriteBufferIndex = 0;
 
     CommonOpenGLThreadData(
             const std::string& threadName,
             const std::shared_ptr<IWindowManager>& windowManager,
             const std::shared_ptr<IWindow>& window,
             const std::shared_ptr<IGLContext>& context,
-            size_t commandBufferSize)
+            size_t instructionBufferSize)
             : mThreadName(threadName)
             , mWindowManager(windowManager)
             , mWindow(window)
             , mContext(context)
-            , mCommandBuffers{commandBufferSize, commandBufferSize}
+            , mInstructionBuffers{instructionBufferSize, instructionBufferSize}
             , mCurrentWriteBufferIndex(InitialWriteBufferIndex)
-    { }
+    {
+        // consumer mutexes are initially locked, since nothing has been produced yet.
+        mInstructionConsumerMutex[0].lock();
+        mInstructionConsumerMutex[1].lock();
+
+        // the initial write buffer's producer mutex is locked since it's initially producing
+        mInstructionProducerMutex[InitialWriteBufferIndex].lock();
+    }
 
     std::string mThreadName;
 
@@ -190,11 +163,12 @@ struct CommonOpenGLThreadData
     std::shared_ptr<IWindow> mWindow;
     std::shared_ptr<IGLContext> mContext;
 
-    OpenGLInstructionRingBuffer mCommandBuffers[2];
-    size_t mCurrentWriteBufferIndex;
+    OpenGLInstructionBuffer mInstructionBuffers[2];
+    std::mutex mInstructionProducerMutex[2];
+    std::mutex mInstructionConsumerMutex[2];
 
-    std::mutex mBufferSwapMutex;
-    std::condition_variable mBufferSwapCondition;
+    size_t mCurrentWriteBufferIndex;
+    std::recursive_mutex mCurrentWriteBufferIndexMutex;
 };
 
 enum class OpenGLOpCode : decltype(OpenGLInstruction().OpCode)
@@ -204,11 +178,13 @@ enum class OpenGLOpCode : decltype(OpenGLInstruction().OpCode)
     Quit   // special instruction to stop the graphics thread.
 };
 
-struct NoInitTag { };
-
 template<size_t NParams>
 struct SizedOpenGLInstruction
 {
+    static_assert(NParams <= OpenGLInstruction::MaxParams, "Limit of OpenGL instruction parameters should be respected.");
+
+    struct NoInitTag { };
+
     union
     {
         char InstructionData[OpenGLInstruction::GetSizeForNumParams(NParams)];
@@ -216,6 +192,7 @@ struct SizedOpenGLInstruction
     };
 
     SizedOpenGLInstruction(NoInitTag){ }
+
     SizedOpenGLInstruction()
     {
         Instruction.NumParams = NParams;
@@ -232,41 +209,77 @@ static void OpenGLThreadEntry(CommonOpenGLThreadData* threadData)
 {
     threadData->mWindowManager->SetCurrentContext(threadData->mWindow, threadData->mContext);
 
-    size_t CurrentReadBufferIndex = !CommonOpenGLThreadData::InitialWriteBufferIndex;
+    Profiler renderProfiler;
+
+    size_t bufferToConsumeFrom = !CommonOpenGLThreadData::InitialWriteBufferIndex;
 
     while (true)
-    {
+    {        
+        bufferToConsumeFrom = !bufferToConsumeFrom;
+
+        OpenGLInstructionBuffer& instructionBuffer = threadData->mInstructionBuffers[bufferToConsumeFrom];
+
+        RenderDebugPrintf("%s is waiting for consumer mutex %zu to start rendering.\n", threadData->mThreadName.c_str(), bufferToConsumeFrom);
+        // be ready to start reading from what's being written as soon as it's ready,
+        // and release it back to the producer after.
+        struct ConsumptionScope
         {
-            // wait for the write buffer to be done writing, and for it to want to start writing to the read buffer
-            std::unique_lock<std::mutex> lock(threadData->mBufferSwapMutex);
-            threadData->mBufferSwapCondition.wait(lock, [&]{
-                return CurrentReadBufferIndex == threadData->mCurrentWriteBufferIndex;
-            });
-        }
+            OpenGLInstructionBuffer& mInstructionBuffer;
+            std::mutex& mConsumerMutex;
+            std::mutex& mProducerMutex;
 
-        // switch away from the write buffer to the read buffer
-        CurrentReadBufferIndex = !CurrentReadBufferIndex;
+            ConsumptionScope(OpenGLInstructionBuffer& instructionBuffer,
+                             std::mutex& consumerMutex, std::mutex& producerMutex)
+                : mInstructionBuffer(instructionBuffer)
+                , mConsumerMutex(consumerMutex)
+                , mProducerMutex(producerMutex)
+            {
+                // patiently wait until this buffer is available to consume
+                mConsumerMutex.lock();
+            }
 
-        SizedOpenGLInstruction<OpenGLInstruction::MaxParams> sizedInst(NoInitTag{});
+            ~ConsumptionScope()
+            {
+                mInstructionBuffer.Reset();
+
+                // makes this buffer available to the producer again
+                mProducerMutex.unlock();
+            }
+        } consumptionScope(instructionBuffer,
+                           threadData->mInstructionConsumerMutex[bufferToConsumeFrom],
+                           threadData->mInstructionProducerMutex[bufferToConsumeFrom]);
+
+        SizedOpenGLInstruction<OpenGLInstruction::MaxParams> sizedInst(SizedOpenGLInstruction<OpenGLInstruction::MaxParams>::NoInitTag{});
         OpenGLInstruction& inst = sizedInst.Instruction;
 
-        OpenGLInstructionRingBuffer& instructionBuffer = threadData->mCommandBuffers[CurrentReadBufferIndex];
+        RenderDebugPrintf("Started reading instruction buffer %zu in %s\n", bufferToConsumeFrom, threadData->mThreadName.c_str());
+        renderProfiler.Start();
+
         while (instructionBuffer.PopInstruction(inst))
         {
             switch (static_cast<OpenGLOpCode>(inst.OpCode))
             {
             case OpenGLOpCode::Clear: {
+                RenderDebugPrintf("Doing OpenGLOpCode::Clear\n");
                 GLbitfield mask = inst.Params[0];
                 glClear(mask);
+                RenderDebugPrintf("Done OpenGLOpCode::Clear\n");
             } break;
             case OpenGLOpCode::SwapBuffers: {
+                RenderDebugPrintf("Doing OpenGLOpCode::SwapBuffers\n");
                 threadData->mWindow->SwapBuffers();
+                RenderDebugPrintf("Done OpenGLOpCode::SwapBuffers\n");
             } break;
             case OpenGLOpCode::Quit: {
+                RenderProfilePrintf("Time spent rendering serverside in %s: %lfms\n", threadData->mThreadName.c_str(), renderProfiler.GetTotalTimeMS());
+                RenderProfilePrintf("Average time spent rendering serverside in %s: %lfms\n", threadData->mThreadName.c_str(), renderProfiler.GetAverageTimeMS());
                 return;
             } break;
             }
         }
+
+        renderProfiler.Stop();
+        RenderDebugPrintf("Finished reading instruction buffer %zu in %s\n", bufferToConsumeFrom, threadData->mThreadName.c_str());
     }
 }
 
@@ -308,7 +321,18 @@ public:
 
     void PushInstruction(CommonOpenGLThreadData& threadData, const OpenGLInstruction& inst)
     {
-        threadData.mCommandBuffers[threadData.mCurrentWriteBufferIndex].PushInstruction(inst);
+        // lock the index so the current write buffer won't change under our feet.
+        std::lock_guard<std::recursive_mutex> indexLock(threadData.mCurrentWriteBufferIndexMutex);
+        auto currentIndex = threadData.mCurrentWriteBufferIndex;
+
+        RenderDebugPrintf("Pushing instruction to %zu\n", currentIndex);
+
+        if (!threadData.mInstructionBuffers[currentIndex].PushInstruction(inst))
+        {
+            // TODO: Need to flush the queue and try again? or maybe just report an error and give up?
+            // Might also be a good solution to dynamically resize the queue
+            throw std::overflow_error("Command buffer too small for instructions. Increase size or improve OpenGLInstructionRingBuffer::PushInstruction()");
+        }
     }
 
     void SendSwapBuffers(CommonOpenGLThreadData& threadData)
@@ -325,18 +349,37 @@ public:
 
     void SwapCommandQueues(CommonOpenGLThreadData& threadData)
     {
+        // make sure nobody else is relying on the current write buffer to stay the same.
+        std::lock_guard<std::recursive_mutex> indexLock(threadData.mCurrentWriteBufferIndexMutex);
+        auto finishedWriteIndex = threadData.mCurrentWriteBufferIndex;
+
+        // must have production rights to be able to start writing to the other thread.
+        threadData.mInstructionProducerMutex[!finishedWriteIndex].lock();
+
+        // start writing to the other thread.
         threadData.mCurrentWriteBufferIndex = !threadData.mCurrentWriteBufferIndex;
+
+        // allow consumer to begin reading what was just written
+        mRenderingThreadData.mInstructionConsumerMutex[finishedWriteIndex].unlock();
+
+        RenderDebugPrintf("SwapCommandQueues set mCurrentWriteBufferIndex to %zu\n", threadData.mCurrentWriteBufferIndex);
     }
 
     ~GL3Renderer()
     {
+        std::unique_lock<std::recursive_mutex> resourceWriteIndexLock(mResourceThreadData.mCurrentWriteBufferIndexMutex);
+        auto resourceWrittenBufferIndex = mResourceThreadData.mCurrentWriteBufferIndex;
         SendQuit(mResourceThreadData);
         SwapCommandQueues(mResourceThreadData);
-        mResourceThreadData.mBufferSwapCondition.notify_one();
+        resourceWriteIndexLock.unlock();
+        mResourceThreadData.mInstructionConsumerMutex[resourceWrittenBufferIndex].unlock();
 
+        std::unique_lock<std::recursive_mutex> renderingWriteIndexLock(mRenderingThreadData.mCurrentWriteBufferIndexMutex);
+        auto renderingWrittenBufferIndex = mRenderingThreadData.mCurrentWriteBufferIndex;
         SendQuit(mRenderingThreadData);
         SwapCommandQueues(mRenderingThreadData);
-        mRenderingThreadData.mBufferSwapCondition.notify_one();
+        renderingWriteIndexLock.unlock();
+        mRenderingThreadData.mInstructionConsumerMutex[renderingWrittenBufferIndex].unlock();
 
         mResourceThread.join();
         mRenderingThread.join();
@@ -344,18 +387,29 @@ public:
 
     void Clear(bool color, bool depth, bool stencil) override
     {
+        RenderDebugPrintf("Begin GL3Renderer::Clear()\n");
+
         SizedOpenGLInstruction<1> sizedInst(OpenGLOpCode::Clear);
         sizedInst.Instruction.Params[0] = (color   ? GL_COLOR_BUFFER_BIT   : 0)
                                         | (depth   ? GL_DEPTH_BUFFER_BIT   : 0)
                                         | (stencil ? GL_STENCIL_BUFFER_BIT : 0);
         PushInstruction(mRenderingThreadData, sizedInst.Instruction);
+
+        RenderDebugPrintf("End GL3Renderer::Clear()\n");
     }
 
     void SwapBuffers() override
     {
+        RenderDebugPrintf("Begin GL3Renderer::SwapBuffers()\n");
+
+        // make sure the buffer we're sending the swapbuffers commmand to
+        // is the same that we will switch away from when swapping command queues
+        std::lock_guard<std::recursive_mutex> lock(mRenderingThreadData.mCurrentWriteBufferIndexMutex);
+
         SendSwapBuffers(mRenderingThreadData);
         SwapCommandQueues(mRenderingThreadData);
-        mRenderingThreadData.mBufferSwapCondition.notify_one();
+
+        RenderDebugPrintf("End GL3Renderer::SwapBuffers()\n");
     }
 };
 

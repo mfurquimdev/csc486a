@@ -3,11 +3,11 @@
 #include "ng/engine/windowmanager.hpp"
 #include "ng/engine/windowevent.hpp"
 #include "ng/engine/renderer.hpp"
+#include "ng/engine/profiler.hpp"
+#include "ng/engine/debug.hpp"
 
-#include <GL/gl.h>
-
-#include <iostream>
 #include <chrono>
+#include <sstream>
 
 int main()
 {
@@ -19,6 +19,8 @@ int main()
     std::chrono::time_point<std::chrono::high_resolution_clock> now, then;
     then = std::chrono::high_resolution_clock::now();
     std::chrono::milliseconds lag(0);
+
+    ng::Profiler renderProfiler;
 
     while (true)
     {
@@ -32,17 +34,20 @@ int main()
         {
             if (e.type == ng::WindowEventType::Quit)
             {
+                ng::DebugPrintf("Time spent rendering clientside: %lfms\n", renderProfiler.GetTotalTimeMS());
+                ng::DebugPrintf("Average clientside rendering time per frame: %lfms\n", renderProfiler.GetAverageTimeMS());
                 return 0;
             }
             else if (e.type == ng::WindowEventType::MouseMotion)
             {
-                std::cout << e.motion.x << ", " << e.motion.y << std::endl;
+                ng::DebugPrintf("Motion: (%d, %d)\n", e.motion.x, e.motion.y);
             }
             else if (e.type == ng::WindowEventType::MouseButton)
             {
-                std::cout << e.button.state << " button " << e.button.button
-                          << " at (" << e.button.x << ", " << e.button.y << ")"
-                          << std::endl;
+                std::stringstream ss;
+                ss << e.button.state << " button " << e.button.button
+                   << " at (" << e.button.x << ", " << e.button.y << ")";
+                ng::DebugPrintf("%s\n", ss.str().c_str());
             }
         }
 
@@ -52,7 +57,11 @@ int main()
             lag -= std::chrono::milliseconds(1000/60);
         }
 
+        renderProfiler.Start();
+
         renderer->Clear(true, true, false);
         renderer->SwapBuffers();
+
+        renderProfiler.Stop();
     }
 }
