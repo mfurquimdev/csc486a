@@ -5,6 +5,7 @@
 #include "ng/engine/renderer.hpp"
 #include "ng/engine/profiler.hpp"
 #include "ng/engine/debug.hpp"
+#include "ng/engine/dynamicmesh.hpp"
 
 #include <chrono>
 #include <sstream>
@@ -15,6 +16,8 @@ int main()
     ng::VideoFlags videoFlags{};
     auto window = windowManager->CreateWindow("test", 640, 480, 0, 0, videoFlags);
     auto renderer = ng::CreateRenderer(windowManager, window);
+
+    auto mesh = renderer->CreateDynamicMesh();
 
     std::chrono::time_point<std::chrono::high_resolution_clock> now, then;
     then = std::chrono::high_resolution_clock::now();
