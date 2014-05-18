@@ -5,8 +5,12 @@
 #include "ng/engine/glcontext.hpp"
 #include "ng/engine/profiler.hpp"
 #include "ng/engine/debug.hpp"
+#include "ng/engine/vertexformat.hpp"
 
+#define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
+#include <GL/glext.h>
+#undef GL_GLEXT_PROTOTYPES
 
 #include <thread>
 #include <cstdint>
@@ -15,7 +19,8 @@
 #include <cstring>
 #include <algorithm>
 #include <cstddef>
-#include <condition_variable>
+#include <future>
+#include <set>
 
 #if 0
 #define RenderDebugPrintf(...) DebugPrintf(__VA_ARGS__)
@@ -132,6 +137,11 @@ struct OpenGLInstructionBuffer
     }
 };
 
+class GL3Buffer
+{
+public:
+};
+
 struct CommonOpenGLThreadData
 {
     static const size_t InitialWriteBufferIndex = 0;
@@ -171,9 +181,20 @@ struct CommonOpenGLThreadData
     std::recursive_mutex mCurrentWriteBufferIndexMutex;
 };
 
+struct ResourceOpenGLThreadData : CommonOpenGLThreadData
+{
+    using BufferPromise = std::promise<std::shared_ptr<GL3Buffer>>;
+
+    using CommonOpenGLThreadData::CommonOpenGLThreadData;
+
+    std::mutex mBufferPromisesMutex;
+    std::set<std::unique_ptr<BufferPromise>> mBufferPromises;
+};
+
 enum class OpenGLOpCode : decltype(OpenGLInstruction().OpCode)
 {
     Clear, // params: same as glClear.
+    GenBuffers, // params: n, promise unique_ptr pointer
     SwapBuffers, // special instruction to signal a buffer swap.
     Quit   // special instruction to stop the graphics thread.
 };
@@ -208,6 +229,26 @@ struct SizedOpenGLInstruction
 static void OpenGLThreadEntry(CommonOpenGLThreadData* threadData)
 {
     threadData->mWindowManager->SetCurrentContext(threadData->mWindow, threadData->mContext);
+
+    // used by GetExtension
+#ifndef STRINGIFY
+    #define STRINGIFY(x) #x
+#endif
+
+    // for convenience
+#define GetExtension(Type, ExtensionFunctionName) \
+    do { \
+        ExtensionFunctionName = (Type) threadData->mContext->GetProcAddress(STRINGIFY(ExtensionFunctionName)); \
+        if (!ExtensionFunctionName) { \
+            throw std::runtime_error("Failed to load GL extension: " STRINGIFY(ExtensionFunctionName)); \
+        } \
+    } while (0)
+
+    // get all necessary GL extensions
+    GetExtension(PFNGLGENBUFFERSPROC, glGenBuffers);
+
+    // clean up GetExtension define
+#undef GetExtension
 
     Profiler renderProfiler;
 
@@ -264,6 +305,10 @@ static void OpenGLThreadEntry(CommonOpenGLThreadData* threadData)
                 GLbitfield mask = inst.Params[0];
                 glClear(mask);
                 RenderDebugPrintf("Done OpenGLOpCode::Clear\n");
+            } break;
+            case OpenGLOpCode::GenBuffers: {
+                GLsizei n = inst.Params[0];
+                glGenBuffers();
             } break;
             case OpenGLOpCode::SwapBuffers: {
                 RenderDebugPrintf("Doing OpenGLOpCode::SwapBuffers\n");
@@ -347,6 +392,21 @@ public:
         PushInstruction(threadData, sizedInst.Instruction);
     }
 
+    std::future<std::shared_ptr<GL3Buffer>> SendGenBuffers(CommonOpenGLThreadData& threadData, GLsizei n)
+    {
+        ResourceOpenGLThreadData& resourceData = static_cast<ResourceOpenGLThreadData&>(threadData);
+
+        SizedOpenGLInstruction<2> sizedInst(OpenGLOpCode::GenBuffers);
+        sizedInst.Instruction.Params[0] = n;
+
+        // grab a new promise so we can fill it up.
+        std::lock_guard<std::mutex> bufferPromiseLock(resourceData.mBufferPromisesMutex);
+        auto promiseIt = resourceData.mBufferPromises.emplace(new ResourceOpenGLThreadData::BufferPromise());
+        sizedInst.Instruction.Params[1] = &*promiseIt.first;
+
+        PushInstruction(threadData, sizedInst.Instruction);
+    }
+
     void SwapCommandQueues(CommonOpenGLThreadData& threadData)
     {
         // make sure nobody else is relying on the current write buffer to stay the same.
@@ -411,7 +471,37 @@ public:
 
         RenderDebugPrintf("End GL3Renderer::SwapBuffers()\n");
     }
+
+    std::shared_ptr<IDynamicMesh> CreateDynamicMesh() override;
 };
+
+class GL3DynamicMesh : public IDynamicMesh
+{
+    std::shared_ptr<GL3Renderer> mRenderer;
+    VertexFormat mVertexFormat;
+
+public:
+
+    GL3DynamicMesh(std::shared_ptr<GL3Renderer> renderer)
+        : mRenderer(renderer)
+    {
+        mRenderer->SendGenBuffers(mRenderer->mResourceThreadData, 1);
+    }
+
+    void Init(const VertexFormat& format,
+              unique_deleted_ptr<const void> vertexData,
+              size_t vertexDataSize,
+              unique_deleted_ptr<const void> indexData,
+              size_t elementDataSize) override
+    {
+        mVertexFormat = format;
+    }
+};
+
+std::shared_ptr<IDynamicMesh> GL3Renderer::CreateDynamicMesh()
+{
+
+}
 
 std::shared_ptr<IRenderer> CreateRenderer(
         std::shared_ptr<IWindowManager> windowManager,
