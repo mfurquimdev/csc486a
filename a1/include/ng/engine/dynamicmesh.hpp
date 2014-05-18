@@ -15,9 +15,9 @@ public:
 
     virtual void Init(const VertexFormat& format,
                       unique_deleted_ptr<const void> vertexData,
-                      size_t vertexDataSize,
+                      std::ptrdiff_t vertexDataSize,
                       unique_deleted_ptr<const void> indexData,
-                      size_t elementDataSize) = 0;
+                      std::ptrdiff_t elementDataSize) = 0;
 };
 
 } // end namespace ng

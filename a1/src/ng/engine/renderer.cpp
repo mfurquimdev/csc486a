@@ -308,11 +308,12 @@ public:
     GL3DynamicMesh(std::shared_ptr<GL3Renderer> renderer);
     ~GL3DynamicMesh();
 
+    // the deleters of the data will be called from the graphics resource management thread
     void Init(const VertexFormat& format,
               unique_deleted_ptr<const void> vertexData,
-              size_t vertexDataSize,
+              ptrdiff_t vertexDataSize,
               unique_deleted_ptr<const void> indexData,
-              size_t elementDataSize) override;
+              std::ptrdiff_t indexDataSize) override;
 };
 
 struct CommonOpenGLThreadData
@@ -405,13 +406,41 @@ struct ResourceOpenGLThreadData : CommonOpenGLThreadData
 
 enum class OpenGLOpCode : decltype(OpenGLInstruction().OpCode)
 {
-    Clear,         // params: (GLbitfield mask)
-    GenBuffers,    // params: (GLsizei n, promise<shared_ptr<GL3Buffers>>*)
-                   // note: must fulfill the promise of n buffers
-    DeleteBuffers, // params: (GLsizei n, GLuint buffers[])
-                   // note: must delete[] buffers
-    SwapBuffers,   // special instruction to signal a buffer swap.
-    Quit           // special instruction to stop the graphics thread.
+    Clear,         // params:
+                   //         0) GLbitfield mask
+                   // notes:
+                   //         * acts as glClear.
+    GenBuffers,    // params:
+                   //         0) GLsizei n
+                   //         1) std::promise<std::shared_ptr<GL3Buffers>>* pro
+                   // notes:
+                   //         * acts as glGenBuffers.
+                   //         * must fulfill the promise of n buffers.
+    DeleteBuffers, // params:
+                   //         0) GLsizei n
+                   //         1) GLuint buffers[]
+                   // notes:
+                   //         * acts as glDeleteBuffers.
+                   //         * must delete[] buffers after deleting them.
+    BufferData,    // params:
+                   //         0) GLuint bufferID
+                   //         1) GLenum target
+                   //         2) GLsizeiptr size
+                   //         3) const GLvoid* data
+                   //         4) GLenum usage
+                   //         5) std::function<void(const void*)>* deleter
+                   // notes:
+                   //         * acts as glBufferData.
+                   //         * must call (*deleter)(data) after uploading.
+                   //         * must call delete deleter after deleting.
+    SwapBuffers,   // params:
+                   //         none.
+                   // notes:
+                   //         * special instruction to signal a swap of buffers to the window.
+    Quit           // params:
+                   //         none.
+                   // notes:
+                   //         * special instruction to exit the graphics thread.
 };
 
 template<size_t NParams>
@@ -567,6 +596,23 @@ public:
         buffersList.release();
     }
 
+    void SendBufferData(GLuint bufferID, GLenum target, GLsizeiptr size, const GLvoid* data, GLenum usage, const std::function<void(const void*)>& deleter)
+    {
+        auto deleterPtr = ng::make_unique<std::function<void(const void*)>>(deleter);
+
+        SizedOpenGLInstruction<6> sizedInst(OpenGLOpCode::BufferData);
+        OpenGLInstruction& inst = sizedInst.Instruction;
+        inst.Params[0] = bufferID;
+        inst.Params[1] = target;
+        inst.Params[2] = size;
+        inst.Params[3] = (std::uintptr_t) data;
+        inst.Params[4] = usage;
+        inst.Params[5] = (std::uintptr_t) deleterPtr.get();
+
+        PushResourceInstruction(inst);
+        deleterPtr.release();
+    }
+
     void SwapRenderingInstructionQueues()
     {
         // make sure nobody else is relying on the current write buffer to stay the same.
@@ -645,19 +691,36 @@ GL3DynamicMesh::GL3DynamicMesh(std::shared_ptr<GL3Renderer> renderer)
 GL3DynamicMesh::~GL3DynamicMesh()
 {
     // force the future buffers to have been received.
-    GetBuffers();
+    auto& buffers = GetBuffers();
+
     // now delete them
-     mRenderer->SendDeleteBuffers(mBuffers->size(), mBuffers->data());
+    mRenderer->SendDeleteBuffers(buffers->size(), buffers->data());
 }
 
 void GL3DynamicMesh::Init(const VertexFormat& format,
           unique_deleted_ptr<const void> vertexData,
-          size_t vertexDataSize,
+          std::ptrdiff_t vertexDataSize,
           unique_deleted_ptr<const void> indexData,
-          size_t elementDataSize)
+          std::ptrdiff_t indexDataSize)
 {
     mVertexFormat = format;
-    // TODO: Implement
+    auto& buffers = GetBuffers();
+
+    // upload vertexData
+    mRenderer->SendBufferData(buffers->at(0), GL_ARRAY_BUFFER, vertexDataSize, vertexData.get(), GL_DYNAMIC_DRAW, vertexData.get_deleter());
+    vertexData.release();
+
+    if (indexData != nullptr && !mVertexFormat.IsIndexed)
+    {
+        throw std::logic_error("Don't send indexData if your vertex format isn't indexed.");
+    }
+
+    // upload indexData
+    if (mVertexFormat.IsIndexed)
+    {
+        mRenderer->SendBufferData(buffers->at(1), GL_ELEMENT_ARRAY_BUFFER, indexDataSize, indexData.get(), GL_STATIC_DRAW, indexData.get_deleter());
+        indexData.release();
+    }
 }
 
 std::shared_ptr<IRenderer> CreateRenderer(
@@ -774,6 +837,8 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
     auto& ctx = *threadData->mContext;
     GetExtension(ctx, PFNGLGENBUFFERSPROC, glGenBuffers);
     GetExtension(ctx, PFNGLDELETEBUFFERSPROC, glDeleteBuffers);
+    GetExtension(ctx, PFNGLBINDBUFFERPROC, glBindBuffer);
+    GetExtension(ctx, PFNGLBUFFERDATAPROC, glBufferData);
 
     Profiler resourceProfiler;
 
@@ -814,6 +879,20 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
             glDeleteBuffers(n, buffers);
             delete[] buffers;
             RenderDebugPrintf("Done OpenGLOpCode::DeleteBuffers\n");
+        } break;
+        case OpenGLOpCode::BufferData: {
+            RenderDebugPrintf("Doing OpenGLOpCode::BufferData\n");
+            GLuint bufferID = inst.Params[0];
+            GLenum target = inst.Params[1];
+            GLsizeiptr size = inst.Params[2];
+            const GLvoid* data = (const GLvoid*) inst.Params[3];
+            GLenum usage = inst.Params[4];
+            auto deleter = (std::function<void(const void*)>*) inst.Params[5];
+            glBindBuffer(target, bufferID);
+            glBufferData(target, size, data, usage);
+            (*deleter)(data);
+            delete deleter;
+            RenderDebugPrintf("Done OpenGLOpCode::BufferData\n");
         } break;
         case OpenGLOpCode::Quit: {
             RenderProfilePrintf("Time spent loading resources serverside in %s: %lfms\n", threadData->mThreadName.c_str(), resourceProfiler.GetTotalTimeMS());

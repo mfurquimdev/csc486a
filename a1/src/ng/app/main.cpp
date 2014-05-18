@@ -6,6 +6,7 @@
 #include "ng/engine/profiler.hpp"
 #include "ng/engine/debug.hpp"
 #include "ng/engine/dynamicmesh.hpp"
+#include "ng/engine/vertexformat.hpp"
 
 #include <chrono>
 #include <sstream>
@@ -18,6 +19,19 @@ int main()
     auto renderer = ng::CreateRenderer(windowManager, window);
 
     auto mesh = renderer->CreateDynamicMesh();
+    {
+        ng::VertexFormat meshFormat;
+        meshFormat.Position = ng::VertexAttribute(3, ng::ArithmeticType::Float,
+                                                  false, 0, 0, true);
+        static const float rawMeshData[] = {
+            0.0f, 0.0f, 0.0f,
+            1.0f, 1.0f,-1.0f,
+            1.0f,-1.0f, 0.0f,
+        };
+
+        ng::unique_deleted_ptr<const void> meshData(rawMeshData, [](const void*){});
+        mesh->Init(meshFormat, std::move(meshData), sizeof(rawMeshData), nullptr, 0);
+    }
 
     std::chrono::time_point<std::chrono::high_resolution_clock> now, then;
     then = std::chrono::high_resolution_clock::now();
