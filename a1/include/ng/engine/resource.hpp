@@ -9,21 +9,21 @@ namespace ng
 
 struct ResourceHandle
 {
-    using IDType = std::uint32_t;
+    using InstanceID = std::uint64_t;
 
-    union ClassIDType
+    union ClassID
     {
         std::uint32_t AsUInt;
         char AsBytes[4];
 
-        ClassIDType() = default;
+        ClassID() = default;
 
-        explicit constexpr ClassIDType(std::uint32_t asUInt)
+        explicit constexpr ClassID(std::uint32_t asUInt)
             : AsUInt(asUInt)
         { }
 
         template<std::size_t N>
-        explicit constexpr ClassIDType(const char (&fourLetterCode)[N])
+        explicit constexpr ClassID(const char (&fourLetterCode)[N])
             : AsBytes {
                   fourLetterCode[0],
                   fourLetterCode[1],
@@ -34,21 +34,22 @@ struct ResourceHandle
         }
     };
 
-    IDType ID;
-    ClassIDType ClassID;
+    InstanceID Instance;
+    ClassID Class;
+
     std::shared_ptr<void> Data;
 
     ResourceHandle()
-        : ID(0)
-        , ClassID(0)
+        : Instance(0)
+        , Class(0)
     { }
 
     template<class T>
-    ResourceHandle(IDType id,
-                   ClassIDType classID,
+    ResourceHandle(InstanceID instance,
+                   ClassID clazz,
                    std::shared_ptr<T> data)
-        : ID(id)
-        , ClassID(classID)
+        : Instance(instance)
+        , Class(clazz)
         , Data(std::move(data))
     { }
 

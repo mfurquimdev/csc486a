@@ -675,16 +675,17 @@ public:
     static const size_t ResourceCommandBufferSize = OneMB;
 
     // classes of objects created by Renderer
-    static constexpr ResourceHandle::ClassIDType GLBufferClassID{ "GLVB" };
+    static constexpr ResourceHandle::ClassID GLSharedFutureToBufferClassID{ "GLBF" };
 
     // for generating unique IDs for resources
-    ResourceHandle::IDType mCurrentID = 0;
+    ResourceHandle::InstanceID mCurrentID = 0;
     std::mutex mIDGenLock;
 
-    ResourceHandle::IDType GenerateUID()
+    ResourceHandle::InstanceID GenerateInstanceID()
     {
         std::lock_guard<std::mutex> lock(mIDGenLock);
 
+        static_assert(sizeof(mCurrentID) >= 8, "Assuming that we never realistically will need more than 2^64 ids");
         mCurrentID++;
 
         return mCurrentID;
@@ -771,7 +772,7 @@ public:
     {
         // grab a new promise so we can fill it up.
         GenBufferOpCodeParams params(ng::make_unique<std::promise<OpenGLBuffer>>(), true);
-        ResourceHandle res(GenerateUID(), GLBufferClassID,
+        ResourceHandle res(GenerateInstanceID(), GLSharedFutureToBufferClassID,
                            std::make_shared<std::shared_future<OpenGLBuffer>>(
                                params.BufferPromise->get_future()));
 
@@ -863,7 +864,7 @@ public:
     }
 };
 
-constexpr ResourceHandle::ClassIDType OpenGLRenderer::GLBufferClassID;
+constexpr ResourceHandle::ClassID OpenGLRenderer::GLSharedFutureToBufferClassID;
 
 OpenGLBuffer::OpenGLBuffer()
     : mHandle(0)
