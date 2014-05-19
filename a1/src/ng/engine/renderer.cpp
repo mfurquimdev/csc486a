@@ -9,6 +9,7 @@
 #include "ng/engine/memory.hpp"
 #include "ng/engine/dynamicmesh.hpp"
 #include "ng/engine/semaphore.hpp"
+#include "ng/engine/resource.hpp"
 
 #include <GL/gl.h>
 
@@ -283,14 +284,27 @@ struct OpenGLInstructionRingBuffer
     }
 };
 
-class GL3Renderer;
+class OpenGLRenderer;
 
-using GL3Buffers = std::vector<GLuint>;
+class OpenGLBuffer
+{
+    std::shared_ptr<OpenGLRenderer> mRenderer;
+    GLuint mHandle;
 
-class GL3DynamicMesh : public IDynamicMesh
+public:
+    OpenGLBuffer(std::shared_ptr<OpenGLRenderer> renderer, GLuint handle);
+    ~OpenGLBuffer();
+
+    GLuint GetHandle() const
+    {
+        return mHandle;
+    }
+};
+
+class OpenGLDynamicMesh : public IDynamicMesh
 {
 public:
-    std::shared_ptr<GL3Renderer> mRenderer;
+    std::shared_ptr<OpenGLRenderer> mRenderer;
     VertexFormat mVertexFormat;
 
     std::future<std::shared_ptr<GL3Buffers>> mFutureBuffers;
@@ -305,8 +319,8 @@ public:
         return mBuffers;
     }
 
-    GL3DynamicMesh(std::shared_ptr<GL3Renderer> renderer);
-    ~GL3DynamicMesh();
+    OpenGLDynamicMesh(std::shared_ptr<OpenGLRenderer> renderer);
+    ~OpenGLDynamicMesh();
 
     // the deleters of the data will be called from the graphics resource management thread
     void Init(const VertexFormat& format,
@@ -323,7 +337,7 @@ struct CommonOpenGLThreadData
             const std::shared_ptr<IWindowManager>& windowManager,
             const std::shared_ptr<IWindow>& window,
             const std::shared_ptr<IGLContext>& context,
-            GL3Renderer& renderer)
+            OpenGLRenderer& renderer)
         : mThreadName(threadName)
         , mWindowManager(windowManager)
         , mWindow(window)
@@ -337,7 +351,7 @@ struct CommonOpenGLThreadData
     std::shared_ptr<IWindow> mWindow;
     std::shared_ptr<IGLContext> mContext;
 
-    GL3Renderer& mRenderer;
+    OpenGLRenderer& mRenderer;
 };
 
 struct RenderingOpenGLThreadData : CommonOpenGLThreadData
@@ -349,7 +363,7 @@ struct RenderingOpenGLThreadData : CommonOpenGLThreadData
             const std::shared_ptr<IWindowManager>& windowManager,
             const std::shared_ptr<IWindow>& window,
             const std::shared_ptr<IGLContext>& context,
-            GL3Renderer& renderer,
+            OpenGLRenderer& renderer,
             size_t instructionBufferSize)
         : CommonOpenGLThreadData(
               threadName,
@@ -385,7 +399,7 @@ struct ResourceOpenGLThreadData : CommonOpenGLThreadData
             const std::shared_ptr<IWindowManager>& windowManager,
             const std::shared_ptr<IWindow>& window,
             const std::shared_ptr<IGLContext>& context,
-            GL3Renderer& renderer,
+            OpenGLRenderer& renderer,
             size_t instructionBufferSize)
         : CommonOpenGLThreadData(
               threadName,
@@ -406,41 +420,145 @@ struct ResourceOpenGLThreadData : CommonOpenGLThreadData
 
 enum class OpenGLOpCode : decltype(OpenGLInstruction().OpCode)
 {
-    Clear,         // params:
-                   //         0) GLbitfield mask
-                   // notes:
-                   //         * acts as glClear.
-    GenBuffers,    // params:
-                   //         0) GLsizei n
-                   //         1) std::promise<std::shared_ptr<GL3Buffers>>* pro
-                   // notes:
-                   //         * acts as glGenBuffers.
-                   //         * must fulfill the promise of n buffers.
-    DeleteBuffers, // params:
-                   //         0) GLsizei n
-                   //         1) GLuint buffers[]
-                   // notes:
-                   //         * acts as glDeleteBuffers.
-                   //         * must delete[] buffers after deleting them.
-    BufferData,    // params:
-                   //         0) GLuint bufferID
-                   //         1) GLenum target
-                   //         2) GLsizeiptr size
-                   //         3) const GLvoid* data
-                   //         4) GLenum usage
-                   //         5) std::function<void(const void*)>* deleter
-                   // notes:
-                   //         * acts as glBufferData.
-                   //         * must call (*deleter)(data) after uploading.
-                   //         * must call delete deleter after deleting.
-    SwapBuffers,   // params:
-                   //         none.
-                   // notes:
-                   //         * special instruction to signal a swap of buffers to the window.
-    Quit           // params:
-                   //         none.
-                   // notes:
-                   //         * special instruction to exit the graphics thread.
+    Clear,
+        // params:
+        //         0) GLbitfield mask
+        // notes:
+        //         * acts as glClear.
+        //         * use struct ClearOpCodeParams for convenience.
+    GenBuffer,
+        // params:
+        //         0) std::promise<OpenGLBuffer>* bufferPromise
+        // notes:
+        //         * the promised OpenGLBuffer must be created by glGenBuffers.
+        //         * must then delete bufferPromise.
+    DeleteBuffer,
+        // params:
+        //         0) GLuint buffer
+        // notes:
+        //         * buffer must be a buffer ID generated by glGenBuffers (or 0.)
+        //         * buffer must be deleted with glDeleteBuffers.
+    BufferData,
+        // params:
+        //         0) ng::ResourceHandle* bufferHandle
+        //         1) GLenum target
+        //         2) GLsizeiptr size
+        //         3) std::shared_ptr<void>* dataHandle
+        //         4) GLenum usage
+        // notes:
+        //         * bufferHandle must wrap a std::shared_future<OpenGLBuffer>.
+        //         * must allocate and fill the buffer with data by binding it to target.
+        //         * dataHandle may be pointing to shared_ptr(nullptr), which will leave the buffer uninitialized.
+        //         * must release ownership of dataHandle (ie. delete dataHandle.)
+        //         * must release ownership of bufferHandle (ie. delete bufferHandle.)
+        //         * use struct BufferDataOpCodeParams for convenience.
+    SwapBuffers,
+        // params:
+        //         none.
+        // notes:
+        //         * special instruction to signal a swap of buffers to the window.
+    Quit
+        // params:
+        //         none.
+        // notes:
+        //         * special instruction to exit the graphics thread.
+};
+
+struct ClearOpCodeParams
+{
+    GLbitfield Mask;
+
+    ClearOpCodeParams(GLbitfield mask)
+        : Mask(mask)
+    { }
+
+    ClearOpCodeParams(const OpenGLInstruction& inst)
+        : Mask(inst)
+    { }
+};
+
+struct GenBufferOpCodeParams
+{
+    std::promise<OpenGLBuffer>* BufferPromise;
+
+    bool AutoCleanup;
+
+    GenBufferOpCodeParams(std::promise<OpenGLBuffer>* bufferPromise, bool autoCleanup = true)
+        : BufferPromise(bufferPromise)
+        , AutoCleanup(autoCleanup)
+    { }
+
+    GenBufferOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup = true)
+        : BufferPromise(inst.Params[0])
+        , AutoCleanup(autoCleanup)
+    { }
+
+    ~GenBufferOpCodeParams()
+    {
+        if (AutoCleanup)
+        {
+            delete BufferPromise;
+        }
+    }
+};
+
+struct DeleteBufferOpCodeParams
+{
+    GLuint Buffer;
+
+    DeleteBufferOpCodeParams(GLuint buffer)
+        : Buffer(buffer)
+    { }
+
+    DeleteBufferOpCodeParams(const OpenGLInstruction& inst)
+        : Buffer(inst.Params[0])
+    { }
+};
+
+struct BufferDataOpCodeParams
+{
+    ResourceHandle* BufferHandle;
+    std::shared_future<OpenGLBuffer>* BufferFuture;
+    GLenum Target;
+    GLsizeiptr Size;
+    std::shared_ptr<void>* DataHandle;
+    GLenum Usage;
+
+    bool AutoCleanup;
+
+    BufferDataOpCodeParams(ResourceHandle* BufferHandle,
+                           GLenum target,
+                           GLsizeiptr size,
+                           std::shared_ptr<void>* dataHandle,
+                           GLenum usage,
+                           bool autoCleanup = true)
+        : BufferHandle(BufferHandle)
+        , BufferFuture(BufferHandle->GetData<std::shared_future<OpenGLBuffer>>())
+        , Target(target)
+        , Size(size)
+        , DataHandle(dataHandle)
+        , Usage(usage)
+        , AutoCleanup(autoCleanup)
+    { }
+
+    BufferDataOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup = true)
+        : BufferHandle(inst.Params[0])
+        , BufferFuture(BufferHandle->GetData<std::shared_future<OpenGLBuffer>>())
+        , Target(inst.Params[1])
+        , Size(inst.Params[2])
+        , DataHandle(inst.Params[3])
+        , Usage(inst.Params[4])
+        , AutoCleanup(autoCleanup)
+    { }
+
+    ~BufferDataOpCodeParams()
+    {
+        if (AutoCleanup)
+        {
+            delete DataHandle;
+            delete BufferHandle;
+        }
+    }
 };
 
 template<size_t NParams>
@@ -473,7 +591,7 @@ struct SizedOpenGLInstruction
 static void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData);
 static void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData);
 
-class GL3Renderer: public IRenderer, public std::enable_shared_from_this<GL3Renderer>
+class OpenGLRenderer: public IRenderer, public std::enable_shared_from_this<OpenGLRenderer>
 {
 public:
     std::shared_ptr<IWindow> mWindow;
@@ -490,7 +608,7 @@ public:
     static const size_t RenderingCommandBufferSize = OneMB;
     static const size_t ResourceCommandBufferSize = OneMB;
 
-    GL3Renderer(
+    OpenGLRenderer(
             const std::shared_ptr<IWindowManager>& windowManager,
             const std::shared_ptr<IWindow>& window)
         : mWindow(window)
@@ -631,7 +749,7 @@ public:
         RenderDebugPrintf("SwapRenderingInstructionQueues set mCurrentWriteBufferIndex to %zu\n", mRenderingThreadData->mCurrentWriteBufferIndex);
     }
 
-    ~GL3Renderer()
+    ~OpenGLRenderer()
     {
         // add a Quit instruction to the resource instructions then leave it to be executed.
         SendQuit(*mResourceThreadData);
@@ -678,17 +796,27 @@ public:
 
     std::shared_ptr<IDynamicMesh> CreateDynamicMesh() override
     {
-        return std::make_shared<GL3DynamicMesh>(shared_from_this());
+        return std::make_shared<OpenGLDynamicMesh>(shared_from_this());
     }
 };
 
-GL3DynamicMesh::GL3DynamicMesh(std::shared_ptr<GL3Renderer> renderer)
+OpenGLBuffer::OpenGLBuffer(std::shared_ptr<OpenGLRenderer> renderer, GLuint handle)
+    : mRenderer(std::move(renderer))
+    , mHandle(handle)
+{ }
+
+OpenGLBuffer::~OpenGLBuffer()
+{
+    mRenderer->SendDeleteBuffers(mHandle);
+}
+
+OpenGLDynamicMesh::OpenGLDynamicMesh(std::shared_ptr<OpenGLRenderer> renderer)
     : mRenderer(std::move(renderer))
 {
     mFutureBuffers = mRenderer->SendGenBuffers(2);
 }
 
-GL3DynamicMesh::~GL3DynamicMesh()
+OpenGLDynamicMesh::~OpenGLDynamicMesh()
 {
     // force the future buffers to have been received.
     auto& buffers = GetBuffers();
@@ -697,7 +825,7 @@ GL3DynamicMesh::~GL3DynamicMesh()
     mRenderer->SendDeleteBuffers(buffers->size(), buffers->data());
 }
 
-void GL3DynamicMesh::Init(const VertexFormat& format,
+void OpenGLDynamicMesh::Init(const VertexFormat& format,
           unique_deleted_ptr<const void> vertexData,
           std::ptrdiff_t vertexDataSize,
           unique_deleted_ptr<const void> indexData,
@@ -727,7 +855,7 @@ std::shared_ptr<IRenderer> CreateRenderer(
         std::shared_ptr<IWindowManager> windowManager,
         std::shared_ptr<IWindow> window)
 {
-    return std::shared_ptr<GL3Renderer>(new GL3Renderer(windowManager, window));
+    return std::shared_ptr<OpenGLRenderer>(new OpenGLRenderer(windowManager, window));
 }
 
 static void* LoadProcOrDie(IGLContext& context, const char* procName)
@@ -740,18 +868,84 @@ static void* LoadProcOrDie(IGLContext& context, const char* procName)
     return ext;
 }
 
-// used by GetExtension
+// helper for declaring OpenGL functions
+#define DeclareGLExtension(Type, ExtensionFunctionName) \
+    static thread_local Type ExtensionFunctionName
+
+// declarations of all the OpenGL functions used
+static thread_local bool LoadedGLExtensions = false;
+DeclareGLExtension(PFNGLGENBUFFERSPROC, glGenBuffers);
+DeclareGLExtension(PFNGLDELETEBUFFERSPROC, glDeleteBuffers);
+DeclareGLExtension(PFNGLBINDBUFFERPROC, glBindBuffer);
+DeclareGLExtension(PFNGLBUFFERDATAPROC, glBufferData);
+DeclareGLExtension(PFNGLMAPBUFFERPROC, glMapBuffer);
+DeclareGLExtension(PFNGLUNMAPBUFFERPROC, glUnmapBuffer);
+
+// clean up define
+#undef DeclareGLExtension
+
+// used by GetGLExtension
 #ifndef STRINGIFY
     #define STRINGIFY(x) #x
 #endif
 
-// grabs a single extension as a local variable
-#define GetExtension(context, Type, ExtensionFunctionName) \
-    Type ExtensionFunctionName = (Type) LoadProcOrDie(context, STRINGIFY(ExtensionFunctionName))
+// loads a single extension
+#define GetGLExtension(context, Type, ExtensionFunctionName) \
+    ExtensionFunctionName = (Type) LoadProcOrDie(context, STRINGIFY(ExtensionFunctionName))
+
+// loads all extensions we need if they have not been loaded yet.
+#define InitGLExtensions(context) \
+    if (!LoadedGLExtensions) { \
+        GetExtension(context, PFNGLGENBUFFERSPROC,    glGenBuffers); \
+        GetExtension(context, PFNGLDELETEBUFFERSPROC, glDeleteBuffers); \
+        GetExtension(context, PFNGLBINDBUFFERPROC,    glBindBuffer); \
+        GetExtension(context, PFNGLBUFFERDATAPROC,    glBufferData); \
+        GetExtension(context, PFNGLMAPBUFFERPROC,     glMapBuffer); \
+        GetExtension(context, PFNGLUNMAPBUFFERPROC,   glUnmapBuffer); \
+        LoadedGLExtensions = true; \
+    }
+
+// clean up define
+#undef GetGLExtension
+
+// for instructions that act the same way for both threads.
+static void HandleCommonInstruction(CommonOpenGLThreadData* threadData, const OpenGLInstruction& inst)
+{
+    switch (static_cast<OpenGLOpCode>(inst.OpCode))
+    {
+    case OpenGLOpCode::Clear: {
+        ClearOpCodeParams params(inst);
+        glClear(params.Mask);
+    } break;
+    case OpenGLOpCode::BufferData: {
+        BufferDataOpCodeParams params(inst);
+
+        glBindBuffer(params.Target, params.BufferFuture->get().GetHandle());
+
+        // initialize it with null, because glBufferData would make a useless copy of the data we pass it.
+        glBufferData(params.Target, params.Size, nullptr, params.Usage);
+
+        // write the initial data in the buffer
+        if (params.DataHandle && *params.DataHandle)
+        {
+            void* bufferPtr = glMapBuffer(params.Target, GL_WRITE_ONLY);
+            std::memcpy(bufferPtr, params.DataHandle->get(), params.Size);
+            glUnmapBuffer(params.Target);
+        }
+    } break;
+    case OpenGLOpCode::SwapBuffers: {
+        threadData->mWindow->SwapBuffers();
+    } break;
+    default:
+        RenderDebugPrintf("Invalid OpCode for %s: %u\n", threadData->mThreadName.c_str(), inst.OpCode);
+    }
+}
 
 void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
 {
     threadData->mWindowManager->SetCurrentContext(threadData->mWindow, threadData->mContext);
+
+    InitGLExtensions(*threadData->mContext);
 
     Profiler renderProfiler;
 
@@ -803,24 +997,15 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
         {
             switch (static_cast<OpenGLOpCode>(inst.OpCode))
             {
-            case OpenGLOpCode::Clear: {
-                RenderDebugPrintf("Doing OpenGLOpCode::Clear\n");
-                GLbitfield mask = inst.Params[0];
-                glClear(mask);
-                RenderDebugPrintf("Done OpenGLOpCode::Clear\n");
-            } break;
-            case OpenGLOpCode::SwapBuffers: {
-                RenderDebugPrintf("Doing OpenGLOpCode::SwapBuffers\n");
-                threadData->mWindow->SwapBuffers();
-                RenderDebugPrintf("Done OpenGLOpCode::SwapBuffers\n");
-            } break;
             case OpenGLOpCode::Quit: {
                 RenderProfilePrintf("Time spent rendering serverside in %s: %lfms\n", threadData->mThreadName.c_str(), renderProfiler.GetTotalTimeMS());
                 RenderProfilePrintf("Average time spent rendering serverside in %s: %lfms\n", threadData->mThreadName.c_str(), renderProfiler.GetAverageTimeMS());
                 return;
             } break;
-            default:
-                RenderDebugPrintf("Invalid OpCode for %s: %u\n", threadData->mThreadName.c_str(), inst.OpCode);
+            default: {
+                HandleCommonInstruction(threadData, inst);
+                break;
+            }
             }
         }
 
@@ -833,12 +1018,7 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
 {
     threadData->mWindowManager->SetCurrentContext(threadData->mWindow, threadData->mContext);
 
-    // load necessary extensions
-    auto& ctx = *threadData->mContext;
-    GetExtension(ctx, PFNGLGENBUFFERSPROC, glGenBuffers);
-    GetExtension(ctx, PFNGLDELETEBUFFERSPROC, glDeleteBuffers);
-    GetExtension(ctx, PFNGLBINDBUFFERPROC, glBindBuffer);
-    GetExtension(ctx, PFNGLBUFFERDATAPROC, glBufferData);
+    InitGLExtensions(*threadData->mContext);
 
     Profiler resourceProfiler;
 
@@ -863,51 +1043,32 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
         // now execute the instruction
         switch (static_cast<OpenGLOpCode>(inst.OpCode))
         {
-        case OpenGLOpCode::GenBuffers: {
-            RenderDebugPrintf("Doing OpenGLOpCode::GenBuffers\n");
-            GLsizei n = inst.Params[0];
-            auto pro = (std::promise<std::shared_ptr<GL3Buffers>>*) inst.Params[1];
-            auto buffers = std::make_shared<GL3Buffers>(n);
-            glGenBuffers(n, buffers->data());
-            pro->set_value(buffers);
-            RenderDebugPrintf("Done OpenGLOpCode::GenBuffers\n");
+        case OpenGLOpCode::GenBuffer: {
+            GenBufferOpCodeParams params(inst);
+            GLuint handle;
+            glGenBuffers(1, &handle);
+            params.BufferPromise->set_value(OpenGLBuffer(threadData->mRenderer.shared_from_this(), handle));
         } break;
-        case OpenGLOpCode::DeleteBuffers: {
-            RenderDebugPrintf("Doing OpenGLOpCode::DeleteBuffers\n");
-            GLsizei n = inst.Params[0];
-            GLuint* buffers = (GLuint*) inst.Params[1];
-            glDeleteBuffers(n, buffers);
-            delete[] buffers;
-            RenderDebugPrintf("Done OpenGLOpCode::DeleteBuffers\n");
-        } break;
-        case OpenGLOpCode::BufferData: {
-            RenderDebugPrintf("Doing OpenGLOpCode::BufferData\n");
-            GLuint bufferID = inst.Params[0];
-            GLenum target = inst.Params[1];
-            GLsizeiptr size = inst.Params[2];
-            const GLvoid* data = (const GLvoid*) inst.Params[3];
-            GLenum usage = inst.Params[4];
-            auto deleter = (std::function<void(const void*)>*) inst.Params[5];
-            glBindBuffer(target, bufferID);
-            glBufferData(target, size, data, usage);
-            (*deleter)(data);
-            delete deleter;
-            RenderDebugPrintf("Done OpenGLOpCode::BufferData\n");
+        case OpenGLOpCode::DeleteBuffer: {
+            DeleteBufferOpCodeParams params(inst);
+            glDeleteBuffers(1, &params.Buffer);
         } break;
         case OpenGLOpCode::Quit: {
             RenderProfilePrintf("Time spent loading resources serverside in %s: %lfms\n", threadData->mThreadName.c_str(), resourceProfiler.GetTotalTimeMS());
             RenderProfilePrintf("Average time spent loading resources serverside in %s: %lfms\n", threadData->mThreadName.c_str(), resourceProfiler.GetAverageTimeMS());
             return;
         } break;
-        default:
-            RenderDebugPrintf("Invalid OpCode for %s: %u\n", threadData->mThreadName.c_str(), inst.OpCode);
+        default: {
+            HandleCommonInstruction(threadData, inst);
+            break;
+        }
         }
 
         resourceProfiler.Stop();
     }
 }
 
-// clean up GetExtension define
-#undef GetExtension
+// clean up defines
+#undef InitGLExtensions
 
 } // end namespace ng
