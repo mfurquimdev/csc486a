@@ -43,9 +43,10 @@ struct ResourceHandle
         , ClassID(0)
     { }
 
+    template<class T>
     ResourceHandle(IDType id,
                    ClassIDType classID,
-                   std::shared_ptr<void> data)
+                   std::shared_ptr<T> data)
         : ID(id)
         , ClassID(classID)
         , Data(std::move(data))

@@ -292,14 +292,31 @@ class OpenGLBuffer
     GLuint mHandle;
 
 public:
+    OpenGLBuffer();
+
     OpenGLBuffer(std::shared_ptr<OpenGLRenderer> renderer, GLuint handle);
     ~OpenGLBuffer();
+
+    OpenGLBuffer(const OpenGLBuffer& other) = delete;
+    OpenGLBuffer& operator=(const OpenGLBuffer& other) = delete;
+
+    OpenGLBuffer(OpenGLBuffer&& other);
+    OpenGLBuffer& operator=(OpenGLBuffer&& other);
+
+    void reset(std::shared_ptr<OpenGLRenderer> renderer, GLuint handle);
+
+    void swap(OpenGLBuffer& other);
 
     GLuint GetHandle() const
     {
         return mHandle;
     }
 };
+
+void swap(OpenGLBuffer& a, OpenGLBuffer& b)
+{
+    a.swap(b);
+}
 
 class OpenGLStaticMesh : public IStaticMesh
 {
@@ -453,6 +470,17 @@ enum class OpenGLOpCode : decltype(OpenGLInstruction().OpCode)
         //         * special instruction to exit the graphics thread.
 };
 
+constexpr const char* ToString(OpenGLOpCode code)
+{
+    return code == OpenGLOpCode::Clear ? "Clear"
+         : code == OpenGLOpCode::GenBuffer ? "GenBuffer"
+         : code == OpenGLOpCode::DeleteBuffer ? "DeleteBuffer"
+         : code == OpenGLOpCode::BufferData ? "BufferData"
+         : code == OpenGLOpCode::SwapBuffers ? "SwapBuffers"
+         : code == OpenGLOpCode::Quit ? "Quit"
+         : "???";
+}
+
 template<size_t NParams>
 struct SizedOpenGLInstruction
 {
@@ -468,14 +496,9 @@ struct SizedOpenGLInstruction
 
     SizedOpenGLInstruction(NoInitTag){ }
 
-    SizedOpenGLInstruction()
+    SizedOpenGLInstruction(OpenGLOpCode code)
     {
         Instruction.NumParams = NParams;
-    }
-
-    SizedOpenGLInstruction(OpenGLOpCode code)
-        : SizedOpenGLInstruction()
-    {
         Instruction.OpCode = static_cast<decltype(Instruction.OpCode)>(code);
     }
 };
@@ -527,7 +550,7 @@ struct GenBufferOpCodeParams
 
     SizedOpenGLInstruction<1> ToInstruction() const
     {
-        SizedOpenGLInstruction<1> si;
+        SizedOpenGLInstruction<1> si(OpenGLOpCode::GenBuffer);
         si.Instruction.Params[0] = reinterpret_cast<std::uintptr_t>(BufferPromise.get());
         return si;
     }
@@ -547,7 +570,7 @@ struct DeleteBufferOpCodeParams
 
     SizedOpenGLInstruction<1> ToInstruction() const
     {
-        SizedOpenGLInstruction<1> si;
+        SizedOpenGLInstruction<1> si(OpenGLOpCode::DeleteBuffer);
         si.Instruction.Params[0] = Buffer;
         return si;
     }
@@ -556,7 +579,7 @@ struct DeleteBufferOpCodeParams
 struct BufferDataOpCodeParams
 {
     std::unique_ptr<ResourceHandle> BufferHandle;
-    std::unique_ptr<std::shared_future<OpenGLBuffer>> BufferFuture;
+    std::shared_future<OpenGLBuffer>* BufferFuture;
     GLenum Target;
     GLsizeiptr Size;
     std::unique_ptr<std::shared_ptr<const void>> DataHandle;
@@ -564,13 +587,13 @@ struct BufferDataOpCodeParams
 
     bool AutoCleanup;
 
-    BufferDataOpCodeParams(std::unique_ptr<ResourceHandle> BufferHandle,
+    BufferDataOpCodeParams(std::unique_ptr<ResourceHandle> bufferHandle,
                            GLenum target,
                            GLsizeiptr size,
                            std::unique_ptr<std::shared_ptr<const void>> dataHandle,
                            GLenum usage,
                            bool autoCleanup)
-        : BufferHandle(std::move(BufferHandle))
+        : BufferHandle(std::move(bufferHandle))
         , BufferFuture(BufferHandle->GetData<std::shared_future<OpenGLBuffer>>())
         , Target(target)
         , Size(size)
@@ -600,7 +623,7 @@ struct BufferDataOpCodeParams
 
     SizedOpenGLInstruction<5> ToInstruction() const
     {
-        SizedOpenGLInstruction<5> si;
+        SizedOpenGLInstruction<5> si(OpenGLOpCode::BufferData);
         OpenGLInstruction& inst = si.Instruction;
         inst.Params[0] = reinterpret_cast<std::uintptr_t>(BufferHandle.get());
         inst.Params[1] = Target;
@@ -721,18 +744,22 @@ public:
         mResourceThreadData->mConsumerSemaphore.post();
     }
 
-    void SendQuit(CommonOpenGLThreadData& threadData)
+    void PushInstruction(CommonOpenGLThreadData& threadData, const OpenGLInstruction& inst)
     {
-        auto si = QuitOpCodeParams().ToInstruction();
-
         if (&threadData == mRenderingThreadData.get())
         {
-            PushRenderingInstruction(si.Instruction);
+            PushRenderingInstruction(inst);
         }
         else
         {
-            PushResourceInstruction(si.Instruction);
+            PushResourceInstruction(inst);
         }
+    }
+
+    void SendQuit(CommonOpenGLThreadData& threadData)
+    {
+        auto si = QuitOpCodeParams().ToInstruction();
+        PushInstruction(threadData, si.Instruction);
     }
 
     void SendSwapBuffers()
@@ -760,7 +787,8 @@ public:
         PushResourceInstruction(params.ToInstruction().Instruction);
     }
 
-    void SendBufferData(ResourceHandle bufferHandle,
+    void SendBufferData(CommonOpenGLThreadData& threadData,
+                        ResourceHandle bufferHandle,
                         GLenum target,
                         GLsizeiptr size,
                         std::shared_ptr<const void> dataHandle,
@@ -772,7 +800,7 @@ public:
                                       ng::make_unique<std::shared_ptr<const void>>(dataHandle),
                                       usage,
                                       true);
-        PushResourceInstruction(params.ToInstruction().Instruction);
+        PushInstruction(threadData, params.ToInstruction().Instruction);
         params.AutoCleanup = false;
     }
 
@@ -790,8 +818,6 @@ public:
 
         // allow consumer to begin reading what was just written
         mRenderingThreadData->mInstructionConsumerMutex[finishedWriteIndex].unlock();
-
-        RenderDebugPrintf("SwapRenderingInstructionQueues set mCurrentWriteBufferIndex to %zu\n", mRenderingThreadData->mCurrentWriteBufferIndex);
     }
 
     ~OpenGLRenderer()
@@ -823,16 +849,12 @@ public:
 
     void SwapBuffers() override
     {
-        RenderDebugPrintf("Begin GL3Renderer::SwapBuffers()\n");
-
         // make sure the buffer we're sending the swapbuffers commmand to
         // is the same that we will switch away from when swapping command queues
         std::lock_guard<std::recursive_mutex> lock(mRenderingThreadData->mCurrentWriteBufferMutex);
 
         SendSwapBuffers();
         SwapRenderingInstructionQueues();
-
-        RenderDebugPrintf("End GL3Renderer::SwapBuffers()\n");
     }
 
     std::shared_ptr<IStaticMesh> CreateStaticMesh() override
@@ -843,6 +865,10 @@ public:
 
 constexpr ResourceHandle::ClassIDType OpenGLRenderer::GLBufferClassID;
 
+OpenGLBuffer::OpenGLBuffer()
+    : mHandle(0)
+{ }
+
 OpenGLBuffer::OpenGLBuffer(std::shared_ptr<OpenGLRenderer> renderer, GLuint handle)
     : mRenderer(std::move(renderer))
     , mHandle(handle)
@@ -850,7 +876,35 @@ OpenGLBuffer::OpenGLBuffer(std::shared_ptr<OpenGLRenderer> renderer, GLuint hand
 
 OpenGLBuffer::~OpenGLBuffer()
 {
-    mRenderer->SendDeleteBuffer(mHandle);
+    if (mRenderer && mHandle)
+    {
+        mRenderer->SendDeleteBuffer(mHandle);
+    }
+}
+
+OpenGLBuffer::OpenGLBuffer(OpenGLBuffer&& other)
+    : OpenGLBuffer()
+{
+    swap(other);
+}
+
+OpenGLBuffer& OpenGLBuffer::operator=(OpenGLBuffer&& other)
+{
+    swap(other);
+    return *this;
+}
+
+void OpenGLBuffer::reset(std::shared_ptr<OpenGLRenderer> renderer, GLuint handle)
+{
+    mRenderer = renderer;
+    mHandle = handle;
+}
+
+void OpenGLBuffer::swap(OpenGLBuffer& other)
+{
+    using std::swap;
+    swap(mRenderer, other.mRenderer);
+    swap(mHandle, other.mHandle);
 }
 
 OpenGLStaticMesh::OpenGLStaticMesh(std::shared_ptr<OpenGLRenderer> renderer)
@@ -867,7 +921,7 @@ void OpenGLStaticMesh::Init(const VertexFormat& format,
 
     // upload vertexData
     mVertexBuffer = mRenderer->SendGenBuffer();
-    mRenderer->SendBufferData(mVertexBuffer, GL_ARRAY_BUFFER, vertexDataSize, vertexData, GL_DYNAMIC_DRAW);
+    mRenderer->SendBufferData(*mRenderer->mResourceThreadData, mVertexBuffer, GL_ARRAY_BUFFER, vertexDataSize, vertexData, GL_DYNAMIC_DRAW);
 
     if (indexData != nullptr && !mVertexFormat.IsIndexed)
     {
@@ -878,7 +932,7 @@ void OpenGLStaticMesh::Init(const VertexFormat& format,
     if (mVertexFormat.IsIndexed)
     {
         mIndexBuffer = mRenderer->SendGenBuffer();
-        mRenderer->SendBufferData(mIndexBuffer, GL_ELEMENT_ARRAY_BUFFER, indexDataSize, indexData, GL_STATIC_DRAW);
+        mRenderer->SendBufferData(*mRenderer->mResourceThreadData, mIndexBuffer, GL_ELEMENT_ARRAY_BUFFER, indexDataSize, indexData, GL_STATIC_DRAW);
     }
 }
 
@@ -985,7 +1039,6 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
 
         OpenGLInstructionLinearBuffer& instructionBuffer = threadData->mInstructionBuffers[bufferToConsumeFrom];
 
-        RenderDebugPrintf("%s is waiting for consumer mutex %zu to start rendering.\n", threadData->mThreadName.c_str(), bufferToConsumeFrom);
         // be ready to start reading from what's being written as soon as it's ready,
         // and release it back to the producer after.
         struct ConsumptionScope
@@ -1018,11 +1071,11 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
         SizedOpenGLInstruction<OpenGLInstruction::MaxParams> sizedInst(SizedOpenGLInstruction<OpenGLInstruction::MaxParams>::NoInitTag{});
         OpenGLInstruction& inst = sizedInst.Instruction;
 
-        RenderDebugPrintf("Started reading instruction buffer %zu in %s\n", bufferToConsumeFrom, threadData->mThreadName.c_str());
         renderProfiler.Start();
 
         while (instructionBuffer.PopInstruction(inst))
         {
+            RenderDebugPrintf("Rendering thread processing %s\n", ToString(static_cast<OpenGLOpCode>(inst.OpCode)));
             switch (static_cast<OpenGLOpCode>(inst.OpCode))
             {
             case OpenGLOpCode::Quit: {
@@ -1038,7 +1091,6 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
         }
 
         renderProfiler.Stop();
-        RenderDebugPrintf("Finished reading instruction buffer %zu in %s\n", bufferToConsumeFrom, threadData->mThreadName.c_str());
     }
 }
 
@@ -1067,6 +1119,8 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
         }
 
         resourceProfiler.Start();
+
+        RenderDebugPrintf("Resource thread processing %s\n", ToString(static_cast<OpenGLOpCode>(inst.OpCode)));
 
         // now execute the instruction
         switch (static_cast<OpenGLOpCode>(inst.OpCode))

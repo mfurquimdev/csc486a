@@ -29,7 +29,7 @@ int main()
             1.0f,-1.0f, 0.0f,
         };
 
-        std::shared_ptr<const void> meshData(rawMeshData, [](const void*){});
+        std::shared_ptr<const void> meshData(rawMeshData, [](const float*){});
         mesh->Init(meshFormat, std::move(meshData), sizeof(rawMeshData), nullptr, 0);
     }
 
