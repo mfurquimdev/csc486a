@@ -864,7 +864,7 @@ public:
     }
 };
 
-constexpr ResourceHandle::ClassID OpenGLRenderer::GLSharedFutureToBufferClassIDt;
+constexpr ResourceHandle::ClassID OpenGLRenderer::GLSharedFutureToBufferClassID;
 
 OpenGLBuffer::OpenGLBuffer()
     : mHandle(0)
