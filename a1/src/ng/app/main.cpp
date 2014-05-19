@@ -5,7 +5,7 @@
 #include "ng/engine/renderer.hpp"
 #include "ng/engine/profiler.hpp"
 #include "ng/engine/debug.hpp"
-#include "ng/engine/dynamicmesh.hpp"
+#include "ng/engine/staticmesh.hpp"
 #include "ng/engine/vertexformat.hpp"
 
 #include <chrono>
@@ -18,7 +18,7 @@ int main()
     auto window = windowManager->CreateWindow("test", 640, 480, 0, 0, videoFlags);
     auto renderer = ng::CreateRenderer(windowManager, window);
 
-    auto mesh = renderer->CreateDynamicMesh();
+    auto mesh = renderer->CreateStaticMesh();
     {
         ng::VertexFormat meshFormat;
         meshFormat.Position = ng::VertexAttribute(3, ng::ArithmeticType::Float,
@@ -29,7 +29,7 @@ int main()
             1.0f,-1.0f, 0.0f,
         };
 
-        ng::unique_deleted_ptr<const void> meshData(rawMeshData, [](const void*){});
+        std::shared_ptr<const void> meshData(rawMeshData, [](const void*){});
         mesh->Init(meshFormat, std::move(meshData), sizeof(rawMeshData), nullptr, 0);
     }
 

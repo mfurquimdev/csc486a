@@ -8,7 +8,7 @@ namespace ng
 
 class IWindowManager;
 class IWindow;
-class IDynamicMesh;
+class IStaticMesh;
 
 class IRenderer
 {
@@ -19,7 +19,7 @@ public:
 
     virtual void SwapBuffers() = 0;
 
-    virtual std::shared_ptr<IDynamicMesh> CreateDynamicMesh() = 0;
+    virtual std::shared_ptr<IStaticMesh> CreateStaticMesh() = 0;
 };
 
 std::shared_ptr<IRenderer> CreateRenderer(

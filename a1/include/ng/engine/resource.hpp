@@ -9,15 +9,45 @@ namespace ng
 
 struct ResourceHandle
 {
-    std::uint32_t ID;
-    std::uint32_t Class;
+    using IDType = std::uint32_t;
+
+    union ClassIDType
+    {
+        std::uint32_t AsUInt;
+        char AsBytes[4];
+
+        ClassIDType() = default;
+
+        explicit constexpr ClassIDType(std::uint32_t asUInt)
+            : AsUInt(asUInt)
+        { }
+
+        template<std::size_t N>
+        explicit constexpr ClassIDType(const char (&fourLetterCode)[N])
+            : AsBytes {
+                  fourLetterCode[0],
+                  fourLetterCode[1],
+                  fourLetterCode[2],
+                  fourLetterCode[3] }
+        {
+            static_assert(N >= 4, "should be passing in a four-letter code.");
+        }
+    };
+
+    IDType ID;
+    ClassIDType ClassID;
     std::shared_ptr<void> Data;
 
-    ResourceHandle(std::uint32_t id,
-                   std::uint32_t clazz,
+    ResourceHandle()
+        : ID(0)
+        , ClassID(0)
+    { }
+
+    ResourceHandle(IDType id,
+                   ClassIDType classID,
                    std::shared_ptr<void> data)
         : ID(id)
-        , Class(clazz)
+        , ClassID(classID)
         , Data(std::move(data))
     { }
 

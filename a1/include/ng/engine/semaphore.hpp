@@ -14,26 +14,11 @@ class semaphore
     unsigned long mCount;
 
 public:
-    semaphore(unsigned long initialCount = 0)
-        : mCount(initialCount)
-    { }
+    semaphore(unsigned long initialCount = 0);
 
-    void post()
-    {
-        std::lock_guard<std::mutex> lock(mMutex);
-        ++mCount;
-        mCondition.notify_one();
-    }
+    void post();
 
-    void wait()
-    {
-        std::unique_lock<std::mutex> lock(mMutex);
-        while (mCount == 0)
-        {
-            mCondition.wait(lock);
-        }
-        --mCount;
-    }
+    void wait();
 };
 
 } // end namespace ng
