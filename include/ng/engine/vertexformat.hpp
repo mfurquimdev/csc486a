@@ -10,6 +10,7 @@ namespace ng
 
 struct VertexAttribute
 {
+    std::size_t Index;
     int Cardinality;
     ArithmeticType Type;
     bool IsNormalized;
@@ -20,13 +21,16 @@ struct VertexAttribute
 
     VertexAttribute() = default;
 
-    VertexAttribute(int cardinality,
-                    ArithmeticType type,
-                    bool isNormalized,
-                    std::ptrdiff_t stride,
-                    std::size_t offset,
-                    bool isEnabled)
-        : Cardinality(cardinality)
+    VertexAttribute(
+            std::size_t index,
+            int cardinality,
+            ArithmeticType type,
+            bool isNormalized,
+            std::ptrdiff_t stride,
+            std::size_t offset,
+            bool isEnabled)
+        : Index(index)
+        , Cardinality(cardinality)
         , Type(type)
         , IsNormalized(isNormalized)
         , Stride(stride)

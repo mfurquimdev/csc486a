@@ -21,8 +21,7 @@ int main()
     auto mesh = renderer->CreateStaticMesh();
     {
         ng::VertexFormat meshFormat;
-        meshFormat.Position = ng::VertexAttribute(3, ng::ArithmeticType::Float,
-                                                  false, 0, 0, true);
+        meshFormat.Position = ng::VertexAttribute(0, 3, ng::ArithmeticType::Float, false, 0, 0, true);
         static const float rawMeshData[] = {
             0.0f, 0.0f, 0.0f,
             1.0f, 1.0f,-1.0f,

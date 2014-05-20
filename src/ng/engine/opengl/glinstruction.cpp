@@ -216,14 +216,14 @@ SizedOpenGLInstruction<1> ClearOpCodeParams::ToInstruction() const
     return si;
 }
 
-GenBufferOpCodeParams::GenBufferOpCodeParams(std::unique_ptr<std::promise<OpenGLBuffer>> bufferPromise,
+GenBufferOpCodeParams::GenBufferOpCodeParams(std::unique_ptr<std::promise<OpenGLBufferHandle>> bufferPromise,
                       bool autoCleanup)
     : BufferPromise(std::move(bufferPromise))
     , AutoCleanup(autoCleanup)
 { }
 
 GenBufferOpCodeParams::GenBufferOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup)
-    : BufferPromise(reinterpret_cast<std::promise<OpenGLBuffer>*>(inst.Params[0]))
+    : BufferPromise(reinterpret_cast<std::promise<OpenGLBufferHandle>*>(inst.Params[0]))
     , AutoCleanup(autoCleanup)
 { }
 
@@ -259,7 +259,7 @@ SizedOpenGLInstruction<1> DeleteBufferOpCodeParams::ToInstruction() const
 }
 
 BufferDataOpCodeParams::BufferDataOpCodeParams(
-        std::unique_ptr<std::shared_future<OpenGLBuffer>> bufferHandle,
+        std::unique_ptr<std::shared_future<OpenGLBufferHandle>> bufferHandle,
         GLenum target,
         GLsizeiptr size,
         std::unique_ptr<std::shared_ptr<const void>> dataHandle,
@@ -274,7 +274,7 @@ BufferDataOpCodeParams::BufferDataOpCodeParams(
 { }
 
 BufferDataOpCodeParams::BufferDataOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup)
-    : BufferHandle(reinterpret_cast<std::shared_future<OpenGLBuffer>*>(inst.Params[0]))
+    : BufferHandle(reinterpret_cast<std::shared_future<OpenGLBufferHandle>*>(inst.Params[0]))
     , Target(inst.Params[1])
     , Size(inst.Params[2])
     , DataHandle(reinterpret_cast<std::shared_ptr<const void>*>(inst.Params[3]))
@@ -303,6 +303,51 @@ SizedOpenGLInstruction<5> BufferDataOpCodeParams::ToInstruction() const
     return si;
 }
 
+DrawVertexArrayOpCodeParams::DrawVertexArrayOpCodeParams(
+        std::unique_ptr<VertexArray> vertexArrayHandle,
+        std::unique_ptr<std::shared_future<OpenGLShaderProgramHandle>> programHandle,
+        GLenum mode,
+        GLint firstVertexIndex,
+        GLsizei vertexCount,
+        bool autoCleanup)
+    : VertexArrayHandle(std::move(vertexArrayHandle))
+    , ProgramHandle(std::move(programHandle))
+    , Mode(mode)
+    , FirstVertexIndex(firstVertexIndex)
+    , VertexCount(vertexCount)
+    , AutoCleanup(autoCleanup)
+{ }
+
+DrawVertexArrayOpCodeParams::DrawVertexArrayOpCodeParams(
+        const OpenGLInstruction& inst, bool autoCleanup)
+    : VertexArrayHandle(reinterpret_cast<VertexArray*>(inst.Params[0]))
+    , ProgramHandle(reinterpret_cast<std::shared_future<OpenGLShaderProgramHandle>*>(inst.Params[1]))
+    , Mode(inst.Params[2])
+    , FirstVertexIndex(inst.Params[3])
+    , VertexCount(inst.Params[4])
+    , AutoCleanup(autoCleanup)
+{ }
+
+DrawVertexArrayOpCodeParams::~DrawVertexArrayOpCodeParams()
+{
+    if (!AutoCleanup)
+    {
+        ProgramHandle.release();
+        VertexArrayHandle.release();
+    }
+}
+
+SizedOpenGLInstruction<5> DrawVertexArrayOpCodeParams::ToInstruction() const
+{
+    SizedOpenGLInstruction<5> si(OpenGLOpCode::DrawVertexArray);
+    OpenGLInstruction& inst(si.Instruction);
+    inst.Params[0] = reinterpret_cast<std::uintptr_t>(VertexArrayHandle.get());
+    inst.Params[1] = reinterpret_cast<std::uintptr_t>(ProgramHandle.get());
+    inst.Params[2] = Mode;
+    inst.Params[3] = FirstVertexIndex;
+    inst.Params[4] = VertexCount;
+    return si;
+}
 
 SwapBuffersOpCodeParams::SwapBuffersOpCodeParams()
 { }

@@ -2,6 +2,7 @@
 #define NG_STATICMESH_HPP
 
 #include <memory>
+#include <vector>
 
 namespace ng
 {
@@ -14,8 +15,7 @@ public:
     virtual ~IStaticMesh() = default;
 
     virtual void Init(const VertexFormat& format,
-                      std::shared_ptr<const void> vertexData,
-                      std::ptrdiff_t vertexDataSize,
+                      const std::vector<std::pair<std::shared_ptr<const void>,std::ptrdiff_t>>& vertexDataAndSize,
                       std::shared_ptr<const void> indexData,
                       std::ptrdiff_t indexDataSize) = 0;
 };
