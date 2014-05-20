@@ -348,7 +348,7 @@ DeclareGLExtension(PFNGLUNMAPBUFFERPROC, glUnmapBuffer);
 // for instructions that act the same way for both threads.
 static void HandleCommonInstruction(CommonOpenGLThreadData* threadData, const OpenGLInstruction& inst)
 {
-    switch (static_cast<OpenGLOpCode::OpCodeID>(inst.OpCode))
+    switch (static_cast<OpenGLOpCode>(inst.OpCode))
     {
     case OpenGLOpCode::Clear: {
         ClearOpCodeParams params(inst);
@@ -430,8 +430,11 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
 
         while (instructionBuffer.PopInstruction(inst))
         {
-            RenderDebugPrintf("Rendering thread processing %s\n", OpenGLOpCode(static_cast<OpenGLOpCode::OpCodeID>(inst.OpCode)).ToString());
-            switch (static_cast<OpenGLOpCode::OpCodeID>(inst.OpCode))
+            const OpenGLOpCode code = static_cast<OpenGLOpCode>(inst.OpCode);
+
+            RenderDebugPrintf("Rendering thread processing %s\n", OpenGLOpCodeToString(code));
+
+            switch (code)
             {
             case OpenGLOpCode::Quit: {
                 RenderProfilePrintf("Time spent rendering serverside in %s: %lfms\n", threadData->mThreadName.c_str(), renderProfiler.GetTotalTimeMS());
@@ -474,10 +477,12 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
 
         resourceProfiler.Start();
 
-        RenderDebugPrintf("Resource thread processing %s\n", OpenGLOpCode(static_cast<OpenGLOpCode::OpCodeID>(inst.OpCode)).ToString());
+        const OpenGLOpCode code = static_cast<OpenGLOpCode>(inst.OpCode);
+
+        RenderDebugPrintf("Resource thread processing %s\n", OpenGLOpCodeToString(code));
 
         // now execute the instruction
-        switch (static_cast<OpenGLOpCode::OpCodeID>(inst.OpCode))
+        switch (code)
         {
         case OpenGLOpCode::GenBuffer: {
             GenBufferOpCodeParams params(inst, true);
