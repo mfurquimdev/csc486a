@@ -3,12 +3,12 @@
 
 #include "ng/engine/staticmesh.hpp"
 
-#include "ng/engine/resource.hpp"
 #include "ng/engine/vertexformat.hpp"
 
 #include <GL/gl.h>
 
 #include <memory>
+#include <future>
 
 namespace ng
 {
@@ -48,8 +48,8 @@ public:
     std::shared_ptr<OpenGLRenderer> mRenderer;
     VertexFormat mVertexFormat;
 
-    ResourceHandle mVertexBuffer;
-    ResourceHandle mIndexBuffer;
+    std::shared_future<OpenGLBuffer> mVertexBuffer;
+    std::shared_future<OpenGLBuffer> mIndexBuffer;
 
     OpenGLStaticMesh(std::shared_ptr<OpenGLRenderer> renderer);
 

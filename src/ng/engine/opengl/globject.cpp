@@ -73,7 +73,7 @@ void OpenGLStaticMesh::Init(const VertexFormat& format,
     }
     else
     {
-        mIndexBuffer = nullptr;
+        mIndexBuffer = std::shared_future<OpenGLBuffer>();
     }
 }
 

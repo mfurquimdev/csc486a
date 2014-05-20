@@ -29,8 +29,9 @@
 namespace ng
 {
 
-struct CommonOpenGLThreadData
+class CommonOpenGLThreadData
 {
+public:
     CommonOpenGLThreadData(
             const std::string& threadName,
             const std::shared_ptr<IWindowManager>& windowManager,
@@ -53,8 +54,9 @@ struct CommonOpenGLThreadData
     OpenGLRenderer& mRenderer;
 };
 
-struct RenderingOpenGLThreadData : CommonOpenGLThreadData
+class RenderingOpenGLThreadData : public CommonOpenGLThreadData
 {
+public:
     static const size_t InitialWriteBufferIndex = 0;
 
     RenderingOpenGLThreadData(
@@ -91,8 +93,9 @@ struct RenderingOpenGLThreadData : CommonOpenGLThreadData
     std::recursive_mutex mCurrentWriteBufferMutex;
 };
 
-struct ResourceOpenGLThreadData : CommonOpenGLThreadData
+class ResourceOpenGLThreadData : public CommonOpenGLThreadData
 {
+public:
     ResourceOpenGLThreadData(
             const std::string& threadName,
             const std::shared_ptr<IWindowManager>& windowManager,
@@ -116,20 +119,6 @@ struct ResourceOpenGLThreadData : CommonOpenGLThreadData
     OpenGLInstructionRingBuffer mInstructionBuffer;
     std::recursive_mutex mInstructionBufferMutex;
 };
-
-static void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData);
-static void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData);
-
-ResourceHandle::InstanceID OpenGLRenderer::GenerateInstanceID()
-{
-    std::lock_guard<std::mutex> lock(mIDGenLock);
-
-    static_assert(sizeof(mCurrentID) >= 8, "Assuming that we never realistically will need more than 2^64 ids");
-    mCurrentID++;
-
-    return mCurrentID;
-}
-
 
 void OpenGLRenderer::PushRenderingInstruction(const OpenGLInstruction& inst)
 {
@@ -190,6 +179,9 @@ void OpenGLRenderer::SwapRenderingInstructionQueues()
     mRenderingThreadData->mInstructionConsumerMutex[finishedWriteIndex].unlock();
 }
 
+static void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData);
+static void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData);
+
 OpenGLRenderer::OpenGLRenderer(
         std::shared_ptr<IWindowManager> windowManager,
         std::shared_ptr<IWindow> window)
@@ -246,18 +238,16 @@ void OpenGLRenderer::SendSwapBuffers()
     PushRenderingInstruction(SwapBuffersOpCodeParams().ToInstruction().Instruction);
 }
 
-ResourceHandle OpenGLRenderer::SendGenBuffer()
+std::shared_future<OpenGLBuffer> OpenGLRenderer::SendGenBuffer()
 {
     // grab a new promise so we can fill it up.
     GenBufferOpCodeParams params(ng::make_unique<std::promise<OpenGLBuffer>>(), true);
-    ResourceHandle res(GenerateInstanceID(), GLSharedFutureToBufferClassID,
-                       std::make_shared<std::shared_future<OpenGLBuffer>>(
-                           params.BufferPromise->get_future()));
+    auto fut = params.BufferPromise->get_future();
 
     PushResourceInstruction(params.ToInstruction().Instruction);
     params.AutoCleanup = false;
 
-    return res;
+    return std::move(fut);
 }
 
 void OpenGLRenderer::SendDeleteBuffer(GLuint buffer)
@@ -268,13 +258,13 @@ void OpenGLRenderer::SendDeleteBuffer(GLuint buffer)
 
 void OpenGLRenderer::SendBufferData(
         OpenGLInstructionHandler instructionHandler,
-        ResourceHandle bufferHandle,
+        std::shared_future<OpenGLBuffer> bufferHandle,
         GLenum target,
         GLsizeiptr size,
         std::shared_ptr<const void> dataHandle,
         GLenum usage)
 {
-    BufferDataOpCodeParams params(ng::make_unique<ResourceHandle>(bufferHandle),
+    BufferDataOpCodeParams params(ng::make_unique<std::shared_future<OpenGLBuffer>>(bufferHandle),
                                   target,
                                   size,
                                   ng::make_unique<std::shared_ptr<const void>>(dataHandle),
@@ -307,8 +297,6 @@ std::shared_ptr<IStaticMesh> OpenGLRenderer::CreateStaticMesh()
 {
     return std::make_shared<OpenGLStaticMesh>(shared_from_this());
 }
-
-constexpr ResourceHandle::ClassID OpenGLRenderer::GLSharedFutureToBufferClassID;
 
 static void* LoadProcOrDie(IGLContext& context, const char* procName)
 {
@@ -369,7 +357,7 @@ static void HandleCommonInstruction(CommonOpenGLThreadData* threadData, const Op
     case OpenGLOpCode::BufferData: {
         BufferDataOpCodeParams params(inst, true);
 
-        glBindBuffer(params.Target, params.BufferFuture->get().GetHandle());
+        glBindBuffer(params.Target, params.BufferHandle->get().GetHandle());
 
         // initialize it with null, because glBufferData would make a useless copy of the data we pass it.
         glBufferData(params.Target, params.Size, nullptr, params.Usage);

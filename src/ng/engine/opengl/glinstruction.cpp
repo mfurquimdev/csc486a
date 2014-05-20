@@ -1,7 +1,6 @@
 #include "ng/engine/opengl/glinstruction.hpp"
 
 #include "ng/engine/opengl/globject.hpp"
-#include "ng/engine/resource.hpp"
 #include "ng/engine/debug.hpp"
 
 #include <cstring>
@@ -260,14 +259,13 @@ SizedOpenGLInstruction<1> DeleteBufferOpCodeParams::ToInstruction() const
 }
 
 BufferDataOpCodeParams::BufferDataOpCodeParams(
-        std::unique_ptr<ResourceHandle> bufferHandle,
+        std::unique_ptr<std::shared_future<OpenGLBuffer>> bufferHandle,
         GLenum target,
         GLsizeiptr size,
         std::unique_ptr<std::shared_ptr<const void>> dataHandle,
         GLenum usage,
         bool autoCleanup)
     : BufferHandle(std::move(bufferHandle))
-    , BufferFuture(BufferHandle->GetPtr<std::shared_future<OpenGLBuffer>>())
     , Target(target)
     , Size(size)
     , DataHandle(std::move(dataHandle))
@@ -276,8 +274,7 @@ BufferDataOpCodeParams::BufferDataOpCodeParams(
 { }
 
 BufferDataOpCodeParams::BufferDataOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup)
-    : BufferHandle(reinterpret_cast<ResourceHandle*>(inst.Params[0]))
-    , BufferFuture(BufferHandle->GetPtr<std::shared_future<OpenGLBuffer>>())
+    : BufferHandle(reinterpret_cast<std::shared_future<OpenGLBuffer>*>(inst.Params[0]))
     , Target(inst.Params[1])
     , Size(inst.Params[2])
     , DataHandle(reinterpret_cast<std::shared_ptr<const void>*>(inst.Params[3]))

@@ -114,7 +114,7 @@ struct OpenGLOpCode
         //         * buffer must be deleted with glDeleteBuffers.
         BufferData,
         // params:
-        //         0) ng::ResourceHandle* bufferHandle
+        //         0) std::shared_future<OpenGLBuffer>* bufferHandle
         //         1) GLenum target
         //         2) GLsizeiptr size
         //         3) std::shared_ptr<const void>* dataHandle
@@ -184,7 +184,6 @@ struct SizedOpenGLInstruction
 };
 
 class OpenGLBuffer;
-class ResourceHandle;
 
 struct ClearOpCodeParams
 {
@@ -221,8 +220,7 @@ struct DeleteBufferOpCodeParams
 
 struct BufferDataOpCodeParams
 {
-    std::unique_ptr<ResourceHandle> BufferHandle;
-    std::shared_future<OpenGLBuffer>* BufferFuture;
+    std::unique_ptr<std::shared_future<OpenGLBuffer>> BufferHandle;
     GLenum Target;
     GLsizeiptr Size;
     std::unique_ptr<std::shared_ptr<const void>> DataHandle;
@@ -231,7 +229,7 @@ struct BufferDataOpCodeParams
     bool AutoCleanup;
 
     BufferDataOpCodeParams(
-            std::unique_ptr<ResourceHandle> bufferHandle,
+            std::unique_ptr<std::shared_future<OpenGLBuffer>> bufferHandle,
             GLenum target,
             GLsizeiptr size,
             std::unique_ptr<std::shared_ptr<const void>> dataHandle,

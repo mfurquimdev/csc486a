@@ -3,13 +3,12 @@
 
 #include "ng/engine/renderer.hpp"
 
-#include "ng/engine/resource.hpp"
-
 #include <GL/gl.h>
 
 #include <memory>
 #include <thread>
 #include <mutex>
+#include <future>
 
 namespace ng
 {
@@ -17,9 +16,10 @@ namespace ng
 class IWindowManager;
 class IWindow;
 class IGLContext;
-struct RenderingOpenGLThreadData;
-struct ResourceOpenGLThreadData;
+class RenderingOpenGLThreadData;
+class ResourceOpenGLThreadData;
 struct OpenGLInstruction;
+class OpenGLBuffer;
 
 class OpenGLRenderer: public IRenderer, public std::enable_shared_from_this<OpenGLRenderer>
 {
@@ -29,9 +29,6 @@ public:
         RenderingInstructionHandler,
         ResourceInstructionHandler
     };
-
-    // classes of objects created by Renderer
-    static constexpr ResourceHandle::ClassID GLSharedFutureToBufferClassID{ "GLBF" };
 
 private:
     std::shared_ptr<IWindow> mWindow;
@@ -48,12 +45,6 @@ private:
     static const std::size_t RenderingCommandBufferSize = OneMB;
     static const std::size_t ResourceCommandBufferSize = OneMB;
 
-    // for generating unique IDs for resources
-    ResourceHandle::InstanceID mCurrentID = 0;
-    std::mutex mIDGenLock;
-
-    ResourceHandle::InstanceID GenerateInstanceID();
-
     void PushRenderingInstruction(const OpenGLInstruction& inst);
 
     void PushResourceInstruction(const OpenGLInstruction& inst);
@@ -63,7 +54,6 @@ private:
     void SwapRenderingInstructionQueues();
 
 public:
-
     OpenGLRenderer(
             std::shared_ptr<IWindowManager> windowManager,
             std::shared_ptr<IWindow> window);
@@ -74,13 +64,13 @@ public:
 
     void SendSwapBuffers();
 
-    ResourceHandle SendGenBuffer();
+    std::shared_future<OpenGLBuffer> SendGenBuffer();
 
     void SendDeleteBuffer(GLuint buffer);
 
     void SendBufferData(
             OpenGLInstructionHandler instructionHandler,
-            ResourceHandle bufferHandle,
+            std::shared_future<OpenGLBuffer> bufferHandle,
             GLenum target,
             GLsizeiptr size,
             std::shared_ptr<const void> dataHandle,
