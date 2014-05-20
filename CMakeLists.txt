@@ -9,6 +9,6 @@ add_subdirectory(src)
 file(GLOB_RECURSE INTERFACE_FILES
     include/**.hpp include/**.inl)
 
-add_library(HEADER_ONLY_TARGET STATIC ${INTERFACE_FILES})
-set_target_properties(HEADER_ONLY_TARGET PROPERTIES LINKER_LANGUAGE CXX)
+add_library(ngPlaceholderHeaderLib STATIC ${INTERFACE_FILES})
+set_target_properties(ngPlaceholderHeaderLib PROPERTIES LINKER_LANGUAGE CXX)
 

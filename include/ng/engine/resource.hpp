@@ -44,6 +44,10 @@ struct ResourceHandle
         , Class(0)
     { }
 
+    ResourceHandle(std::nullptr_t)
+        : ResourceHandle()
+    { }
+
     template<class T>
     ResourceHandle(InstanceID instance,
                    ClassID clazz,
@@ -54,13 +58,13 @@ struct ResourceHandle
     { }
 
     template<class T>
-    T* GetData()
+    T* GetPtr()
     {
         return static_cast<T*>(Data.get());
     }
 
     template<class T>
-    const T* GetData() const
+    const T* GetPtr() const
     {
         return static_cast<const T*>(Data.get());
     }

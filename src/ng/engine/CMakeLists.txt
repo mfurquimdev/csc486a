@@ -21,8 +21,14 @@ file(GLOB COMMON_SOURCES
 file(GLOB_RECURSE X11_SOURCES
     x11/**.cpp x11/**.hpp)
 
+file(GLOB_RECURSE OPENGL_SOURCES
+    opengl/**.cpp opengl/**.hpp)
+
 set(SOURCES ${COMMON_SOURCES})
+
 set(LIBS ${OPENGL_LIBRARIES})
+
+set(SOURCES ${SOURCES} ${OPENGL_SOURCES})
 
 if(NG_USE_X11)
     set(SOURCES ${SOURCES} ${X11_SOURCES})
