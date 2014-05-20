@@ -12,7 +12,7 @@ public:
     virtual void Init(std::shared_ptr<const char> vertexShaderSource,
                       std::shared_ptr<const char> fragmentShaderSource) = 0;
 
-    virtual bool GetStatus(std::string& errorMessage) const = 0;
+    virtual std::pair<bool,std::string> GetStatus() const = 0;
 };
 
 } // end namespace ng

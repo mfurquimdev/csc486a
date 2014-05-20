@@ -89,9 +89,9 @@ public:
 
     std::shared_future<std::pair<bool,std::string>> SendGetShaderStatus(std::shared_future<OpenGLShaderHandle> shader);
 
-    std::shared_future<OpenGLShaderProgramHandle> SendGenProgram();
+    std::shared_future<OpenGLShaderProgramHandle> SendGenShaderProgram();
 
-    void SendDeleteProgram(GLuint program);
+    void SendDeleteShaderProgram(GLuint program);
 
     void SendLinkProgram(
             std::shared_future<OpenGLShaderProgramHandle> programHandle,

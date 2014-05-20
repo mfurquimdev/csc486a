@@ -240,9 +240,8 @@ void OpenGLRenderer::SendSwapBuffers()
 
 std::shared_future<OpenGLBufferHandle> OpenGLRenderer::SendGenBuffer()
 {
-    // grab a new promise so we can fill it up.
     GenBufferOpCodeParams params(ng::make_unique<std::promise<OpenGLBufferHandle>>(), true);
-    auto fut = params.BufferPromise->get_future();
+    auto fut = params.Promise->get_future();
 
     PushResourceInstruction(params.ToInstruction().Instruction);
     params.AutoCleanup = false;
@@ -273,6 +272,67 @@ void OpenGLRenderer::SendBufferData(
     PushInstruction(instructionHandler, params.ToInstruction().Instruction);
     params.AutoCleanup = false;
 }
+
+std::shared_future<OpenGLShaderHandle> OpenGLRenderer::SendGenShader()
+{
+    GenShaderOpCodeParams params(ng::make_unique<std::promise<OpenGLShaderHandle>>(), true);
+    auto fut = params.Promise->get_future();
+
+    PushResourceInstruction(params.ToInstruction().Instruction);
+    params.AutoCleanup = false;
+
+    return std::move(fut);
+}
+
+void OpenGLRenderer::SendDeleteShader(GLuint shader)
+{
+    DeleteShaderOpCodeParams params(shader);
+    PushResourceInstruction(params.ToInstruction().Instruction);
+}
+
+void OpenGLRenderer::SendCompileShader(
+        std::shared_future<OpenGLShaderHandle> shaderHandle,
+        std::shared_ptr<const char> shaderSource)
+{
+    CompileShaderOpCodeParams params(
+                ng::make_unique<std::shared_future<OpenGLShaderHandle>>(shaderHandle),
+                ng::make_unique<std::shared_ptr<const char>>(shaderSource));
+    PushResourceInstruction(params.ToInstruction().Instruction);
+    params.AutoCleanup = false;
+}
+
+std::shared_future<std::pair<bool,std::string>> OpenGLRenderer::SendGetShaderStatus(std::shared_future<OpenGLShaderHandle> shader)
+{
+    ShaderStatusOpCodeParams params(
+                ng::make_unique<std::promise<std::pair<bool,std::string>>>(),
+                ng::make_unique<std::shared_future<OpenGLShaderHandle>>(shader));
+    PushResourceInstruction(params.ToInstruction().Instruction);
+    params.AutoCleanup = false;
+}
+
+std::shared_future<OpenGLShaderProgramHandle> OpenGLRenderer::SendGenShaderProgram()
+{
+    GenShaderProgramOpCodeParams params(ng::make_unique<std::promise<OpenGLShaderProgramHandle>>(), true);
+    auto fut = params.Promise->get_future();
+
+    PushResourceInstruction(params.ToInstruction().Instruction);
+    params.AutoCleanup = false;
+
+    return std::move(fut);
+}
+
+void OpenGLRenderer::SendDeleteShaderProgram(GLuint program)
+{
+    DeleteShaderProgramOpCodeParams params(program);
+    PushResourceInstruction(params.ToInstruction().Instruction);
+}
+
+void OpenGLRenderer::SendLinkProgram(
+        std::shared_future<OpenGLShaderProgramHandle> programHandle,
+        std::shared_future<OpenGLShaderHandle> vertexShaderHandle,
+        std::shared_future<OpenGLShaderHandle> fragmentShaderHandle);
+
+std::shared_future<std::pair<bool,std::string>> OpenGLRenderer::SendGetProgramStatus(std::shared_future<OpenGLShaderProgramHandle> program);
 
 void OpenGLRenderer::SendDrawVertexArray(
         const VertexArray& vertexArray,

@@ -113,7 +113,7 @@ public:
     void Init(std::shared_ptr<const char> vertexShaderSource,
               std::shared_ptr<const char> fragmentShaderSource) override;
 
-    bool GetStatus(std::string& errorMessage) const override;
+    std::pair<bool,std::string> GetStatus() const override;
 };
 
 class OpenGLStaticMesh : public IStaticMesh

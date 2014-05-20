@@ -115,13 +115,13 @@ OpenGLShaderProgramHandle::OpenGLShaderProgramHandle(std::shared_ptr<OpenGLRende
     , mHandle(handle)
 { }
 
-OpenGLShaderProgramHandle::OpenGLShaderProgramHandle(OpenGLBufferHandle&& other)
+OpenGLShaderProgramHandle::OpenGLShaderProgramHandle(OpenGLShaderProgramHandle&& other)
     : OpenGLShaderProgramHandle()
 {
     swap(other);
 }
 
-OpenGLBufferHandle& OpenGLShaderProgramHandle::operator=(OpenGLBufferHandle&& other)
+OpenGLShaderProgramHandle& OpenGLShaderProgramHandle::operator=(OpenGLShaderProgramHandle&& other)
 {
     if (this != &other)
     {
@@ -155,18 +155,46 @@ void OpenGLShaderProgram::Init(
         std::shared_ptr<const char> vertexShaderSource,
         std::shared_ptr<const char> fragmentShaderSource)
 {
-    mVertexShader = renderer->SendGenShader();
-    mFragmentShader = renderer->SendGenShader();
-    mProgram = renderer->SendGenProgram();
+    mVertexShader = mRenderer->SendGenShader();
+    mFragmentShader = mRenderer->SendGenShader();
+    mProgram = mRenderer->SendGenShaderProgram();
 
-    renderer->SendCompileShader(mVertexShader, vertexShaderSource);
-    renderer->SendCompileShader(mFragmentShader, fragmentShaderSource);
-    renderer->SendLinkProgram(mProgram, mVertexShader, mFragmentShader);
+    mRenderer->SendCompileShader(mVertexShader, vertexShaderSource);
+    mRenderer->SendCompileShader(mFragmentShader, fragmentShaderSource);
+    mRenderer->SendLinkProgram(mProgram, mVertexShader, mFragmentShader);
 }
 
-bool OpenGLShaderProgram::GetStatus(std::string& errorMessage) const
+std::pair<bool,std::string> OpenGLShaderProgram::GetStatus() const
 {
-    // TODO: Get the status/error status from the future shaders/programs.
+    std::pair<bool,std::string> status;
+    status.first = true;
+
+    auto vertexShaderStatus = mRenderer->SendGetShaderStatus(mVertexShader).get();
+    auto fragmentShaderStatus = mRenderer->SendGetShaderStatus(mFragmentShader).get();
+
+    if (!vertexShaderStatus.first)
+    {
+        status.first = false;
+        status.second += vertexShaderStatus.second + "\n";
+    }
+
+    if (!fragmentShaderStatus.first)
+    {
+        status.first = false;
+        status.second += fragmentShaderStatus.second + "\n";
+    }
+
+    if (status.first)
+    {
+        auto programStatus = mRenderer->SendGetProgramStatus(mProgram).get();
+        if (!programStatus.first)
+        {
+            status.first = false;
+            status.second += programStatus.second + "\n";
+        }
+    }
+
+    return status;
 }
 
 OpenGLStaticMesh::OpenGLStaticMesh(std::shared_ptr<OpenGLRenderer> renderer)

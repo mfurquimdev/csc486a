@@ -61,7 +61,7 @@ bool OpenGLInstructionLinearBuffer::PopInstruction(OpenGLInstruction& inst)
     mReadHead += headerSize;
 
     // next, read the params
-    std::size_t paramsSize = sizeof(OpenGLInstruction().Params[0]) * inst.NumParams;
+    std::size_t paramsSize = sizeof(OpenGLInstruction::ParamType) * inst.NumParams;
     std::memcpy(instdata + offsetOfParams, &mBuffer[mReadHead], paramsSize);
     mReadHead += paramsSize;
 
@@ -179,7 +179,7 @@ bool OpenGLInstructionRingBuffer::PopInstruction(OpenGLInstruction& inst)
     }
 
     // now that we know NumParams, we can read the params too.
-    bytesToRead = sizeof(OpenGLInstruction().Params[0]) * inst.NumParams;
+    bytesToRead = sizeof(OpenGLInstruction::ParamType) * inst.NumParams;
 
     // can it be done in one read?
     if (mBuffer.size() - mReadHead >= bytesToRead)
@@ -213,48 +213,6 @@ SizedOpenGLInstruction<1> ClearOpCodeParams::ToInstruction() const
 {
     SizedOpenGLInstruction<1> si(OpenGLOpCode::Clear);
     si.Instruction.Params[0] = Mask;
-    return si;
-}
-
-GenBufferOpCodeParams::GenBufferOpCodeParams(std::unique_ptr<std::promise<OpenGLBufferHandle>> bufferPromise,
-                      bool autoCleanup)
-    : BufferPromise(std::move(bufferPromise))
-    , AutoCleanup(autoCleanup)
-{ }
-
-GenBufferOpCodeParams::GenBufferOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup)
-    : BufferPromise(reinterpret_cast<std::promise<OpenGLBufferHandle>*>(inst.Params[0]))
-    , AutoCleanup(autoCleanup)
-{ }
-
-GenBufferOpCodeParams::~GenBufferOpCodeParams()
-{
-    if (!AutoCleanup)
-    {
-        BufferPromise.release();
-    }
-}
-
-SizedOpenGLInstruction<1> GenBufferOpCodeParams::ToInstruction() const
-{
-    SizedOpenGLInstruction<1> si(OpenGLOpCode::GenBuffer);
-    si.Instruction.Params[0] = reinterpret_cast<std::uintptr_t>(BufferPromise.get());
-    return si;
-}
-
-
-DeleteBufferOpCodeParams::DeleteBufferOpCodeParams(GLuint buffer)
-    : Buffer(buffer)
-{ }
-
-DeleteBufferOpCodeParams::DeleteBufferOpCodeParams(const OpenGLInstruction& inst)
-    : Buffer(inst.Params[0])
-{ }
-
-SizedOpenGLInstruction<1> DeleteBufferOpCodeParams::ToInstruction() const
-{
-    SizedOpenGLInstruction<1> si(OpenGLOpCode::DeleteBuffer);
-    si.Instruction.Params[0] = Buffer;
     return si;
 }
 
@@ -300,6 +258,39 @@ SizedOpenGLInstruction<5> BufferDataOpCodeParams::ToInstruction() const
     inst.Params[2] = Size;
     inst.Params[3] = reinterpret_cast<std::uintptr_t>(DataHandle.get());
     inst.Params[4] = Usage;
+    return si;
+}
+
+CompileShaderOpCodeParams::CompileShaderOpCodeParams(
+        std::unique_ptr<std::shared_future<OpenGLShaderHandle>> shaderHandle,
+        std::unique_ptr<std::shared_ptr<const char>> sourceHandle,
+        bool autoCleanup)
+    : ShaderHandle(std::move(shaderHandle))
+    , SourceHandle(std::move(sourceHandle))
+    , AutoCleanup(autoCleanup)
+{ }
+
+CompileShaderOpCodeParams::CompileShaderOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup)
+    : ShaderHandle(reinterpret_cast<std::shared_future<OpenGLShaderHandle>*>(inst.Params[0]))
+    , SourceHandle(reinterpret_cast<std::shared_ptr<const char>*>(inst.Params[1]))
+    , AutoCleanup(autoCleanup)
+{ }
+
+CompileShaderOpCodeParams::~CompileShaderOpCodeParams()
+{
+    if (!AutoCleanup)
+    {
+        ShaderHandle.release();
+        SourceHandle.release();
+    }
+}
+
+SizedOpenGLInstruction<2> CompileShaderOpCodeParams::ToInstruction() const
+{
+    SizedOpenGLInstruction<2> si(OpenGLOpCode::CompileShader);
+    OpenGLInstruction& inst = si.Instruction;
+    inst.Params[0] = reinterpret_cast<std::uintptr_t>(ShaderHandle.get());
+    inst.Params[1] = reinterpret_cast<std::uintptr_t>(SourceHandle.get());
     return si;
 }
 
