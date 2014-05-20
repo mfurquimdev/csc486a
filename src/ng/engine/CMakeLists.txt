@@ -29,7 +29,7 @@ if(NG_USE_X11)
     set(LIBS ${LIBS} ${X11_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
     add_definitions(-DNG_USE_X11)
 else()
-    nessage(FATAL_ERROR "Unsupported configuration")
+    message(FATAL_ERROR "Unsupported configuration")
 endif()
 
 include_directories(${NG_INCLUDE_DIR} ${NG_SRC_DIR})

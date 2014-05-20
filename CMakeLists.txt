@@ -7,7 +7,7 @@ add_subdirectory(src)
 
 # Add headers to project for completeness
 file(GLOB_RECURSE INTERFACE_FILES
-    include/**.hpp)
+    include/**.hpp include/**.inl)
 
 add_library(HEADER_ONLY_TARGET STATIC ${INTERFACE_FILES})
 set_target_properties(HEADER_ONLY_TARGET PROPERTIES LINKER_LANGUAGE CXX)

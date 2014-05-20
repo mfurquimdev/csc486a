@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.6)
 
-project(app CXX)
+project(a1 CXX)
 
 if(UNIX)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
@@ -11,5 +11,5 @@ set(SOURCES
 
 include_directories(${NG_INCLUDE_DIR} ${NG_SRC_DIR})
 
-add_executable(app ${SOURCES})
-target_link_libraries(app engine)
+add_executable(a1 ${SOURCES})
+target_link_libraries(a1 engine)
