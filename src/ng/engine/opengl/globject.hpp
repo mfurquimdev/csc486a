@@ -91,12 +91,23 @@ void swap(OpenGLShaderProgramHandle& a, OpenGLShaderProgramHandle& b);
 class VertexArray
 {
 public:
-    std::unique_ptr<std::shared_future<OpenGLBufferHandle>> Position;
-    std::unique_ptr<std::shared_future<OpenGLBufferHandle>> Texcoord0;
-    std::unique_ptr<std::shared_future<OpenGLBufferHandle>> Texcoord1;
-    std::unique_ptr<std::shared_future<OpenGLBufferHandle>> Normal;
+    VertexFormat Format;
 
-    std::unique_ptr<std::shared_future<OpenGLBufferHandle>> Indices;
+    std::shared_future<OpenGLBufferHandle> Position;
+    std::shared_future<OpenGLBufferHandle> Texcoord0;
+    std::shared_future<OpenGLBufferHandle> Texcoord1;
+    std::shared_future<OpenGLBufferHandle> Normal;
+
+    std::shared_future<OpenGLBufferHandle> Indices;
+
+    std::size_t VertexCount;
+
+    VertexArray() = default;
+
+    VertexArray(const VertexFormat& format,
+                std::vector<std::shared_future<OpenGLBufferHandle>> vertexBufferHandles,
+                std::shared_future<OpenGLBufferHandle> indexBufferHandle,
+                std::size_t vertexCount);
 };
 
 class OpenGLShaderProgram : public IShaderProgram
@@ -114,15 +125,15 @@ public:
               std::shared_ptr<const char> fragmentShaderSource) override;
 
     std::pair<bool,std::string> GetStatus() const override;
+
+    std::shared_future<OpenGLShaderProgramHandle> GetFutureHandle() const;
 };
 
 class OpenGLStaticMesh : public IStaticMesh
 {
     std::shared_ptr<OpenGLRenderer> mRenderer;
-    VertexFormat mVertexFormat;
 
-    std::vector<std::shared_future<OpenGLBufferHandle>> mVertexBuffers;
-    std::shared_future<OpenGLBufferHandle> mIndexBuffer;
+    VertexArray mVertexArray;
 
 public:
     OpenGLStaticMesh(std::shared_ptr<OpenGLRenderer> renderer);
@@ -130,7 +141,13 @@ public:
     void Init(const VertexFormat& format,
               const std::vector<std::pair<std::shared_ptr<const void>,std::ptrdiff_t>>& vertexDataAndSize,
               std::shared_ptr<const void> indexData,
-              std::ptrdiff_t indexDataSize) override;
+              std::ptrdiff_t indexDataSize,
+              std::size_t vertexCount) override;
+
+    void Draw(const std::shared_ptr<IShaderProgram>& program,
+              PrimitiveType primitiveType, std::size_t firstVertexIndex, std::size_t vertexCount) override;
+
+    std::size_t GetVertexCount() const override;
 };
 
 } // end namespace ng

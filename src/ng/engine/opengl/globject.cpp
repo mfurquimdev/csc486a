@@ -2,6 +2,8 @@
 
 #include "ng/engine/opengl/glrenderer.hpp"
 
+#include "ng/engine/opengl/glenumconversion.hpp"
+
 namespace ng
 {
 
@@ -32,7 +34,8 @@ OpenGLBufferHandle& OpenGLBufferHandle::operator=(OpenGLBufferHandle&& other)
 {
     if (this != &other)
     {
-        swap(other);
+        OpenGLBufferHandle tmp(std::move(other));
+        swap(tmp);
     }
     return *this;
 }
@@ -76,7 +79,8 @@ OpenGLShaderHandle& OpenGLShaderHandle::operator=(OpenGLShaderHandle&& other)
 {
     if (this != &other)
     {
-        swap(other);
+        OpenGLShaderHandle tmp(std::move(other));
+        swap(tmp);
     }
     return *this;
 }
@@ -125,7 +129,8 @@ OpenGLShaderProgramHandle& OpenGLShaderProgramHandle::operator=(OpenGLShaderProg
 {
     if (this != &other)
     {
-        swap(other);
+        OpenGLShaderProgramHandle tmp(std::move(other));
+        swap(tmp);
     }
     return *this;
 }
@@ -145,6 +150,37 @@ GLuint OpenGLShaderProgramHandle::GetHandle() const
 void swap(OpenGLShaderProgramHandle& a, OpenGLShaderProgramHandle& b)
 {
     a.swap(b);
+}
+
+VertexArray::VertexArray(
+        const VertexFormat& format,
+        std::vector<std::shared_future<OpenGLBufferHandle>> vertexBufferHandles,
+        std::shared_future<OpenGLBufferHandle> indexBufferHandle,
+        std::size_t vertexCount)
+    : Format(format)
+    , VertexCount(vertexCount)
+{
+    if (Format.Position.IsEnabled)
+    {
+        Position = std::move(vertexBufferHandles.at(Format.Position.Index));
+    }
+
+    if (Format.Texcoord0.IsEnabled)
+    {
+        Texcoord0 = std::move(vertexBufferHandles.at(Format.Texcoord0.Index));
+    }
+
+    if (Format.Texcoord1.IsEnabled)
+    {
+        Texcoord1 = std::move(vertexBufferHandles.at(Format.Texcoord1.Index));
+    }
+
+    if (Format.Normal.IsEnabled)
+    {
+        Normal = std::move(vertexBufferHandles.at(Format.Normal.Index));
+    }
+
+    Indices = std::move(indexBufferHandle);
 }
 
 OpenGLShaderProgram::OpenGLShaderProgram(std::shared_ptr<OpenGLRenderer> renderer)
@@ -197,6 +233,11 @@ std::pair<bool,std::string> OpenGLShaderProgram::GetStatus() const
     return status;
 }
 
+std::shared_future<OpenGLShaderProgramHandle> OpenGLShaderProgram::GetFutureHandle() const
+{
+    return mProgram;
+}
+
 OpenGLStaticMesh::OpenGLStaticMesh(std::shared_ptr<OpenGLRenderer> renderer)
     : mRenderer(std::move(renderer))
 { }
@@ -205,34 +246,42 @@ void OpenGLStaticMesh::Init(
         const VertexFormat& format,
         const std::vector<std::pair<std::shared_ptr<const void>,std::ptrdiff_t>>& vertexDataAndSize,
         std::shared_ptr<const void> indexData,
-        std::ptrdiff_t indexDataSize)
+        std::ptrdiff_t indexDataSize,
+        std::size_t vertexCount)
 {
-    mVertexFormat = format;
-
     // upload vertexData
-    mVertexBuffers.clear();
+    std::vector<std::shared_future<OpenGLBufferHandle>> vertexBuffers;
     for (const auto& dataAndSize : vertexDataAndSize)
     {
-        mVertexBuffers.push_back(mRenderer->SendGenBuffer());
-        mRenderer->SendBufferData(OpenGLRenderer::ResourceInstructionHandler, mVertexBuffers.back(),
+        vertexBuffers.push_back(mRenderer->SendGenBuffer());
+        mRenderer->SendBufferData(OpenGLRenderer::ResourceInstructionHandler, vertexBuffers.back(),
                                   GL_ARRAY_BUFFER, dataAndSize.second, dataAndSize.first, GL_STATIC_DRAW);
     }
 
-    if (indexData != nullptr && !mVertexFormat.IsIndexed)
-    {
-        throw std::logic_error("Don't send indexData if your vertex format isn't indexed.");
-    }
+    std::shared_future<OpenGLBufferHandle> indexBuffer;
 
     // upload indexData
-    if (mVertexFormat.IsIndexed)
+    if (format.IsIndexed)
     {
-        mIndexBuffer = mRenderer->SendGenBuffer();
-        mRenderer->SendBufferData(OpenGLRenderer::ResourceInstructionHandler, mIndexBuffer, GL_ELEMENT_ARRAY_BUFFER, indexDataSize, indexData, GL_STATIC_DRAW);
+        indexBuffer = mRenderer->SendGenBuffer();
+        mRenderer->SendBufferData(OpenGLRenderer::ResourceInstructionHandler, indexBuffer,
+                                  GL_ELEMENT_ARRAY_BUFFER, indexDataSize, indexData, GL_STATIC_DRAW);
     }
-    else
-    {
-        mIndexBuffer = std::shared_future<OpenGLBufferHandle>();
-    }
+
+    mVertexArray = VertexArray(format, vertexBuffers, indexBuffer, vertexCount);
+}
+
+void OpenGLStaticMesh::Draw(const std::shared_ptr<IShaderProgram>& program,
+                            PrimitiveType primitiveType, std::size_t firstVertexIndex, std::size_t vertexCount)
+{
+    std::shared_ptr<OpenGLShaderProgram> programGL = std::static_pointer_cast<OpenGLShaderProgram>(program);
+    mRenderer->SendDrawVertexArray(mVertexArray, programGL->GetFutureHandle(),
+                                   ToGLPrimitiveType(primitiveType), firstVertexIndex, vertexCount);
+}
+
+std::size_t OpenGLStaticMesh::GetVertexCount() const
+{
+    return mVertexArray.VertexCount;
 }
 
 } // end namespace ng

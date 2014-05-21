@@ -294,6 +294,45 @@ SizedOpenGLInstruction<2> CompileShaderOpCodeParams::ToInstruction() const
     return si;
 }
 
+LinkShaderProgramOpCodeParams::LinkShaderProgramOpCodeParams(
+        std::unique_ptr<std::shared_future<OpenGLShaderProgramHandle>> shaderProgramHandle,
+        std::unique_ptr<std::shared_future<OpenGLShaderHandle>> vertexShaderHandle,
+        std::unique_ptr<std::shared_future<OpenGLShaderHandle>> fragmentShaderHandle,
+        bool autoCleanup)
+    : ShaderProgramHandle(std::move(shaderProgramHandle))
+    , VertexShaderHandle(std::move(vertexShaderHandle))
+    , FragmentShaderHandle(std::move(fragmentShaderHandle))
+    , AutoCleanup(autoCleanup)
+{ }
+
+LinkShaderProgramOpCodeParams::LinkShaderProgramOpCodeParams(
+        const OpenGLInstruction& inst, bool autoCleanup)
+    : ShaderProgramHandle(reinterpret_cast<std::shared_future<OpenGLShaderProgramHandle>*>(inst.Params[0]))
+    , VertexShaderHandle(reinterpret_cast<std::shared_future<OpenGLShaderHandle>*>(inst.Params[1]))
+    , FragmentShaderHandle(reinterpret_cast<std::shared_future<OpenGLShaderHandle>*>(inst.Params[2]))
+    , AutoCleanup(autoCleanup)
+{ }
+
+LinkShaderProgramOpCodeParams::~LinkShaderProgramOpCodeParams()
+{
+    if (!AutoCleanup)
+    {
+        FragmentShaderHandle.release();
+        VertexShaderHandle.release();
+        ShaderProgramHandle.release();
+    }
+}
+
+SizedOpenGLInstruction<3> LinkShaderProgramOpCodeParams::ToInstruction() const
+{
+    SizedOpenGLInstruction<3> si(OpenGLOpCode::LinkShaderProgram);
+    OpenGLInstruction& inst = si.Instruction;
+    inst.Params[0] = reinterpret_cast<std::uintptr_t>(ShaderProgramHandle.get());
+    inst.Params[1] = reinterpret_cast<std::uintptr_t>(VertexShaderHandle.get());
+    inst.Params[2] = reinterpret_cast<std::uintptr_t>(FragmentShaderHandle.get());
+    return si;
+}
+
 DrawVertexArrayOpCodeParams::DrawVertexArrayOpCodeParams(
         std::unique_ptr<VertexArray> vertexArrayHandle,
         std::unique_ptr<std::shared_future<OpenGLShaderProgramHandle>> programHandle,

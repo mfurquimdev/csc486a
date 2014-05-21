@@ -7,6 +7,7 @@
 #include "ng/engine/debug.hpp"
 #include "ng/engine/staticmesh.hpp"
 #include "ng/engine/vertexformat.hpp"
+#include "ng/engine/shaderprogram.hpp"
 
 #include <chrono>
 #include <sstream>
@@ -29,8 +30,11 @@ int main()
         };
 
         std::shared_ptr<const void> meshData(rawMeshData, [](const float*){});
-        mesh->Init(meshFormat, std::move(meshData), sizeof(rawMeshData), nullptr, 0);
+        mesh->Init(meshFormat, { { std::move(meshData), sizeof(rawMeshData) } }, nullptr, 0, 9);
     }
+
+    auto program = renderer->CreateShaderProgram();
+    // program->Init();
 
     std::chrono::time_point<std::chrono::high_resolution_clock> now, then;
     then = std::chrono::high_resolution_clock::now();
@@ -76,6 +80,7 @@ int main()
         renderProfiler.Start();
 
         renderer->Clear(true, true, false);
+        mesh->Draw(program, ng::PrimitiveType::Triangles, 0, mesh->GetVertexCount());
         renderer->SwapBuffers();
 
         renderProfiler.Stop();

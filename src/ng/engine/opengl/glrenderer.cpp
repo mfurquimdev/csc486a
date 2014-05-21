@@ -296,7 +296,8 @@ void OpenGLRenderer::SendCompileShader(
 {
     CompileShaderOpCodeParams params(
                 ng::make_unique<std::shared_future<OpenGLShaderHandle>>(shaderHandle),
-                ng::make_unique<std::shared_ptr<const char>>(shaderSource));
+                ng::make_unique<std::shared_ptr<const char>>(shaderSource),
+                true);
     PushResourceInstruction(params.ToInstruction().Instruction);
     params.AutoCleanup = false;
 }
@@ -305,9 +306,14 @@ std::shared_future<std::pair<bool,std::string>> OpenGLRenderer::SendGetShaderSta
 {
     ShaderStatusOpCodeParams params(
                 ng::make_unique<std::promise<std::pair<bool,std::string>>>(),
-                ng::make_unique<std::shared_future<OpenGLShaderHandle>>(shader));
+                ng::make_unique<std::shared_future<OpenGLShaderHandle>>(shader),
+                true);
+    auto fut = params.Promise->get_future();
+
     PushResourceInstruction(params.ToInstruction().Instruction);
     params.AutoCleanup = false;
+
+    return std::move(fut);
 }
 
 std::shared_future<OpenGLShaderProgramHandle> OpenGLRenderer::SendGenShaderProgram()
@@ -330,9 +336,30 @@ void OpenGLRenderer::SendDeleteShaderProgram(GLuint program)
 void OpenGLRenderer::SendLinkProgram(
         std::shared_future<OpenGLShaderProgramHandle> programHandle,
         std::shared_future<OpenGLShaderHandle> vertexShaderHandle,
-        std::shared_future<OpenGLShaderHandle> fragmentShaderHandle);
+        std::shared_future<OpenGLShaderHandle> fragmentShaderHandle)
+{
+    LinkShaderProgramOpCodeParams params(
+            ng::make_unique<std::shared_future<OpenGLShaderProgramHandle>>(programHandle),
+            ng::make_unique<std::shared_future<OpenGLShaderHandle>>(vertexShaderHandle),
+            ng::make_unique<std::shared_future<OpenGLShaderHandle>>(fragmentShaderHandle),
+            true);
+    PushResourceInstruction(params.ToInstruction().Instruction);
+    params.AutoCleanup = false;
+}
 
-std::shared_future<std::pair<bool,std::string>> OpenGLRenderer::SendGetProgramStatus(std::shared_future<OpenGLShaderProgramHandle> program);
+std::shared_future<std::pair<bool,std::string>> OpenGLRenderer::SendGetProgramStatus(std::shared_future<OpenGLShaderProgramHandle> program)
+{
+    ShaderProgramStatusOpCodeParams params(
+                ng::make_unique<std::promise<std::pair<bool,std::string>>>(),
+                ng::make_unique<std::shared_future<OpenGLShaderProgramHandle>>(program),
+                true);
+    auto fut = params.Promise->get_future();
+
+    PushResourceInstruction(params.ToInstruction().Instruction);
+    params.AutoCleanup = false;
+
+    return std::move(fut);
+}
 
 void OpenGLRenderer::SendDrawVertexArray(
         const VertexArray& vertexArray,
@@ -342,7 +369,7 @@ void OpenGLRenderer::SendDrawVertexArray(
         GLsizei vertexCount)
 {
     DrawVertexArrayOpCodeParams params(ng::make_unique<VertexArray>(vertexArray),
-                                       ng::make_unique<std::shared_future<OpenGLShaderProgramHandle>>(program),
+                                       ng::make_unique<std::shared_future<OpenGLShaderProgramHandle>>(std::move(program)),
                                        mode, firstVertexIndex, vertexCount, true);
     PushInstruction(RenderingInstructionHandler, params.ToInstruction().Instruction);
     params.AutoCleanup = false;
@@ -372,6 +399,11 @@ std::shared_ptr<IStaticMesh> OpenGLRenderer::CreateStaticMesh()
     return std::make_shared<OpenGLStaticMesh>(shared_from_this());
 }
 
+std::shared_ptr<IShaderProgram> OpenGLRenderer::CreateShaderProgram()
+{
+    return std::make_shared<OpenGLShaderProgram>(shared_from_this());
+}
+
 static void* LoadProcOrDie(IGLContext& context, const char* procName)
 {
     auto ext = context.GetProcAddress(procName);
@@ -388,12 +420,28 @@ static void* LoadProcOrDie(IGLContext& context, const char* procName)
 
 // declarations of all the OpenGL functions used
 static thread_local bool LoadedGLExtensions = false;
-DeclareGLExtension(PFNGLGENBUFFERSPROC, glGenBuffers);
-DeclareGLExtension(PFNGLDELETEBUFFERSPROC, glDeleteBuffers);
-DeclareGLExtension(PFNGLBINDBUFFERPROC, glBindBuffer);
-DeclareGLExtension(PFNGLBUFFERDATAPROC, glBufferData);
-DeclareGLExtension(PFNGLMAPBUFFERPROC, glMapBuffer);
-DeclareGLExtension(PFNGLUNMAPBUFFERPROC, glUnmapBuffer);
+DeclareGLExtension(PFNGLGENBUFFERSPROC,         glGenBuffers);
+DeclareGLExtension(PFNGLDELETEBUFFERSPROC,      glDeleteBuffers);
+DeclareGLExtension(PFNGLBINDBUFFERPROC,         glBindBuffer);
+DeclareGLExtension(PFNGLBUFFERDATAPROC,         glBufferData);
+DeclareGLExtension(PFNGLMAPBUFFERPROC,          glMapBuffer);
+DeclareGLExtension(PFNGLUNMAPBUFFERPROC,        glUnmapBuffer);
+DeclareGLExtension(PFNGLCREATESHADERPROC,       glCreateShader);
+DeclareGLExtension(PFNGLDELETESHADERPROC,       glDeleteShader);
+DeclareGLExtension(PFNGLATTACHSHADERPROC,       glAttachShader);
+DeclareGLExtension(PFNGLDETACHSHADERPROC,       glDetachShader);
+DeclareGLExtension(PFNGLSHADERSOURCEPROC,       glShaderSource);
+DeclareGLExtension(PFNGLCOMPILESHADERPROC,      glCompileShader);
+DeclareGLExtension(PFNGLGETSHADERIVPROC,        glGetShaderiv);
+DeclareGLExtension(PFNGLGETSHADERINFOLOGPROC,   glGetShaderInfoLog);
+DeclareGLExtension(PFNGLCREATEPROGRAMPROC,      glCreateProgram);
+DeclareGLExtension(PFNGLDELETEPROGRAMPROC,      glDeleteProgram);
+DeclareGLExtension(PFNGLUSEPROGRAMPROC,         glUseProgram);
+DeclareGLExtension(PFNGLLINKPROGRAMPROC,        glLinkProgram);
+DeclareGLExtension(PFNGLGETPROGRAMIVPROC,       glGetProgramiv);
+DeclareGLExtension(PFNGLGETPROGRAMINFOLOGPROC,  glGetProgramInfoLog);
+DeclareGLExtension(PFNGLGETATTRIBLOCATIONPROC,  glGetAttribLocation);
+DeclareGLExtension(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation);
 
 // clean up define
 #undef DeclareGLExtension
@@ -410,27 +458,27 @@ DeclareGLExtension(PFNGLUNMAPBUFFERPROC, glUnmapBuffer);
 // loads all extensions we need if they have not been loaded yet.
 #define InitGLExtensions(context) \
     if (!LoadedGLExtensions) { \
-        GetGLExtension(context, PFNGLGENBUFFERSPROC,        glGenBuffers); \
-        GetGLExtension(context, PFNGLDELETEBUFFERSPROC,     glDeleteBuffers); \
-        GetGLExtension(context, PFNGLBINDBUFFERPROC,        glBindBuffer); \
-        GetGLExtension(context, PFNGLBUFFERDATAPROC,        glBufferData); \
-        GetGLExtension(context, PFNGLMAPBUFFERPROC,         glMapBuffer); \
-        GetGLExtension(context, PFNGLUNMAPBUFFERPROC,       glUnmapBuffer); \
-        GetGLExtension(context, PFNGLCREATESHADERPROC,      glCreateShader); \
-        GetGLExtension(context, PFNGLDELETESHADERPROC,      glDeleteShader); \
-        GetGLExtension(context, PFNGLATTACHSHADERPROC,      glAttachShader); \
-        GetGLExtension(context, PFNGLDETACHSHADERPROC,      glDetachShader); \
-        GetGLExtension(context, PFNGLSHADERSOURCEPROC,      glShaderSource); \
-        GetGLExtension(context, PFNGLCOMPILESHADERPROC,     glCompileShader); \
-        GetGLExtension(context, PFNGLGETSHADERIVPROC,       glGetShaderiv); \
-        GetGLExtension(context, PFNGLGETSHADERINFOLOGPROC,  glGetShaderInfoLog); \
-        GetGLExtension(context, PFNGLCREATEPROGRAMPROC,     glCreateProgram); \
-        GetGLExtension(context, PFNGLDELETEPROGRAMPROC,     glDeleteProgram); \
-        GetGLExtension(context, PFNGLUSEPROGRAMPROC,        glUseProgram); \
-        GetGLExtension(context, PFNGLLINKPROGRAMPROC,       glLinkProgram); \
-        GetGLExtension(context, PFNGLGETPROGRAMIVPROC,      glGetProgramiv); \
-        GetGLExtension(context, PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog); \
-        GetGLExtension(context, PFNGLGETATTRIBLOCATIONPROC, glGetAttribLocation); \
+        GetGLExtension(context, PFNGLGENBUFFERSPROC,         glGenBuffers); \
+        GetGLExtension(context, PFNGLDELETEBUFFERSPROC,      glDeleteBuffers); \
+        GetGLExtension(context, PFNGLBINDBUFFERPROC,         glBindBuffer); \
+        GetGLExtension(context, PFNGLBUFFERDATAPROC,         glBufferData); \
+        GetGLExtension(context, PFNGLMAPBUFFERPROC,          glMapBuffer); \
+        GetGLExtension(context, PFNGLUNMAPBUFFERPROC,        glUnmapBuffer); \
+        GetGLExtension(context, PFNGLCREATESHADERPROC,       glCreateShader); \
+        GetGLExtension(context, PFNGLDELETESHADERPROC,       glDeleteShader); \
+        GetGLExtension(context, PFNGLATTACHSHADERPROC,       glAttachShader); \
+        GetGLExtension(context, PFNGLDETACHSHADERPROC,       glDetachShader); \
+        GetGLExtension(context, PFNGLSHADERSOURCEPROC,       glShaderSource); \
+        GetGLExtension(context, PFNGLCOMPILESHADERPROC,      glCompileShader); \
+        GetGLExtension(context, PFNGLGETSHADERIVPROC,        glGetShaderiv); \
+        GetGLExtension(context, PFNGLGETSHADERINFOLOGPROC,   glGetShaderInfoLog); \
+        GetGLExtension(context, PFNGLCREATEPROGRAMPROC,      glCreateProgram); \
+        GetGLExtension(context, PFNGLDELETEPROGRAMPROC,      glDeleteProgram); \
+        GetGLExtension(context, PFNGLUSEPROGRAMPROC,         glUseProgram); \
+        GetGLExtension(context, PFNGLLINKPROGRAMPROC,        glLinkProgram); \
+        GetGLExtension(context, PFNGLGETPROGRAMIVPROC,       glGetProgramiv); \
+        GetGLExtension(context, PFNGLGETPROGRAMINFOLOGPROC,  glGetProgramInfoLog); \
+        GetGLExtension(context, PFNGLGETATTRIBLOCATIONPROC,  glGetAttribLocation); \
         GetGLExtension(context, PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation); \
         LoadedGLExtensions = true; \
     }
@@ -528,7 +576,21 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
             {
             case OpenGLOpCode::DrawVertexArray: {
                 DrawVertexArrayOpCodeParams params(inst, true);
-                // TODO: Implement
+
+                glUseProgram(params.ProgramHandle.get().GetHandle());
+
+                // TODO: Create VAO and bind it
+
+                if (params.VertexArrayHandle->Indices.valid())
+                {
+                    glDrawElements(params.Mode, params.VertexCount,
+                                   ToGLArithmeticType(params.VertexArrayHandle->Format.IndexType),
+                                   ,);
+                }
+                else
+                {
+                    glDrawArrays(params.Mode, params.FirstVertexIndex, params.VertexCount);
+                }
             } break;
             case OpenGLOpCode::Quit: {
                 RenderProfilePrintf("Time spent rendering serverside in %s: %lfms\n", threadData->mThreadName.c_str(), renderProfiler.GetTotalTimeMS());
@@ -582,11 +644,11 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
             GenBufferOpCodeParams params(inst, true);
             GLuint handle;
             glGenBuffers(1, &handle);
-            params.BufferPromise->set_value(OpenGLBufferHandle(threadData->mRenderer.shared_from_this(), handle));
+            params.Promise->set_value(OpenGLBufferHandle(threadData->mRenderer.shared_from_this(), handle));
         } break;
         case OpenGLOpCode::DeleteBuffer: {
             DeleteBufferOpCodeParams params(inst);
-            glDeleteBuffers(1, &params.Buffer);
+            glDeleteBuffers(1, &params.Handle);
         } break;
         case OpenGLOpCode::Quit: {
             RenderProfilePrintf("Time spent loading resources serverside in %s: %lfms\n", threadData->mThreadName.c_str(), resourceProfiler.GetTotalTimeMS());

@@ -112,6 +112,8 @@ public:
     void SwapBuffers() override;
 
     std::shared_ptr<IStaticMesh> CreateStaticMesh() override;
+
+    std::shared_ptr<IShaderProgram> CreateShaderProgram() override;
 };
 
 } // end namespace ng

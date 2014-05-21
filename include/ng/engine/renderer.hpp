@@ -9,6 +9,7 @@ namespace ng
 class IWindowManager;
 class IWindow;
 class IStaticMesh;
+class IShaderProgram;
 
 class IRenderer
 {
@@ -20,6 +21,7 @@ public:
     virtual void SwapBuffers() = 0;
 
     virtual std::shared_ptr<IStaticMesh> CreateStaticMesh() = 0;
+    virtual std::shared_ptr<IShaderProgram> CreateShaderProgram() = 0;
 };
 
 std::shared_ptr<IRenderer> CreateRenderer(
