@@ -7,181 +7,73 @@
 namespace ng
 {
 
-OpenGLBufferHandle::OpenGLBufferHandle()
-    : mHandle(0)
-{ }
-
-OpenGLBufferHandle::~OpenGLBufferHandle()
+namespace detail
 {
-    if (mRenderer && mHandle)
+
+void BufferReleasePolicy::Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle)
+{
+    if (renderer && handle)
     {
-        mRenderer->SendDeleteBuffer(mHandle);
+        renderer->SendDeleteBuffer(handle);
     }
 }
 
-OpenGLBufferHandle::OpenGLBufferHandle(std::shared_ptr<OpenGLRenderer> renderer, GLuint handle)
-    : mRenderer(std::move(renderer))
-    , mHandle(handle)
-{ }
-
-OpenGLBufferHandle::OpenGLBufferHandle(OpenGLBufferHandle&& other)
-    : OpenGLBufferHandle()
+void VertexArrayReleasePolicy::Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle)
 {
-    swap(other);
-}
-
-OpenGLBufferHandle& OpenGLBufferHandle::operator=(OpenGLBufferHandle&& other)
-{
-    if (this != &other)
+    if (renderer && handle)
     {
-        OpenGLBufferHandle tmp(std::move(other));
-        swap(tmp);
-    }
-    return *this;
-}
-
-void OpenGLBufferHandle::swap(OpenGLBufferHandle& other)
-{
-    using std::swap;
-    swap(mRenderer, other.mRenderer);
-    swap(mHandle, other.mHandle);
-}
-
-GLuint OpenGLBufferHandle::GetHandle() const
-{
-    return mHandle;
-}
-
-OpenGLShaderHandle::OpenGLShaderHandle()
-    : mHandle(0)
-{ }
-
-OpenGLShaderHandle::~OpenGLShaderHandle()
-{
-    if (mRenderer && mHandle)
-    {
-        mRenderer->SendDeleteShader(mHandle);
+        renderer->SendDeleteVertexArray(handle);
     }
 }
 
-OpenGLShaderHandle::OpenGLShaderHandle(std::shared_ptr<OpenGLRenderer> renderer, GLuint handle)
-    : mRenderer(std::move(renderer))
-    , mHandle(handle)
-{ }
-
-OpenGLShaderHandle::OpenGLShaderHandle(OpenGLShaderHandle&& other)
-    : OpenGLShaderHandle()
+void ShaderReleasePolicy::Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle)
 {
-    swap(other);
-}
-
-OpenGLShaderHandle& OpenGLShaderHandle::operator=(OpenGLShaderHandle&& other)
-{
-    if (this != &other)
+    if (renderer && handle)
     {
-        OpenGLShaderHandle tmp(std::move(other));
-        swap(tmp);
-    }
-    return *this;
-}
-
-void OpenGLShaderHandle::swap(OpenGLShaderHandle& other)
-{
-    using std::swap;
-    swap(mRenderer, other.mRenderer);
-    swap(mHandle, other.mHandle);
-}
-
-GLuint OpenGLShaderHandle::GetHandle() const
-{
-    return mHandle;
-}
-
-void swap(OpenGLShaderHandle& a, OpenGLShaderHandle& b)
-{
-    a.swap(b);
-}
-
-OpenGLShaderProgramHandle::OpenGLShaderProgramHandle()
-    : mHandle(0)
-{ }
-
-OpenGLShaderProgramHandle::~OpenGLShaderProgramHandle()
-{
-    if (mRenderer && mHandle)
-    {
-        mRenderer->SendDeleteShaderProgram(mHandle);
+        renderer->SendDeleteShader(handle);
     }
 }
 
-OpenGLShaderProgramHandle::OpenGLShaderProgramHandle(std::shared_ptr<OpenGLRenderer> renderer, GLuint handle)
-    : mRenderer(std::move(renderer))
-    , mHandle(handle)
-{ }
-
-OpenGLShaderProgramHandle::OpenGLShaderProgramHandle(OpenGLShaderProgramHandle&& other)
-    : OpenGLShaderProgramHandle()
+void ShaderProgramReleasePolicy::Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle)
 {
-    swap(other);
-}
-
-OpenGLShaderProgramHandle& OpenGLShaderProgramHandle::operator=(OpenGLShaderProgramHandle&& other)
-{
-    if (this != &other)
+    if (renderer && handle)
     {
-        OpenGLShaderProgramHandle tmp(std::move(other));
-        swap(tmp);
+        renderer->SendDeleteShaderProgram(handle);
     }
-    return *this;
 }
 
-void OpenGLShaderProgramHandle::swap(OpenGLShaderProgramHandle& other)
-{
-    using std::swap;
-    swap(mRenderer, other.mRenderer);
-    swap(mHandle, other.mHandle);
-}
+} // end namespace detail
 
-GLuint OpenGLShaderProgramHandle::GetHandle() const
-{
-    return mHandle;
-}
+//VertexArray::VertexArray(
+//        const VertexFormat& format,
+//        std::vector<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> vertexBufferHandles,
+//        std::shared_future<std::shared_ptr<OpenGLBufferHandle>> indexBufferHandle,
+//        std::size_t vertexCount)
+//    : Format(format)
+//    , VertexCount(vertexCount)
+//{
+//    if (Format.Position.IsEnabled)
+//    {
+//        Position = std::move(vertexBufferHandles.at(Format.Position.Index));
+//    }
 
-void swap(OpenGLShaderProgramHandle& a, OpenGLShaderProgramHandle& b)
-{
-    a.swap(b);
-}
+//    if (Format.Texcoord0.IsEnabled)
+//    {
+//        Texcoord0 = std::move(vertexBufferHandles.at(Format.Texcoord0.Index));
+//    }
 
-VertexArray::VertexArray(
-        const VertexFormat& format,
-        std::vector<std::shared_future<OpenGLBufferHandle>> vertexBufferHandles,
-        std::shared_future<OpenGLBufferHandle> indexBufferHandle,
-        std::size_t vertexCount)
-    : Format(format)
-    , VertexCount(vertexCount)
-{
-    if (Format.Position.IsEnabled)
-    {
-        Position = std::move(vertexBufferHandles.at(Format.Position.Index));
-    }
+//    if (Format.Texcoord1.IsEnabled)
+//    {
+//        Texcoord1 = std::move(vertexBufferHandles.at(Format.Texcoord1.Index));
+//    }
 
-    if (Format.Texcoord0.IsEnabled)
-    {
-        Texcoord0 = std::move(vertexBufferHandles.at(Format.Texcoord0.Index));
-    }
+//    if (Format.Normal.IsEnabled)
+//    {
+//        Normal = std::move(vertexBufferHandles.at(Format.Normal.Index));
+//    }
 
-    if (Format.Texcoord1.IsEnabled)
-    {
-        Texcoord1 = std::move(vertexBufferHandles.at(Format.Texcoord1.Index));
-    }
-
-    if (Format.Normal.IsEnabled)
-    {
-        Normal = std::move(vertexBufferHandles.at(Format.Normal.Index));
-    }
-
-    Indices = std::move(indexBufferHandle);
-}
+//    Indices = std::move(indexBufferHandle);
+//}
 
 OpenGLShaderProgram::OpenGLShaderProgram(std::shared_ptr<OpenGLRenderer> renderer)
     : mRenderer(std::move(renderer))
@@ -191,13 +83,13 @@ void OpenGLShaderProgram::Init(
         std::shared_ptr<const char> vertexShaderSource,
         std::shared_ptr<const char> fragmentShaderSource)
 {
-    mVertexShader = mRenderer->SendGenShader();
-    mFragmentShader = mRenderer->SendGenShader();
+    mVertexShader = mRenderer->SendGenShader(GL_VERTEX_SHADER);
+    mFragmentShader = mRenderer->SendGenShader(GL_FRAGMENT_SHADER);
     mProgram = mRenderer->SendGenShaderProgram();
 
-    mRenderer->SendCompileShader(mVertexShader, vertexShaderSource);
-    mRenderer->SendCompileShader(mFragmentShader, fragmentShaderSource);
-    mRenderer->SendLinkProgram(mProgram, mVertexShader, mFragmentShader);
+    mVertexShader = mRenderer->SendCompileShader(mVertexShader, vertexShaderSource);
+    mFragmentShader = mRenderer->SendCompileShader(mFragmentShader, fragmentShaderSource);
+    mProgram = mRenderer->SendLinkProgram(mProgram, mVertexShader, mFragmentShader);
 }
 
 std::pair<bool,std::string> OpenGLShaderProgram::GetStatus() const
@@ -233,7 +125,7 @@ std::pair<bool,std::string> OpenGLShaderProgram::GetStatus() const
     return status;
 }
 
-std::shared_future<OpenGLShaderProgramHandle> OpenGLShaderProgram::GetFutureHandle() const
+std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> OpenGLShaderProgram::GetFutureHandle() const
 {
     return mProgram;
 }
@@ -243,32 +135,39 @@ OpenGLStaticMesh::OpenGLStaticMesh(std::shared_ptr<OpenGLRenderer> renderer)
 { }
 
 void OpenGLStaticMesh::Init(
-        const VertexFormat& format,
-        const std::vector<std::pair<std::shared_ptr<const void>,std::ptrdiff_t>>& vertexDataAndSize,
-        std::shared_ptr<const void> indexData,
-        std::ptrdiff_t indexDataSize,
-        std::size_t vertexCount)
+       VertexFormat format,
+       std::map<VertexAttributeName,std::pair<std::shared_ptr<const void>,std::ptrdiff_t>> attributeDataAndSize,
+       std::shared_ptr<const void> indexData,
+       std::ptrdiff_t indexDataSize,
+       std::size_t vertexCount)
 {
     // upload vertexData
-    std::vector<std::shared_future<OpenGLBufferHandle>> vertexBuffers;
-    for (const auto& dataAndSize : vertexDataAndSize)
+    std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> vertexBuffers;
+    for (const auto& attrib : attributeDataAndSize)
     {
-        vertexBuffers.push_back(mRenderer->SendGenBuffer());
-        mRenderer->SendBufferData(OpenGLRenderer::ResourceInstructionHandler, vertexBuffers.back(),
-                                  GL_ARRAY_BUFFER, dataAndSize.second, dataAndSize.first, GL_STATIC_DRAW);
+        const std::pair<std::shared_ptr<const void>,std::ptrdiff_t>& dataAndSize = attrib.second;
+
+        std::shared_future<std::shared_ptr<OpenGLBufferHandle>> buf = mRenderer->SendGenBuffer();
+        buf = mRenderer->SendBufferData(OpenGLRenderer::ResourceInstructionHandler, buf,
+                                        GL_ARRAY_BUFFER, dataAndSize.second, dataAndSize.first, GL_STATIC_DRAW);
+
+        vertexBuffers.emplace(attrib.first, std::move(buf));
     }
 
-    std::shared_future<OpenGLBufferHandle> indexBuffer;
+    std::shared_future<std::shared_ptr<OpenGLBufferHandle>> indexBuffer;
 
     // upload indexData
     if (format.IsIndexed)
     {
         indexBuffer = mRenderer->SendGenBuffer();
-        mRenderer->SendBufferData(OpenGLRenderer::ResourceInstructionHandler, indexBuffer,
+        indexBuffer = mRenderer->SendBufferData(OpenGLRenderer::ResourceInstructionHandler, indexBuffer,
                                   GL_ELEMENT_ARRAY_BUFFER, indexDataSize, indexData, GL_STATIC_DRAW);
     }
 
-    mVertexArray = VertexArray(format, vertexBuffers, indexBuffer, vertexCount);
+    std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vao = mRenderer->SendGenVertexArray();
+    // TODO: Call a function that automatically sends down all the necessary commands to the GL pipeline
+    swap(vao, mVertexArray);
+    mVertexCount = vertexCount;
 }
 
 void OpenGLStaticMesh::Draw(const std::shared_ptr<IShaderProgram>& program,
@@ -281,7 +180,7 @@ void OpenGLStaticMesh::Draw(const std::shared_ptr<IShaderProgram>& program,
 
 std::size_t OpenGLStaticMesh::GetVertexCount() const
 {
-    return mVertexArray.VertexCount;
+    return mVertexCount;
 }
 
 } // end namespace ng

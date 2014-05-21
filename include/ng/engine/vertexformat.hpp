@@ -4,13 +4,21 @@
 #include "ng/engine/arithmetictype.hpp"
 
 #include <cstddef>
+#include <map>
 
 namespace ng
 {
 
+enum class VertexAttributeName
+{
+    Position,
+    Texcoord0,
+    Texcoord1,
+    Normal
+};
+
 struct VertexAttribute
 {
-    std::size_t Index;
     int Cardinality;
     ArithmeticType Type;
     bool IsNormalized;
@@ -22,15 +30,13 @@ struct VertexAttribute
     VertexAttribute() = default;
 
     VertexAttribute(
-            std::size_t index,
             int cardinality,
             ArithmeticType type,
             bool isNormalized,
             std::ptrdiff_t stride,
             std::size_t offset,
             bool isEnabled)
-        : Index(index)
-        , Cardinality(cardinality)
+        : Cardinality(cardinality)
         , Type(type)
         , IsNormalized(isNormalized)
         , Stride(stride)
@@ -41,22 +47,24 @@ struct VertexAttribute
 
 struct VertexFormat
 {
-    VertexAttribute Position;
-    VertexAttribute Texcoord0;
-    VertexAttribute Texcoord1;
-    VertexAttribute Normal;
+    using AttributeMap = std::map<VertexAttributeName, VertexAttribute>;
 
-    bool IsIndexed;
+    AttributeMap Attributes;
+
+    bool IsIndexed = false;
     ArithmeticType IndexType;
 
-    VertexFormat()
-    {
-        Position.IsEnabled = false;
-        Texcoord0.IsEnabled = false;
-        Texcoord1.IsEnabled = false;
-        Normal.IsEnabled = false;
-        IsIndexed = false;
-    }
+    VertexFormat() = default;
+
+    VertexFormat(AttributeMap attributes)
+        : Attributes(std::move(attributes))
+    { }
+
+    VertexFormat(AttributeMap attributes, ArithmeticType indexType)
+        : Attributes(std::move(attributes))
+        , IsIndexed(true)
+        , IndexType(indexType)
+    { }
 };
 
 } // end namespace ng

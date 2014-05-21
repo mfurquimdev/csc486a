@@ -11,8 +11,9 @@
 
 #include <chrono>
 #include <sstream>
+#include <iostream>
 
-int main()
+int main() try
 {
     auto windowManager = ng::CreateWindowManager();
     ng::VideoFlags videoFlags{};
@@ -21,8 +22,10 @@ int main()
 
     auto mesh = renderer->CreateStaticMesh();
     {
-        ng::VertexFormat meshFormat;
-        meshFormat.Position = ng::VertexAttribute(0, 3, ng::ArithmeticType::Float, false, 0, 0, true);
+        ng::VertexFormat meshFormat{
+            { ng::VertexAttributeName::Position, ng::VertexAttribute(3, ng::ArithmeticType::Float, false, 0, 0, true) }
+        };
+
         static const float rawMeshData[] = {
             0.0f, 0.0f, 0.0f,
             1.0f, 1.0f,-1.0f,
@@ -33,8 +36,11 @@ int main()
         mesh->Init(meshFormat, { { std::move(meshData), sizeof(rawMeshData) } }, nullptr, 0, 9);
     }
 
+    const char* vsrc = "#version 150\n in vec4 iPosition; void main() { gl_Position = iPosition; }";
+    const char* fsrc = "#version 150\n out vec4 oColor; void main() { oColor = vec4(1,0,0,1); }";
     auto program = renderer->CreateShaderProgram();
-    // program->Init();
+    program->Init(std::shared_ptr<const char>(vsrc, [](const char*){}),
+                  std::shared_ptr<const char>(fsrc, [](const char*){}));
 
     std::chrono::time_point<std::chrono::high_resolution_clock> now, then;
     then = std::chrono::high_resolution_clock::now();
@@ -79,10 +85,22 @@ int main()
 
         renderProfiler.Start();
 
+        ng::DebugPrintf("======Start of draw\n");
+
         renderer->Clear(true, true, false);
         mesh->Draw(program, ng::PrimitiveType::Triangles, 0, mesh->GetVertexCount());
         renderer->SwapBuffers();
 
+        ng::DebugPrintf("======End of draw\n");
+
         renderProfiler.Stop();
     }
+}
+catch (const std::exception& e)
+{
+    std::cerr << "Caught fatal exception: " << e.what() << std::endl;
+}
+catch (...)
+{
+    std::cerr << "Caught fatal unknown exception." << std::endl;
 }

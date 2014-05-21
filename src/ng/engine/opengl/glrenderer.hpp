@@ -2,6 +2,7 @@
 #define NG_GLRENDERER_HPP
 
 #include "ng/engine/renderer.hpp"
+#include "ng/engine/opengl/globject.hpp"
 
 #include <GL/gl.h>
 
@@ -19,10 +20,7 @@ class IGLContext;
 class RenderingOpenGLThreadData;
 class ResourceOpenGLThreadData;
 struct OpenGLInstruction;
-class OpenGLBufferHandle;
 class VertexArray;
-class OpenGLShaderHandle;
-class OpenGLShaderProgramHandle;
 
 class OpenGLRenderer: public IRenderer, public std::enable_shared_from_this<OpenGLRenderer>
 {
@@ -67,42 +65,46 @@ public:
 
     void SendSwapBuffers();
 
-    std::shared_future<OpenGLBufferHandle> SendGenBuffer();
+    std::future<std::shared_ptr<OpenGLBufferHandle>> SendGenBuffer();
 
     void SendDeleteBuffer(GLuint buffer);
 
-    void SendBufferData(
+    std::future<std::shared_ptr<OpenGLBufferHandle>> SendBufferData(
             OpenGLInstructionHandler instructionHandler,
-            std::shared_future<OpenGLBufferHandle> bufferHandle,
+            std::shared_future<std::shared_ptr<OpenGLBufferHandle>> bufferHandle,
             GLenum target,
             GLsizeiptr size,
             std::shared_ptr<const void> dataHandle,
             GLenum usage);
 
-    std::shared_future<OpenGLShaderHandle> SendGenShader();
+    std::future<std::shared_ptr<OpenGLVertexArrayHandle>> SendGenVertexArray();
+
+    void SendDeleteVertexArray(GLuint vertexArray);
+
+    std::future<std::shared_ptr<OpenGLShaderHandle>> SendGenShader(GLenum shaderType);
 
     void SendDeleteShader(GLuint shader);
 
-    void SendCompileShader(
-            std::shared_future<OpenGLShaderHandle> shaderHandle,
+    std::future<std::shared_ptr<OpenGLShaderHandle>> SendCompileShader(
+            std::shared_future<std::shared_ptr<OpenGLShaderHandle>> shaderHandle,
             std::shared_ptr<const char> shaderSource);
 
-    std::shared_future<std::pair<bool,std::string>> SendGetShaderStatus(std::shared_future<OpenGLShaderHandle> shader);
+    std::future<std::pair<bool,std::string>> SendGetShaderStatus(std::shared_future<std::shared_ptr<OpenGLShaderHandle>> shader);
 
-    std::shared_future<OpenGLShaderProgramHandle> SendGenShaderProgram();
+    std::future<std::shared_ptr<OpenGLShaderProgramHandle>> SendGenShaderProgram();
 
     void SendDeleteShaderProgram(GLuint program);
 
-    void SendLinkProgram(
-            std::shared_future<OpenGLShaderProgramHandle> programHandle,
-            std::shared_future<OpenGLShaderHandle> vertexShaderHandle,
-            std::shared_future<OpenGLShaderHandle> fragmentShaderHandle);
+    std::future<std::shared_ptr<OpenGLShaderProgramHandle>> SendLinkProgram(
+            std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> programHandle,
+            std::shared_future<std::shared_ptr<OpenGLShaderHandle>> vertexShaderHandle,
+            std::shared_future<std::shared_ptr<OpenGLShaderHandle>> fragmentShaderHandle);
 
-    std::shared_future<std::pair<bool,std::string>> SendGetProgramStatus(std::shared_future<OpenGLShaderProgramHandle> program);
+    std::future<std::pair<bool,std::string>> SendGetProgramStatus(std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> program);
 
     void SendDrawVertexArray(
-            const VertexArray& vertexArray,
-            std::shared_future<OpenGLShaderProgramHandle> program,
+            std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArray,
+            std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> program,
             GLenum mode,
             GLint firstVertexIndex,
             GLsizei vertexCount);

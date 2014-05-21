@@ -6,6 +6,7 @@
 
 #include "ng/engine/opengl/glinstruction.hpp"
 #include "ng/engine/opengl/globject.hpp"
+#include "ng/engine/opengl/glenumconversion.hpp"
 
 #include "ng/engine/profiler.hpp"
 #include "ng/engine/debug.hpp"
@@ -13,6 +14,8 @@
 #include "ng/engine/memory.hpp"
 
 #include <cstring>
+#include <utility>
+#include <string>
 
 #if 1
 #define RenderDebugPrintf(...) DebugPrintf(__VA_ARGS__)
@@ -238,9 +241,9 @@ void OpenGLRenderer::SendSwapBuffers()
     PushRenderingInstruction(SwapBuffersOpCodeParams().ToInstruction().Instruction);
 }
 
-std::shared_future<OpenGLBufferHandle> OpenGLRenderer::SendGenBuffer()
+std::future<std::shared_ptr<OpenGLBufferHandle>> OpenGLRenderer::SendGenBuffer()
 {
-    GenBufferOpCodeParams params(ng::make_unique<std::promise<OpenGLBufferHandle>>(), true);
+    GenBufferOpCodeParams params(ng::make_unique<std::promise<std::shared_ptr<OpenGLBufferHandle>>>(), true);
     auto fut = params.Promise->get_future();
 
     PushResourceInstruction(params.ToInstruction().Instruction);
@@ -255,28 +258,51 @@ void OpenGLRenderer::SendDeleteBuffer(GLuint buffer)
     PushResourceInstruction(params.ToInstruction().Instruction);
 }
 
-void OpenGLRenderer::SendBufferData(
+std::future<std::shared_ptr<OpenGLBufferHandle>> OpenGLRenderer::SendBufferData(
         OpenGLInstructionHandler instructionHandler,
-        std::shared_future<OpenGLBufferHandle> bufferHandle,
+        std::shared_future<std::shared_ptr<OpenGLBufferHandle>> bufferHandle,
         GLenum target,
         GLsizeiptr size,
         std::shared_ptr<const void> dataHandle,
         GLenum usage)
 {
-    BufferDataOpCodeParams params(ng::make_unique<std::shared_future<OpenGLBufferHandle>>(bufferHandle),
-                                  target,
-                                  size,
-                                  ng::make_unique<std::shared_ptr<const void>>(dataHandle),
-                                  usage,
-                                  true);
+    BufferDataOpCodeParams params(
+                ng::make_unique<std::promise<std::shared_ptr<OpenGLBufferHandle>>>(),
+                ng::make_unique<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>>(bufferHandle),
+                target,
+                size,
+                ng::make_unique<std::shared_ptr<const void>>(dataHandle),
+                usage,
+                true);
+    auto fut = params.BufferDataPromise->get_future();
+
     PushInstruction(instructionHandler, params.ToInstruction().Instruction);
     params.AutoCleanup = false;
+
+    return std::move(fut);
 }
 
-std::shared_future<OpenGLShaderHandle> OpenGLRenderer::SendGenShader()
+std::future<std::shared_ptr<OpenGLVertexArrayHandle>> OpenGLRenderer::SendGenVertexArray()
 {
-    GenShaderOpCodeParams params(ng::make_unique<std::promise<OpenGLShaderHandle>>(), true);
+    GenVertexArrayOpCodeParams params(ng::make_unique<std::promise<std::shared_ptr<OpenGLVertexArrayHandle>>>(), true);
     auto fut = params.Promise->get_future();
+
+    PushResourceInstruction(params.ToInstruction().Instruction);
+    params.AutoCleanup = false;
+
+    return std::move(fut);
+}
+
+void OpenGLRenderer::SendDeleteVertexArray(GLuint vertexArray)
+{
+    DeleteVertexArrayOpCodeParams params(vertexArray);
+    PushResourceInstruction(params.ToInstruction().Instruction);
+}
+
+std::future<std::shared_ptr<OpenGLShaderHandle>> OpenGLRenderer::SendGenShader(GLenum shaderType)
+{
+    GenShaderOpCodeParams params(ng::make_unique<std::promise<std::shared_ptr<OpenGLShaderHandle>>>(), shaderType, true);
+    auto fut = params.ShaderPromise->get_future();
 
     PushResourceInstruction(params.ToInstruction().Instruction);
     params.AutoCleanup = false;
@@ -290,23 +316,28 @@ void OpenGLRenderer::SendDeleteShader(GLuint shader)
     PushResourceInstruction(params.ToInstruction().Instruction);
 }
 
-void OpenGLRenderer::SendCompileShader(
-        std::shared_future<OpenGLShaderHandle> shaderHandle,
+std::future<std::shared_ptr<OpenGLShaderHandle>> OpenGLRenderer::SendCompileShader(
+        std::shared_future<std::shared_ptr<OpenGLShaderHandle>> shaderHandle,
         std::shared_ptr<const char> shaderSource)
 {
     CompileShaderOpCodeParams params(
-                ng::make_unique<std::shared_future<OpenGLShaderHandle>>(shaderHandle),
+                ng::make_unique<std::promise<std::shared_ptr<OpenGLShaderHandle>>>(),
+                ng::make_unique<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>>(shaderHandle),
                 ng::make_unique<std::shared_ptr<const char>>(shaderSource),
                 true);
+    auto fut = params.CompiledShaderPromise->get_future();
+
     PushResourceInstruction(params.ToInstruction().Instruction);
     params.AutoCleanup = false;
+
+    return std::move(fut);
 }
 
-std::shared_future<std::pair<bool,std::string>> OpenGLRenderer::SendGetShaderStatus(std::shared_future<OpenGLShaderHandle> shader)
+std::future<std::pair<bool,std::string>> OpenGLRenderer::SendGetShaderStatus(std::shared_future<std::shared_ptr<OpenGLShaderHandle>> shader)
 {
     ShaderStatusOpCodeParams params(
                 ng::make_unique<std::promise<std::pair<bool,std::string>>>(),
-                ng::make_unique<std::shared_future<OpenGLShaderHandle>>(shader),
+                ng::make_unique<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>>(shader),
                 true);
     auto fut = params.Promise->get_future();
 
@@ -316,9 +347,9 @@ std::shared_future<std::pair<bool,std::string>> OpenGLRenderer::SendGetShaderSta
     return std::move(fut);
 }
 
-std::shared_future<OpenGLShaderProgramHandle> OpenGLRenderer::SendGenShaderProgram()
+std::future<std::shared_ptr<OpenGLShaderProgramHandle>> OpenGLRenderer::SendGenShaderProgram()
 {
-    GenShaderProgramOpCodeParams params(ng::make_unique<std::promise<OpenGLShaderProgramHandle>>(), true);
+    GenShaderProgramOpCodeParams params(ng::make_unique<std::promise<std::shared_ptr<OpenGLShaderProgramHandle>>>(), true);
     auto fut = params.Promise->get_future();
 
     PushResourceInstruction(params.ToInstruction().Instruction);
@@ -333,25 +364,30 @@ void OpenGLRenderer::SendDeleteShaderProgram(GLuint program)
     PushResourceInstruction(params.ToInstruction().Instruction);
 }
 
-void OpenGLRenderer::SendLinkProgram(
-        std::shared_future<OpenGLShaderProgramHandle> programHandle,
-        std::shared_future<OpenGLShaderHandle> vertexShaderHandle,
-        std::shared_future<OpenGLShaderHandle> fragmentShaderHandle)
+std::future<std::shared_ptr<OpenGLShaderProgramHandle>> OpenGLRenderer::SendLinkProgram(
+        std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> programHandle,
+        std::shared_future<std::shared_ptr<OpenGLShaderHandle>> vertexShaderHandle,
+        std::shared_future<std::shared_ptr<OpenGLShaderHandle>> fragmentShaderHandle)
 {
     LinkShaderProgramOpCodeParams params(
-            ng::make_unique<std::shared_future<OpenGLShaderProgramHandle>>(programHandle),
-            ng::make_unique<std::shared_future<OpenGLShaderHandle>>(vertexShaderHandle),
-            ng::make_unique<std::shared_future<OpenGLShaderHandle>>(fragmentShaderHandle),
+            ng::make_unique<std::promise<std::shared_ptr<OpenGLShaderProgramHandle>>>(),
+            ng::make_unique<std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>>(programHandle),
+            ng::make_unique<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>>(vertexShaderHandle),
+            ng::make_unique<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>>(fragmentShaderHandle),
             true);
+    auto fut = params.LinkedProgramPromise->get_future();
+
     PushResourceInstruction(params.ToInstruction().Instruction);
     params.AutoCleanup = false;
+
+    return std::move(fut);
 }
 
-std::shared_future<std::pair<bool,std::string>> OpenGLRenderer::SendGetProgramStatus(std::shared_future<OpenGLShaderProgramHandle> program)
+std::future<std::pair<bool,std::string>> OpenGLRenderer::SendGetProgramStatus(std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> program)
 {
     ShaderProgramStatusOpCodeParams params(
                 ng::make_unique<std::promise<std::pair<bool,std::string>>>(),
-                ng::make_unique<std::shared_future<OpenGLShaderProgramHandle>>(program),
+                ng::make_unique<std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>>(program),
                 true);
     auto fut = params.Promise->get_future();
 
@@ -362,14 +398,14 @@ std::shared_future<std::pair<bool,std::string>> OpenGLRenderer::SendGetProgramSt
 }
 
 void OpenGLRenderer::SendDrawVertexArray(
-        const VertexArray& vertexArray,
-        std::shared_future<OpenGLShaderProgramHandle> program,
-        GLenum mode,
-        GLint firstVertexIndex,
-        GLsizei vertexCount)
+    std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArray,
+    std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> program,
+    GLenum mode,
+    GLint firstVertexIndex,
+    GLsizei vertexCount)
 {
-    DrawVertexArrayOpCodeParams params(ng::make_unique<VertexArray>(vertexArray),
-                                       ng::make_unique<std::shared_future<OpenGLShaderProgramHandle>>(std::move(program)),
+    DrawVertexArrayOpCodeParams params(ng::make_unique<std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>>(std::move(vertexArray)),
+                                       ng::make_unique<std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>>(std::move(program)),
                                        mode, firstVertexIndex, vertexCount, true);
     PushInstruction(RenderingInstructionHandler, params.ToInstruction().Instruction);
     params.AutoCleanup = false;
@@ -426,6 +462,9 @@ DeclareGLExtension(PFNGLBINDBUFFERPROC,         glBindBuffer);
 DeclareGLExtension(PFNGLBUFFERDATAPROC,         glBufferData);
 DeclareGLExtension(PFNGLMAPBUFFERPROC,          glMapBuffer);
 DeclareGLExtension(PFNGLUNMAPBUFFERPROC,        glUnmapBuffer);
+DeclareGLExtension(PFNGLGENVERTEXARRAYSPROC,    glGenVertexArrays);
+DeclareGLExtension(PFNGLDELETEVERTEXARRAYSPROC, glDeleteVertexArrays);
+DeclareGLExtension(PFNGLBINDVERTEXARRAYPROC,    glBindVertexArray);
 DeclareGLExtension(PFNGLCREATESHADERPROC,       glCreateShader);
 DeclareGLExtension(PFNGLDELETESHADERPROC,       glDeleteShader);
 DeclareGLExtension(PFNGLATTACHSHADERPROC,       glAttachShader);
@@ -453,7 +492,7 @@ DeclareGLExtension(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation);
 
 // loads a single extension
 #define GetGLExtension(context, Type, ExtensionFunctionName) \
-    ExtensionFunctionName = (Type) LoadProcOrDie(context, STRINGIFY(ExtensionFunctionName))
+    ExtensionFunctionName = reinterpret_cast<Type>(LoadProcOrDie(context, STRINGIFY(ExtensionFunctionName)));
 
 // loads all extensions we need if they have not been loaded yet.
 #define InitGLExtensions(context) \
@@ -464,6 +503,9 @@ DeclareGLExtension(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation);
         GetGLExtension(context, PFNGLBUFFERDATAPROC,         glBufferData); \
         GetGLExtension(context, PFNGLMAPBUFFERPROC,          glMapBuffer); \
         GetGLExtension(context, PFNGLUNMAPBUFFERPROC,        glUnmapBuffer); \
+        GetGLExtension(context, PFNGLGENVERTEXARRAYSPROC,    glGenVertexArrays); \
+        GetGLExtension(context, PFNGLDELETEVERTEXARRAYSPROC, glDeleteVertexArrays); \
+        GetGLExtension(context, PFNGLBINDVERTEXARRAYPROC,    glBindVertexArray); \
         GetGLExtension(context, PFNGLCREATESHADERPROC,       glCreateShader); \
         GetGLExtension(context, PFNGLDELETESHADERPROC,       glDeleteShader); \
         GetGLExtension(context, PFNGLATTACHSHADERPROC,       glAttachShader); \
@@ -495,7 +537,7 @@ static void HandleCommonInstruction(CommonOpenGLThreadData* threadData, const Op
     case OpenGLOpCode::BufferData: {
         BufferDataOpCodeParams params(inst, true);
 
-        glBindBuffer(params.Target, params.BufferHandle->get().GetHandle());
+        glBindBuffer(params.Target, params.BufferHandle->get()->GetHandle());
 
         // initialize it with null, because glBufferData would make a useless copy of the data we pass it.
         glBufferData(params.Target, params.Size, nullptr, params.Usage);
@@ -507,6 +549,8 @@ static void HandleCommonInstruction(CommonOpenGLThreadData* threadData, const Op
             std::memcpy(bufferPtr, params.DataHandle->get(), params.Size);
             glUnmapBuffer(params.Target);
         }
+
+        params.BufferDataPromise->set_value(params.BufferHandle->get());
     } break;
     case OpenGLOpCode::SwapBuffers: {
         threadData->mWindow->SwapBuffers();
@@ -577,15 +621,15 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
             case OpenGLOpCode::DrawVertexArray: {
                 DrawVertexArrayOpCodeParams params(inst, true);
 
-                glUseProgram(params.ProgramHandle.get().GetHandle());
+                glUseProgram(params.ProgramHandle->get()->GetHandle());
 
-                // TODO: Create VAO and bind it
+                glBindVertexArray(params.VertexArrayHandle->get()->GetHandle());
 
                 if (params.VertexArrayHandle->Indices.valid())
                 {
                     glDrawElements(params.Mode, params.VertexCount,
                                    ToGLArithmeticType(params.VertexArrayHandle->Format.IndexType),
-                                   ,);
+                                   reinterpret_cast<void*>(params.FirstVertexIndex * SizeOfArithmeticType(params.VertexArrayHandle->Format.IndexType)));
                 }
                 else
                 {
@@ -644,11 +688,108 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
             GenBufferOpCodeParams params(inst, true);
             GLuint handle;
             glGenBuffers(1, &handle);
-            params.Promise->set_value(OpenGLBufferHandle(threadData->mRenderer.shared_from_this(), handle));
+            params.Promise->set_value(std::make_shared<OpenGLBufferHandle>(threadData->mRenderer.shared_from_this(), handle));
         } break;
         case OpenGLOpCode::DeleteBuffer: {
             DeleteBufferOpCodeParams params(inst);
             glDeleteBuffers(1, &params.Handle);
+        } break;
+        case OpenGLOpCode::GenVertexArray: {
+            GenVertexArrayOpCodeParams params(inst, true);
+            GLuint handle;
+            glGenVertexArrays(1, &handle);
+            params.Promise->set_value(std::make_shared<OpenGLVertexArrayHandle>(threadData->mRenderer.shared_from_this(), handle));
+        } break;
+        case OpenGLOpCode::DeleteVertexArray: {
+            DeleteVertexArrayOpCodeParams params(inst);
+            glDeleteVertexArrays(1, &params.Handle);
+        } break;
+        case OpenGLOpCode::GenShader: {
+            GenShaderOpCodeParams params(inst, true);
+            params.ShaderPromise->set_value(std::make_shared<OpenGLShaderHandle>(threadData->mRenderer.shared_from_this(), glCreateShader(params.ShaderType)));
+        } break;
+        case OpenGLOpCode::DeleteShader: {
+            DeleteShaderOpCodeParams params(inst);
+            glDeleteShader(params.Handle);
+        } break;
+        case OpenGLOpCode::CompileShader: {
+            CompileShaderOpCodeParams params(inst, true);
+
+            const char* src = params.SourceHandle->get();
+            GLuint handle = params.ShaderHandle->get()->GetHandle();
+
+            glShaderSource(handle, 1, &src, NULL);
+            glCompileShader(handle);
+
+            params.CompiledShaderPromise->set_value(params.ShaderHandle->get());
+        } break;
+        case OpenGLOpCode::ShaderStatus: {
+            ShaderStatusOpCodeParams params(inst, true);
+
+            GLuint handle = params.Handle->get()->GetHandle();
+
+            GLint status;
+            glGetShaderiv(handle, GL_COMPILE_STATUS, &status);
+
+            if (!status)
+            {
+                GLint logLength;
+                glGetShaderiv(handle, GL_INFO_LOG_LENGTH, &logLength);
+
+                std::vector<char> log(logLength);
+                glGetShaderInfoLog(handle, log.size(), NULL, log.data());
+
+                params.Promise->set_value(std::make_pair<bool,std::string>(false, log.data()));
+            }
+            else
+            {
+                params.Promise->set_value(std::make_pair<bool,std::string>(true, "Compile Status OK"));
+            }
+        } break;
+        case OpenGLOpCode::GenShaderProgram: {
+            GenShaderProgramOpCodeParams params(inst, true);
+            params.Promise->set_value(std::make_shared<OpenGLShaderProgramHandle>(threadData->mRenderer.shared_from_this(), glCreateProgram()));
+        } break;
+        case OpenGLOpCode::DeleteShaderProgram: {
+            DeleteShaderProgramOpCodeParams params(inst);
+            glDeleteProgram(params.Handle);
+        } break;
+        case OpenGLOpCode::LinkShaderProgram: {
+            LinkShaderProgramOpCodeParams params(inst, true);
+
+            GLuint programHandle = params.ShaderProgramHandle->get()->GetHandle();
+            GLuint vertexShaderHandle = params.VertexShaderHandle->get()->GetHandle();
+            GLuint fragmentShaderHandle = params.FragmentShaderHandle->get()->GetHandle();
+
+            glAttachShader(programHandle, vertexShaderHandle);
+            glAttachShader(programHandle, fragmentShaderHandle);
+
+            glLinkProgram(programHandle);
+
+            params.LinkedProgramPromise->set_value(params.ShaderProgramHandle->get());
+        } break;
+        case OpenGLOpCode::ShaderProgramStatus: {
+            ShaderProgramStatusOpCodeParams params(inst, true);
+
+            GLuint handle = params.Handle->get()->GetHandle();
+
+            GLint status;
+            glGetProgramiv(handle, GL_LINK_STATUS, &status);
+
+            if (!status)
+            {
+                GLint logLength;
+                glGetProgramiv(handle, GL_INFO_LOG_LENGTH, &logLength);
+
+                std::vector<char> log(logLength);
+                glGetProgramInfoLog(handle, log.size(), NULL, log.data());
+
+                params.Promise->set_value(std::make_pair<bool,std::string>(false, log.data()));
+            }
+            else
+            {
+                params.Promise->set_value(std::make_pair<bool,std::string>(true, "Link Status OK"));
+            }
         } break;
         case OpenGLOpCode::Quit: {
             RenderProfilePrintf("Time spent loading resources serverside in %s: %lfms\n", threadData->mThreadName.c_str(), resourceProfiler.GetTotalTimeMS());

@@ -16,107 +16,120 @@ namespace ng
 
 class OpenGLRenderer;
 
-class OpenGLBufferHandle
+template<class ReleasePolicy>
+class OpenGLObject
 {
     std::shared_ptr<OpenGLRenderer> mRenderer;
-    GLuint mHandle;
+    GLuint mHandle = 0;
 
 public:
-    OpenGLBufferHandle();
-    ~OpenGLBufferHandle();
+    OpenGLObject(std::shared_ptr<OpenGLRenderer> renderer, GLuint handle)
+        : mRenderer(std::move(renderer))
+        , mHandle(handle)
+    { }
 
-    OpenGLBufferHandle(std::shared_ptr<OpenGLRenderer> renderer, GLuint handle);
+    ~OpenGLObject()
+    {
+        ReleasePolicy::Release(mRenderer, mHandle);
+    }
 
-    OpenGLBufferHandle(const OpenGLBufferHandle& other) = delete;
-    OpenGLBufferHandle& operator=(const OpenGLBufferHandle& other) = delete;
+    OpenGLObject(const OpenGLObject& other) = delete;
+    OpenGLObject& operator=(const OpenGLObject& other) = delete;
 
-    OpenGLBufferHandle(OpenGLBufferHandle&& other);
-    OpenGLBufferHandle& operator=(OpenGLBufferHandle&& other);
+    OpenGLObject(OpenGLObject&& other)
+    {
+        swap(other);
+    }
 
-    void swap(OpenGLBufferHandle& other);
+    OpenGLObject& operator=(OpenGLObject&& other)
+    {
+        if (this != &other)
+        {
+            OpenGLObject tmp(std::move(other));
+            swap(tmp);
+        }
+        return *this;
+    }
 
-    GLuint GetHandle() const;
+    void swap(OpenGLObject& other)
+    {
+        using std::swap;
+        swap(mRenderer, other.mRenderer);
+        swap(mHandle, other.mHandle);
+    }
+
+    const std::shared_ptr<OpenGLRenderer>& GetRenderer() const
+    {
+        return mRenderer;
+    }
+
+    GLuint GetHandle() const
+    {
+        return mHandle;
+    }
 };
 
-void swap(OpenGLBufferHandle& a, OpenGLBufferHandle& b);
-
-class OpenGLShaderHandle
+template<class ResourceTraits>
+void swap(OpenGLObject<ResourceTraits>& a, OpenGLObject<ResourceTraits>& b)
 {
-    std::shared_ptr<OpenGLRenderer> mRenderer;
-    GLuint mHandle;
+    a.swap(b);
+}
 
-public:
-    OpenGLShaderHandle();
-    ~OpenGLShaderHandle();
-
-    OpenGLShaderHandle(std::shared_ptr<OpenGLRenderer> renderer, GLuint handle);
-
-    OpenGLShaderHandle(const OpenGLShaderHandle& other) = delete;
-    OpenGLShaderHandle& operator=(const OpenGLShaderHandle& other) = delete;
-
-    OpenGLShaderHandle(OpenGLShaderHandle&& other);
-    OpenGLShaderHandle& operator=(OpenGLShaderHandle&& other);
-
-    void swap(OpenGLShaderHandle& other);
-
-    GLuint GetHandle() const;
-};
-
-void swap(OpenGLShaderHandle& a, OpenGLShaderHandle& b);
-
-class OpenGLShaderProgramHandle
+namespace detail
 {
-    std::shared_ptr<OpenGLRenderer> mRenderer;
-    GLuint mHandle;
+    struct BufferReleasePolicy
+    {
+        static void Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle);
+    };
 
-public:
-    OpenGLShaderProgramHandle();
-    ~OpenGLShaderProgramHandle();
+    struct VertexArrayReleasePolicy
+    {
+        static void Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle);
+    };
 
-    OpenGLShaderProgramHandle(std::shared_ptr<OpenGLRenderer> renderer, GLuint handle);
+    struct ShaderReleasePolicy
+    {
+        static void Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle);
+    };
 
-    OpenGLShaderProgramHandle(const OpenGLShaderProgramHandle& other) = delete;
-    OpenGLShaderProgramHandle& operator=(const OpenGLShaderProgramHandle& other) = delete;
+    struct ShaderProgramReleasePolicy
+    {
+        static void Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle);
+    };
 
-    OpenGLShaderProgramHandle(OpenGLShaderProgramHandle&& other);
-    OpenGLShaderProgramHandle& operator=(OpenGLShaderProgramHandle&& other);
+} // end namespace detail
 
-    void swap(OpenGLShaderProgramHandle& other);
+using OpenGLBufferHandle = OpenGLObject<detail::BufferReleasePolicy>;
+using OpenGLVertexArrayHandle = OpenGLObject<detail::VertexArrayReleasePolicy>;
+using OpenGLShaderHandle = OpenGLObject<detail::ShaderReleasePolicy>;
+using OpenGLShaderProgramHandle = OpenGLObject<detail::ShaderProgramReleasePolicy>;
 
-    GLuint GetHandle() const;
-};
+//class VertexArray
+//{
+//public:
+//    VertexFormat Format;
 
-void swap(OpenGLShaderProgramHandle& a, OpenGLShaderProgramHandle& b);
+//    std::map<VertexAttributeName, std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> AttributeBuffers;
 
-class VertexArray
-{
-public:
-    VertexFormat Format;
+//    std::shared_future<std::shared_ptr<OpenGLBufferHandle>> Indices;
 
-    std::shared_future<OpenGLBufferHandle> Position;
-    std::shared_future<OpenGLBufferHandle> Texcoord0;
-    std::shared_future<OpenGLBufferHandle> Texcoord1;
-    std::shared_future<OpenGLBufferHandle> Normal;
+//    std::size_t VertexCount;
 
-    std::shared_future<OpenGLBufferHandle> Indices;
+//    VertexArray() = default;
 
-    std::size_t VertexCount;
-
-    VertexArray() = default;
-
-    VertexArray(const VertexFormat& format,
-                std::vector<std::shared_future<OpenGLBufferHandle>> vertexBufferHandles,
-                std::shared_future<OpenGLBufferHandle> indexBufferHandle,
-                std::size_t vertexCount);
-};
+//    VertexArray(const VertexFormat& format,
+//                std::vector<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> vertexBufferHandles,
+//                std::shared_future<std::shared_ptr<OpenGLBufferHandle>> indexBufferHandle,
+//                std::size_t vertexCount);
+//};
 
 class OpenGLShaderProgram : public IShaderProgram
 {
     std::shared_ptr<OpenGLRenderer> mRenderer;
 
-    std::shared_future<OpenGLShaderHandle> mVertexShader;
-    std::shared_future<OpenGLShaderHandle> mFragmentShader;
-    std::shared_future<OpenGLShaderProgramHandle> mProgram;
+    std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> mProgram;
+    std::shared_future<std::shared_ptr<OpenGLShaderHandle>> mVertexShader;
+    std::shared_future<std::shared_ptr<OpenGLShaderHandle>> mFragmentShader;
 
 public:
     OpenGLShaderProgram(std::shared_ptr<OpenGLRenderer> renderer);
@@ -126,20 +139,22 @@ public:
 
     std::pair<bool,std::string> GetStatus() const override;
 
-    std::shared_future<OpenGLShaderProgramHandle> GetFutureHandle() const;
+    std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> GetFutureHandle() const;
 };
 
 class OpenGLStaticMesh : public IStaticMesh
 {
     std::shared_ptr<OpenGLRenderer> mRenderer;
 
-    VertexArray mVertexArray;
+    std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> mVertexArray;
+
+    size_t mVertexCount;
 
 public:
     OpenGLStaticMesh(std::shared_ptr<OpenGLRenderer> renderer);
 
-    void Init(const VertexFormat& format,
-              const std::vector<std::pair<std::shared_ptr<const void>,std::ptrdiff_t>>& vertexDataAndSize,
+    void Init(VertexFormat format,
+              std::map<VertexAttributeName,std::pair<std::shared_ptr<const void>,std::ptrdiff_t>> attributeDataAndSize,
               std::shared_ptr<const void> indexData,
               std::ptrdiff_t indexDataSize,
               std::size_t vertexCount) override;

@@ -217,13 +217,15 @@ SizedOpenGLInstruction<1> ClearOpCodeParams::ToInstruction() const
 }
 
 BufferDataOpCodeParams::BufferDataOpCodeParams(
-        std::unique_ptr<std::shared_future<OpenGLBufferHandle>> bufferHandle,
+        std::unique_ptr<std::promise<std::shared_ptr<OpenGLBufferHandle>>> bufferDataPromise,
+        std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> bufferHandle,
         GLenum target,
         GLsizeiptr size,
         std::unique_ptr<std::shared_ptr<const void>> dataHandle,
         GLenum usage,
         bool autoCleanup)
-    : BufferHandle(std::move(bufferHandle))
+    : BufferDataPromise(std::move(bufferDataPromise))
+    , BufferHandle(std::move(bufferHandle))
     , Target(target)
     , Size(size)
     , DataHandle(std::move(dataHandle))
@@ -232,11 +234,12 @@ BufferDataOpCodeParams::BufferDataOpCodeParams(
 { }
 
 BufferDataOpCodeParams::BufferDataOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup)
-    : BufferHandle(reinterpret_cast<std::shared_future<OpenGLBufferHandle>*>(inst.Params[0]))
-    , Target(inst.Params[1])
-    , Size(inst.Params[2])
-    , DataHandle(reinterpret_cast<std::shared_ptr<const void>*>(inst.Params[3]))
-    , Usage(inst.Params[4])
+    : BufferDataPromise(reinterpret_cast<std::promise<std::shared_ptr<OpenGLBufferHandle>>*>(inst.Params[0]))
+    , BufferHandle(reinterpret_cast<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>*>(inst.Params[1]))
+    , Target(inst.Params[2])
+    , Size(inst.Params[3])
+    , DataHandle(reinterpret_cast<std::shared_ptr<const void>*>(inst.Params[4]))
+    , Usage(inst.Params[5])
     , AutoCleanup(autoCleanup)
 { }
 
@@ -246,33 +249,68 @@ BufferDataOpCodeParams::~BufferDataOpCodeParams()
     {
         DataHandle.release();
         BufferHandle.release();
+        BufferDataPromise.release();
     }
 }
 
-SizedOpenGLInstruction<5> BufferDataOpCodeParams::ToInstruction() const
+SizedOpenGLInstruction<6> BufferDataOpCodeParams::ToInstruction() const
 {
-    SizedOpenGLInstruction<5> si(OpenGLOpCode::BufferData);
+    SizedOpenGLInstruction<6> si(OpenGLOpCode::BufferData);
     OpenGLInstruction& inst = si.Instruction;
-    inst.Params[0] = reinterpret_cast<std::uintptr_t>(BufferHandle.get());
-    inst.Params[1] = Target;
-    inst.Params[2] = Size;
-    inst.Params[3] = reinterpret_cast<std::uintptr_t>(DataHandle.get());
-    inst.Params[4] = Usage;
+    inst.Params[0] = reinterpret_cast<std::uintptr_t>(BufferDataPromise.get());
+    inst.Params[1] = reinterpret_cast<std::uintptr_t>(BufferHandle.get());
+    inst.Params[2] = Target;
+    inst.Params[3] = Size;
+    inst.Params[4] = reinterpret_cast<std::uintptr_t>(DataHandle.get());
+    inst.Params[5] = Usage;
+    return si;
+}
+
+GenShaderOpCodeParams::GenShaderOpCodeParams(
+        std::unique_ptr<std::promise<std::shared_ptr<OpenGLShaderHandle>>> shaderPromise,
+        GLenum shaderType, bool autoCleanup)
+    : ShaderPromise(std::move(shaderPromise))
+    , ShaderType(shaderType)
+    , AutoCleanup(autoCleanup)
+{ }
+
+GenShaderOpCodeParams::GenShaderOpCodeParams(const OpenGLInstruction &inst, bool autoCleanup)
+    : ShaderPromise(reinterpret_cast<std::promise<std::shared_ptr<OpenGLShaderHandle>>*>(inst.Params[0]))
+    , ShaderType(inst.Params[1])
+    , AutoCleanup(autoCleanup)
+{ }
+
+GenShaderOpCodeParams::~GenShaderOpCodeParams()
+{
+    if (!AutoCleanup)
+    {
+        ShaderPromise.release();
+    }
+}
+
+SizedOpenGLInstruction<2> GenShaderOpCodeParams::ToInstruction() const
+{
+    SizedOpenGLInstruction<2> si(OpenGLOpCode::GenShader);
+    si.Instruction.Params[0] = reinterpret_cast<std::uintptr_t>(ShaderPromise.get());
+    si.Instruction.Params[1] = ShaderType;
     return si;
 }
 
 CompileShaderOpCodeParams::CompileShaderOpCodeParams(
-        std::unique_ptr<std::shared_future<OpenGLShaderHandle>> shaderHandle,
+        std::unique_ptr<std::promise<std::shared_ptr<OpenGLShaderHandle>>> compiledShaderPromise,
+        std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>> shaderHandle,
         std::unique_ptr<std::shared_ptr<const char>> sourceHandle,
         bool autoCleanup)
-    : ShaderHandle(std::move(shaderHandle))
+    : CompiledShaderPromise(std::move(compiledShaderPromise))
+    , ShaderHandle(std::move(shaderHandle))
     , SourceHandle(std::move(sourceHandle))
     , AutoCleanup(autoCleanup)
 { }
 
 CompileShaderOpCodeParams::CompileShaderOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup)
-    : ShaderHandle(reinterpret_cast<std::shared_future<OpenGLShaderHandle>*>(inst.Params[0]))
-    , SourceHandle(reinterpret_cast<std::shared_ptr<const char>*>(inst.Params[1]))
+    : CompiledShaderPromise(reinterpret_cast<std::promise<std::shared_ptr<OpenGLShaderHandle>>*>(inst.Params[0]))
+    , ShaderHandle(reinterpret_cast<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>*>(inst.Params[1]))
+    , SourceHandle(reinterpret_cast<std::shared_ptr<const char>*>(inst.Params[2]))
     , AutoCleanup(autoCleanup)
 { }
 
@@ -282,24 +320,28 @@ CompileShaderOpCodeParams::~CompileShaderOpCodeParams()
     {
         ShaderHandle.release();
         SourceHandle.release();
+        CompiledShaderPromise.release();
     }
 }
 
-SizedOpenGLInstruction<2> CompileShaderOpCodeParams::ToInstruction() const
+SizedOpenGLInstruction<3> CompileShaderOpCodeParams::ToInstruction() const
 {
-    SizedOpenGLInstruction<2> si(OpenGLOpCode::CompileShader);
+    SizedOpenGLInstruction<3> si(OpenGLOpCode::CompileShader);
     OpenGLInstruction& inst = si.Instruction;
-    inst.Params[0] = reinterpret_cast<std::uintptr_t>(ShaderHandle.get());
-    inst.Params[1] = reinterpret_cast<std::uintptr_t>(SourceHandle.get());
+    inst.Params[0] = reinterpret_cast<std::uintptr_t>(CompiledShaderPromise.get());
+    inst.Params[1] = reinterpret_cast<std::uintptr_t>(ShaderHandle.get());
+    inst.Params[2] = reinterpret_cast<std::uintptr_t>(SourceHandle.get());
     return si;
 }
 
 LinkShaderProgramOpCodeParams::LinkShaderProgramOpCodeParams(
-        std::unique_ptr<std::shared_future<OpenGLShaderProgramHandle>> shaderProgramHandle,
-        std::unique_ptr<std::shared_future<OpenGLShaderHandle>> vertexShaderHandle,
-        std::unique_ptr<std::shared_future<OpenGLShaderHandle>> fragmentShaderHandle,
+        std::unique_ptr<std::promise<std::shared_ptr<OpenGLShaderProgramHandle>>> linkedProgramPromise,
+        std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>> shaderProgramHandle,
+        std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>> vertexShaderHandle,
+        std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>> fragmentShaderHandle,
         bool autoCleanup)
-    : ShaderProgramHandle(std::move(shaderProgramHandle))
+    : LinkedProgramPromise(std::move(linkedProgramPromise))
+    , ShaderProgramHandle(std::move(shaderProgramHandle))
     , VertexShaderHandle(std::move(vertexShaderHandle))
     , FragmentShaderHandle(std::move(fragmentShaderHandle))
     , AutoCleanup(autoCleanup)
@@ -307,9 +349,10 @@ LinkShaderProgramOpCodeParams::LinkShaderProgramOpCodeParams(
 
 LinkShaderProgramOpCodeParams::LinkShaderProgramOpCodeParams(
         const OpenGLInstruction& inst, bool autoCleanup)
-    : ShaderProgramHandle(reinterpret_cast<std::shared_future<OpenGLShaderProgramHandle>*>(inst.Params[0]))
-    , VertexShaderHandle(reinterpret_cast<std::shared_future<OpenGLShaderHandle>*>(inst.Params[1]))
-    , FragmentShaderHandle(reinterpret_cast<std::shared_future<OpenGLShaderHandle>*>(inst.Params[2]))
+    : LinkedProgramPromise(reinterpret_cast<std::promise<std::shared_ptr<OpenGLShaderProgramHandle>>*>(inst.Params[0]))
+    , ShaderProgramHandle(reinterpret_cast<std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>*>(inst.Params[1]))
+    , VertexShaderHandle(reinterpret_cast<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>*>(inst.Params[2]))
+    , FragmentShaderHandle(reinterpret_cast<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>*>(inst.Params[3]))
     , AutoCleanup(autoCleanup)
 { }
 
@@ -320,22 +363,24 @@ LinkShaderProgramOpCodeParams::~LinkShaderProgramOpCodeParams()
         FragmentShaderHandle.release();
         VertexShaderHandle.release();
         ShaderProgramHandle.release();
+        LinkedProgramPromise.release();
     }
 }
 
-SizedOpenGLInstruction<3> LinkShaderProgramOpCodeParams::ToInstruction() const
+SizedOpenGLInstruction<4> LinkShaderProgramOpCodeParams::ToInstruction() const
 {
-    SizedOpenGLInstruction<3> si(OpenGLOpCode::LinkShaderProgram);
+    SizedOpenGLInstruction<4> si(OpenGLOpCode::LinkShaderProgram);
     OpenGLInstruction& inst = si.Instruction;
-    inst.Params[0] = reinterpret_cast<std::uintptr_t>(ShaderProgramHandle.get());
-    inst.Params[1] = reinterpret_cast<std::uintptr_t>(VertexShaderHandle.get());
-    inst.Params[2] = reinterpret_cast<std::uintptr_t>(FragmentShaderHandle.get());
+    inst.Params[0] = reinterpret_cast<std::uintptr_t>(LinkedProgramPromise.get());
+    inst.Params[1] = reinterpret_cast<std::uintptr_t>(ShaderProgramHandle.get());
+    inst.Params[2] = reinterpret_cast<std::uintptr_t>(VertexShaderHandle.get());
+    inst.Params[3] = reinterpret_cast<std::uintptr_t>(FragmentShaderHandle.get());
     return si;
 }
 
 DrawVertexArrayOpCodeParams::DrawVertexArrayOpCodeParams(
-        std::unique_ptr<VertexArray> vertexArrayHandle,
-        std::unique_ptr<std::shared_future<OpenGLShaderProgramHandle>> programHandle,
+        std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>> vertexArrayHandle,
+        std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>> programHandle,
         GLenum mode,
         GLint firstVertexIndex,
         GLsizei vertexCount,
@@ -350,8 +395,8 @@ DrawVertexArrayOpCodeParams::DrawVertexArrayOpCodeParams(
 
 DrawVertexArrayOpCodeParams::DrawVertexArrayOpCodeParams(
         const OpenGLInstruction& inst, bool autoCleanup)
-    : VertexArrayHandle(reinterpret_cast<VertexArray*>(inst.Params[0]))
-    , ProgramHandle(reinterpret_cast<std::shared_future<OpenGLShaderProgramHandle>*>(inst.Params[1]))
+    : VertexArrayHandle(reinterpret_cast<std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>*>(inst.Params[0]))
+    , ProgramHandle(reinterpret_cast<std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>*>(inst.Params[1]))
     , Mode(inst.Params[2])
     , FirstVertexIndex(inst.Params[3])
     , VertexCount(inst.Params[4])

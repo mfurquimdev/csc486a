@@ -1,15 +1,15 @@
 #ifndef NG_STATICMESH_HPP
 #define NG_STATICMESH_HPP
 
+#include "ng/engine/vertexformat.hpp"
 #include "ng/engine/primitivetype.hpp"
 
 #include <memory>
-#include <vector>
+#include <map>
 
 namespace ng
 {
 
-struct VertexFormat;
 class IShaderProgram;
 
 class IStaticMesh
@@ -17,8 +17,8 @@ class IStaticMesh
 public:
     virtual ~IStaticMesh() = default;
 
-    virtual void Init(const VertexFormat& format,
-                      const std::vector<std::pair<std::shared_ptr<const void>,std::ptrdiff_t>>& vertexDataAndSize,
+    virtual void Init(VertexFormat format,
+                      std::map<VertexAttributeName, std::pair<std::shared_ptr<const void>,std::ptrdiff_t>> attributeDataAndSize,
                       std::shared_ptr<const void> indexData,
                       std::ptrdiff_t indexDataSize,
                       std::size_t vertexCount) = 0;
