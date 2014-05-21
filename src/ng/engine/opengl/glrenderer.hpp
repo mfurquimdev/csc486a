@@ -19,7 +19,10 @@ class IGLContext;
 class RenderingOpenGLThreadData;
 class ResourceOpenGLThreadData;
 struct OpenGLInstruction;
-class OpenGLBuffer;
+class OpenGLBufferHandle;
+class VertexArray;
+class OpenGLShaderHandle;
+class OpenGLShaderProgramHandle;
 
 class OpenGLRenderer: public IRenderer, public std::enable_shared_from_this<OpenGLRenderer>
 {
@@ -64,23 +67,53 @@ public:
 
     void SendSwapBuffers();
 
-    std::shared_future<OpenGLBuffer> SendGenBuffer();
+    std::shared_future<OpenGLBufferHandle> SendGenBuffer();
 
     void SendDeleteBuffer(GLuint buffer);
 
     void SendBufferData(
             OpenGLInstructionHandler instructionHandler,
-            std::shared_future<OpenGLBuffer> bufferHandle,
+            std::shared_future<OpenGLBufferHandle> bufferHandle,
             GLenum target,
             GLsizeiptr size,
             std::shared_ptr<const void> dataHandle,
             GLenum usage);
+
+    std::shared_future<OpenGLShaderHandle> SendGenShader();
+
+    void SendDeleteShader(GLuint shader);
+
+    void SendCompileShader(
+            std::shared_future<OpenGLShaderHandle> shaderHandle,
+            std::shared_ptr<const char> shaderSource);
+
+    std::shared_future<std::pair<bool,std::string>> SendGetShaderStatus(std::shared_future<OpenGLShaderHandle> shader);
+
+    std::shared_future<OpenGLShaderProgramHandle> SendGenShaderProgram();
+
+    void SendDeleteShaderProgram(GLuint program);
+
+    void SendLinkProgram(
+            std::shared_future<OpenGLShaderProgramHandle> programHandle,
+            std::shared_future<OpenGLShaderHandle> vertexShaderHandle,
+            std::shared_future<OpenGLShaderHandle> fragmentShaderHandle);
+
+    std::shared_future<std::pair<bool,std::string>> SendGetProgramStatus(std::shared_future<OpenGLShaderProgramHandle> program);
+
+    void SendDrawVertexArray(
+            const VertexArray& vertexArray,
+            std::shared_future<OpenGLShaderProgramHandle> program,
+            GLenum mode,
+            GLint firstVertexIndex,
+            GLsizei vertexCount);
 
     void Clear(bool color, bool depth, bool stencil) override;
 
     void SwapBuffers() override;
 
     std::shared_ptr<IStaticMesh> CreateStaticMesh() override;
+
+    std::shared_ptr<IShaderProgram> CreateShaderProgram() override;
 };
 
 } // end namespace ng
