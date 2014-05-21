@@ -266,6 +266,54 @@ SizedOpenGLInstruction<6> BufferDataOpCodeParams::ToInstruction() const
     return si;
 }
 
+SetVertexArrayLayoutOpCodeParams::SetVertexArrayLayoutOpCodeParams(
+        std::unique_ptr<std::promise<std::shared_ptr<OpenGLVertexArrayHandle>>> vertexArrayPromise,
+        std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>> vertexArrayHandle,
+        std::unique_ptr<VertexFormat> format,
+        std::unique_ptr<std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>>> attributeBuffers,
+        std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> indexBuffer,
+        bool autoCleanup)
+    : VertexArrayPromise(std::move(vertexArrayPromise))
+    , VertexArrayHandle(std::move(vertexArrayHandle))
+    , Format(std::move(format))
+    , AttributeBuffers(std::move(attributeBuffers))
+    , IndexBuffer(std::move(indexBuffer))
+    , AutoCleanup(autoCleanup)
+{ }
+
+SetVertexArrayLayoutOpCodeParams::SetVertexArrayLayoutOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup)
+    : VertexArrayPromise(reinterpret_cast<std::promise<std::shared_ptr<OpenGLVertexArrayHandle>>*>(inst.Params[0]))
+    , VertexArrayHandle(reinterpret_cast<std::shared_future<std::shared_future<OpenGLVertexArrayHandle>>*>(inst.Params[1]))
+    , Format(reinterpret_cast<VertexFormat*>(inst.Params[2]))
+    , AttributeBuffers(reinterpret_cast<std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>>*>(inst.Params[3]))
+    , IndexBuffer(reinterpret_cast<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>*>(inst.Params[4]))
+    , AutoCleanup(autoCleanup)
+{ }
+
+SetVertexArrayLayoutOpCodeParams::~SetVertexArrayLayoutOpCodeParams()
+{
+    if (!AutoCleanup)
+    {
+        IndexBuffer.release();
+        AttributeBuffers.release();
+        Format.release();
+        VertexArrayHandle.release();
+        VertexArrayPromise.release();
+    }
+}
+
+SizedOpenGLInstruction<5> SetVertexArrayLayoutOpCodeParams::ToInstruction() const
+{
+    SizedOpenGLInstruction<5> si(OpenGLOpCode::SetVertexArrayLayout);
+    OpenGLInstruction& inst = si.Instruction;
+    inst.Params[0] = reinterpret_cast<std::uintptr_t>(VertexArrayPromise.get());
+    inst.Params[1] = reinterpret_cast<std::uintptr_t>(VertexArrayHandle.get());
+    inst.Params[2] = reinterpret_cast<std::uintptr_t>(Format.get());
+    inst.Params[3] = reinterpret_cast<std::uintptr_t>(AttributeBuffers.get());
+    inst.Params[4] = reinterpret_cast<std::uintptr_t>(IndexBuffer.get());
+    return si;
+}
+
 GenShaderOpCodeParams::GenShaderOpCodeParams(
         std::unique_ptr<std::promise<std::shared_ptr<OpenGLShaderHandle>>> shaderPromise,
         GLenum shaderType, bool autoCleanup)

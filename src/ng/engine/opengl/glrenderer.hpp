@@ -81,6 +81,13 @@ public:
 
     void SendDeleteVertexArray(GLuint vertexArray);
 
+    std::future<std::shared_ptr<OpenGLVertexArrayHandle>> SendSetVertexArrayLayout(
+            std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArrayHandle,
+            VertexFormat format,
+            std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> attributeBuffers,
+
+                                                              );
+
     std::future<std::shared_ptr<OpenGLShaderHandle>> SendGenShader(GLenum shaderType);
 
     void SendDeleteShader(GLuint shader);

@@ -22,18 +22,18 @@ int main() try
 
     auto mesh = renderer->CreateStaticMesh();
     {
-        ng::VertexFormat meshFormat{
-            { ng::VertexAttributeName::Position, ng::VertexAttribute(3, ng::ArithmeticType::Float, false, 0, 0, true) }
+        static const float rawMeshData[] = {
+            0.0f, 0.0f,
+            1.0f, 0.0f,
+            1.0f, 1.0f,
         };
 
-        static const float rawMeshData[] = {
-            0.0f, 0.0f, 0.0f,
-            1.0f, 1.0f,-1.0f,
-            1.0f,-1.0f, 0.0f,
+        ng::VertexFormat meshFormat{
+            { ng::VertexAttributeName::Position, ng::VertexAttribute(2, ng::ArithmeticType::Float, false, 0, 0, true) }
         };
 
         std::shared_ptr<const void> meshData(rawMeshData, [](const float*){});
-        mesh->Init(meshFormat, { { std::move(meshData), sizeof(rawMeshData) } }, nullptr, 0, 9);
+        mesh->Init(meshFormat, { { std::move(meshData), sizeof(rawMeshData) } }, nullptr, 0, 3);
     }
 
     const char* vsrc = "#version 150\n in vec4 iPosition; void main() { gl_Position = iPosition; }";
@@ -85,13 +85,9 @@ int main() try
 
         renderProfiler.Start();
 
-        ng::DebugPrintf("======Start of draw\n");
-
         renderer->Clear(true, true, false);
         mesh->Draw(program, ng::PrimitiveType::Triangles, 0, mesh->GetVertexCount());
         renderer->SwapBuffers();
-
-        ng::DebugPrintf("======End of draw\n");
 
         renderProfiler.Stop();
     }
