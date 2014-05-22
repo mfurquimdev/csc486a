@@ -1,6 +1,7 @@
 #ifndef NG_GLENUMCONVERSION_HPP
 #define NG_GLENUMCONVERSION_HPP
 
+#include "ng/engine/vertexformat.hpp"
 #include "ng/engine/arithmetictype.hpp"
 #include "ng/engine/primitivetype.hpp"
 
@@ -34,6 +35,15 @@ constexpr GLenum ToGLArithmeticType(ArithmeticType at)
          : at == ArithmeticType::Float ? GL_FLOAT
          : at == ArithmeticType::Double ? GL_DOUBLE
          : throw std::logic_error("No GL equivalent to this ArithmeticType");
+}
+
+constexpr GLuint ToGLAttributeIndex(VertexAttributeName va)
+{
+    return va == VertexAttributeName::Position ? 0
+         : va == VertexAttributeName::Texcoord0 ? 1
+         : va == VertexAttributeName::Texcoord1 ? 2
+         : va == VertexAttributeName::Normal ? 3
+         : throw std::logic_error("No define GL attribute index for this VertexAttributeName");
 }
 
 } // end namespace ng

@@ -28,12 +28,14 @@ int main() try
             1.0f, 1.0f,
         };
 
-        ng::VertexFormat meshFormat{
-            { ng::VertexAttributeName::Position, ng::VertexAttribute(2, ng::ArithmeticType::Float, false, 0, 0, true) }
-        };
+        ng::VertexFormat meshFormat( {
+                { ng::VertexAttributeName::Position, ng::VertexAttribute(2, ng::ArithmeticType::Float, false, 0, 0) }
+            });
 
         std::shared_ptr<const void> meshData(rawMeshData, [](const float*){});
-        mesh->Init(meshFormat, { { std::move(meshData), sizeof(rawMeshData) } }, nullptr, 0, 3);
+        mesh->Init(meshFormat, {
+                       { ng::VertexAttributeName::Position, { std::move(meshData), sizeof(rawMeshData) } }
+                   }, nullptr, 0, 3);
     }
 
     const char* vsrc = "#version 150\n in vec4 iPosition; void main() { gl_Position = iPosition; }";

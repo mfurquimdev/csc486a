@@ -299,7 +299,7 @@ void OpenGLRenderer::SendDeleteVertexArray(GLuint vertexArray)
     PushRenderingInstruction(params.ToInstruction().Instruction);
 }
 
-std::future<std::shared_ptr<OpenGLVertexArrayHandle>> SendSetVertexArrayLayout(
+std::future<std::shared_ptr<OpenGLVertexArrayHandle>> OpenGLRenderer::SendSetVertexArrayLayout(
          std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArrayHandle,
          VertexFormat format,
          std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> attributeBuffers,
@@ -423,11 +423,13 @@ void OpenGLRenderer::SendDrawVertexArray(
     std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> program,
     GLenum mode,
     GLint firstVertexIndex,
-    GLsizei vertexCount)
+    GLsizei vertexCount,
+    bool isIndexed,
+    ArithmeticType indexType)
 {
     DrawVertexArrayOpCodeParams params(ng::make_unique<std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>>(std::move(vertexArray)),
                                        ng::make_unique<std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>>(std::move(program)),
-                                       mode, firstVertexIndex, vertexCount, true);
+                                       mode, firstVertexIndex, vertexCount, isIndexed, indexType, true);
     PushInstruction(RenderingInstructionHandler, params.ToInstruction().Instruction);
     params.AutoCleanup = false;
 }
@@ -477,30 +479,33 @@ static void* LoadProcOrDie(IGLContext& context, const char* procName)
 
 // declarations of all the OpenGL functions used
 static thread_local bool LoadedGLExtensions = false;
-DeclareGLExtension(PFNGLGENBUFFERSPROC,         glGenBuffers);
-DeclareGLExtension(PFNGLDELETEBUFFERSPROC,      glDeleteBuffers);
-DeclareGLExtension(PFNGLBINDBUFFERPROC,         glBindBuffer);
-DeclareGLExtension(PFNGLBUFFERDATAPROC,         glBufferData);
-DeclareGLExtension(PFNGLMAPBUFFERPROC,          glMapBuffer);
-DeclareGLExtension(PFNGLUNMAPBUFFERPROC,        glUnmapBuffer);
-DeclareGLExtension(PFNGLGENVERTEXARRAYSPROC,    glGenVertexArrays);
+DeclareGLExtension(PFNGLGENBUFFERSPROC, glGenBuffers);
+DeclareGLExtension(PFNGLDELETEBUFFERSPROC, glDeleteBuffers);
+DeclareGLExtension(PFNGLBINDBUFFERPROC, glBindBuffer);
+DeclareGLExtension(PFNGLBUFFERDATAPROC, glBufferData);
+DeclareGLExtension(PFNGLMAPBUFFERPROC, glMapBuffer);
+DeclareGLExtension(PFNGLUNMAPBUFFERPROC, glUnmapBuffer);
+DeclareGLExtension(PFNGLGENVERTEXARRAYSPROC, glGenVertexArrays);
 DeclareGLExtension(PFNGLDELETEVERTEXARRAYSPROC, glDeleteVertexArrays);
-DeclareGLExtension(PFNGLBINDVERTEXARRAYPROC,    glBindVertexArray);
-DeclareGLExtension(PFNGLCREATESHADERPROC,       glCreateShader);
-DeclareGLExtension(PFNGLDELETESHADERPROC,       glDeleteShader);
-DeclareGLExtension(PFNGLATTACHSHADERPROC,       glAttachShader);
-DeclareGLExtension(PFNGLDETACHSHADERPROC,       glDetachShader);
-DeclareGLExtension(PFNGLSHADERSOURCEPROC,       glShaderSource);
-DeclareGLExtension(PFNGLCOMPILESHADERPROC,      glCompileShader);
-DeclareGLExtension(PFNGLGETSHADERIVPROC,        glGetShaderiv);
-DeclareGLExtension(PFNGLGETSHADERINFOLOGPROC,   glGetShaderInfoLog);
-DeclareGLExtension(PFNGLCREATEPROGRAMPROC,      glCreateProgram);
-DeclareGLExtension(PFNGLDELETEPROGRAMPROC,      glDeleteProgram);
-DeclareGLExtension(PFNGLUSEPROGRAMPROC,         glUseProgram);
-DeclareGLExtension(PFNGLLINKPROGRAMPROC,        glLinkProgram);
-DeclareGLExtension(PFNGLGETPROGRAMIVPROC,       glGetProgramiv);
-DeclareGLExtension(PFNGLGETPROGRAMINFOLOGPROC,  glGetProgramInfoLog);
-DeclareGLExtension(PFNGLGETATTRIBLOCATIONPROC,  glGetAttribLocation);
+DeclareGLExtension(PFNGLBINDVERTEXARRAYPROC, glBindVertexArray);
+DeclareGLExtension(PFNGLVERTEXATTRIBPOINTERPROC, glVertexAttribPointer);
+DeclareGLExtension(PFNGLENABLEVERTEXATTRIBARRAYPROC, glEnableVertexAttribArray);
+DeclareGLExtension(PFNGLDISABLEVERTEXATTRIBARRAYPROC, glDisableVertexAttribArray);
+DeclareGLExtension(PFNGLCREATESHADERPROC, glCreateShader);
+DeclareGLExtension(PFNGLDELETESHADERPROC, glDeleteShader);
+DeclareGLExtension(PFNGLATTACHSHADERPROC, glAttachShader);
+DeclareGLExtension(PFNGLDETACHSHADERPROC, glDetachShader);
+DeclareGLExtension(PFNGLSHADERSOURCEPROC, glShaderSource);
+DeclareGLExtension(PFNGLCOMPILESHADERPROC, glCompileShader);
+DeclareGLExtension(PFNGLGETSHADERIVPROC, glGetShaderiv);
+DeclareGLExtension(PFNGLGETSHADERINFOLOGPROC, glGetShaderInfoLog);
+DeclareGLExtension(PFNGLCREATEPROGRAMPROC, glCreateProgram);
+DeclareGLExtension(PFNGLDELETEPROGRAMPROC, glDeleteProgram);
+DeclareGLExtension(PFNGLUSEPROGRAMPROC, glUseProgram);
+DeclareGLExtension(PFNGLLINKPROGRAMPROC, glLinkProgram);
+DeclareGLExtension(PFNGLGETPROGRAMIVPROC, glGetProgramiv);
+DeclareGLExtension(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog);
+DeclareGLExtension(PFNGLGETATTRIBLOCATIONPROC, glGetAttribLocation);
 DeclareGLExtension(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation);
 
 // clean up define
@@ -518,30 +523,33 @@ DeclareGLExtension(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation);
 // loads all extensions we need if they have not been loaded yet.
 #define InitGLExtensions(context) \
     if (!LoadedGLExtensions) { \
-        GetGLExtension(context, PFNGLGENBUFFERSPROC,         glGenBuffers); \
-        GetGLExtension(context, PFNGLDELETEBUFFERSPROC,      glDeleteBuffers); \
-        GetGLExtension(context, PFNGLBINDBUFFERPROC,         glBindBuffer); \
-        GetGLExtension(context, PFNGLBUFFERDATAPROC,         glBufferData); \
-        GetGLExtension(context, PFNGLMAPBUFFERPROC,          glMapBuffer); \
-        GetGLExtension(context, PFNGLUNMAPBUFFERPROC,        glUnmapBuffer); \
-        GetGLExtension(context, PFNGLGENVERTEXARRAYSPROC,    glGenVertexArrays); \
+        GetGLExtension(context, PFNGLGENBUFFERSPROC, glGenBuffers); \
+        GetGLExtension(context, PFNGLDELETEBUFFERSPROC, glDeleteBuffers); \
+        GetGLExtension(context, PFNGLBINDBUFFERPROC, glBindBuffer); \
+        GetGLExtension(context, PFNGLBUFFERDATAPROC, glBufferData); \
+        GetGLExtension(context, PFNGLMAPBUFFERPROC, glMapBuffer); \
+        GetGLExtension(context, PFNGLUNMAPBUFFERPROC, glUnmapBuffer); \
+        GetGLExtension(context, PFNGLGENVERTEXARRAYSPROC, glGenVertexArrays); \
         GetGLExtension(context, PFNGLDELETEVERTEXARRAYSPROC, glDeleteVertexArrays); \
-        GetGLExtension(context, PFNGLBINDVERTEXARRAYPROC,    glBindVertexArray); \
-        GetGLExtension(context, PFNGLCREATESHADERPROC,       glCreateShader); \
-        GetGLExtension(context, PFNGLDELETESHADERPROC,       glDeleteShader); \
-        GetGLExtension(context, PFNGLATTACHSHADERPROC,       glAttachShader); \
-        GetGLExtension(context, PFNGLDETACHSHADERPROC,       glDetachShader); \
-        GetGLExtension(context, PFNGLSHADERSOURCEPROC,       glShaderSource); \
-        GetGLExtension(context, PFNGLCOMPILESHADERPROC,      glCompileShader); \
-        GetGLExtension(context, PFNGLGETSHADERIVPROC,        glGetShaderiv); \
-        GetGLExtension(context, PFNGLGETSHADERINFOLOGPROC,   glGetShaderInfoLog); \
-        GetGLExtension(context, PFNGLCREATEPROGRAMPROC,      glCreateProgram); \
-        GetGLExtension(context, PFNGLDELETEPROGRAMPROC,      glDeleteProgram); \
-        GetGLExtension(context, PFNGLUSEPROGRAMPROC,         glUseProgram); \
-        GetGLExtension(context, PFNGLLINKPROGRAMPROC,        glLinkProgram); \
-        GetGLExtension(context, PFNGLGETPROGRAMIVPROC,       glGetProgramiv); \
-        GetGLExtension(context, PFNGLGETPROGRAMINFOLOGPROC,  glGetProgramInfoLog); \
-        GetGLExtension(context, PFNGLGETATTRIBLOCATIONPROC,  glGetAttribLocation); \
+        GetGLExtension(context, PFNGLBINDVERTEXARRAYPROC, glBindVertexArray); \
+        GetGLExtension(context, PFNGLVERTEXATTRIBPOINTERPROC, glVertexAttribPointer); \
+        GetGLExtension(context, PFNGLENABLEVERTEXATTRIBARRAYPROC, glEnableVertexAttribArray); \
+        GetGLExtension(context, PFNGLDISABLEVERTEXATTRIBARRAYPROC, glDisableVertexAttribArray); \
+        GetGLExtension(context, PFNGLCREATESHADERPROC, glCreateShader); \
+        GetGLExtension(context, PFNGLDELETESHADERPROC, glDeleteShader); \
+        GetGLExtension(context, PFNGLATTACHSHADERPROC, glAttachShader); \
+        GetGLExtension(context, PFNGLDETACHSHADERPROC, glDetachShader); \
+        GetGLExtension(context, PFNGLSHADERSOURCEPROC, glShaderSource); \
+        GetGLExtension(context, PFNGLCOMPILESHADERPROC, glCompileShader); \
+        GetGLExtension(context, PFNGLGETSHADERIVPROC, glGetShaderiv); \
+        GetGLExtension(context, PFNGLGETSHADERINFOLOGPROC, glGetShaderInfoLog); \
+        GetGLExtension(context, PFNGLCREATEPROGRAMPROC, glCreateProgram); \
+        GetGLExtension(context, PFNGLDELETEPROGRAMPROC, glDeleteProgram); \
+        GetGLExtension(context, PFNGLUSEPROGRAMPROC, glUseProgram); \
+        GetGLExtension(context, PFNGLLINKPROGRAMPROC, glLinkProgram); \
+        GetGLExtension(context, PFNGLGETPROGRAMIVPROC, glGetProgramiv); \
+        GetGLExtension(context, PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog); \
+        GetGLExtension(context, PFNGLGETATTRIBLOCATIONPROC, glGetAttribLocation); \
         GetGLExtension(context, PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation); \
         LoadedGLExtensions = true; \
     }
@@ -652,13 +660,20 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
             case OpenGLOpCode::SetVertexArrayLayout: {
                 SetVertexArrayLayoutOpCodeParams params(inst, true);
 
+                const VertexFormat& format = *params.Format;
+
                 glBindVertexArray(params.VertexArrayHandle->get()->GetHandle());
 
-                for (const std::pair<VertexAttributeName, std::shared_future<std::shared_ptr<OpenGLBufferHandle>>>& attrib
+                for (const std::pair<VertexAttributeName, std::shared_future<std::shared_ptr<OpenGLBufferHandle>>>& attribBufferPair
                      : *params.AttributeBuffers)
                 {
-                    // TODO: bind attribute
-                    glBindBuffer(GL_ARRAY_BUFFER, attrib.second.get()->GetHandle());
+                    const VertexAttribute& attrib = format.Attributes.at(attribBufferPair.first);
+
+                    glBindBuffer(GL_ARRAY_BUFFER, attribBufferPair.second.get()->GetHandle());
+                    glVertexAttribPointer(ToGLAttributeIndex(attribBufferPair.first),
+                                          attrib.Cardinality, ToGLArithmeticType(attrib.Type), attrib.IsNormalized,
+                                          attrib.Stride, reinterpret_cast<void*>(attrib.Offset));
+                    glEnableVertexAttribArray(ToGLAttributeIndex(attribBufferPair.first));
                 }
 
                 if (params.IndexBuffer && params.IndexBuffer->valid())
@@ -675,11 +690,11 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
 
                 glBindVertexArray(params.VertexArrayHandle->get()->GetHandle());
 
-                if (params.VertexArrayHandle->Indices.valid())
+                if (params.IsIndexed)
                 {
                     glDrawElements(params.Mode, params.VertexCount,
-                                   ToGLArithmeticType(params.VertexArrayHandle->Format.IndexType),
-                                   reinterpret_cast<void*>(params.FirstVertexIndex * SizeOfArithmeticType(params.VertexArrayHandle->Format.IndexType)));
+                                   ToGLArithmeticType(params.IndexType),
+                                   reinterpret_cast<void*>(params.FirstVertexIndex * SizeOfArithmeticType(params.IndexType)));
                 }
                 else
                 {

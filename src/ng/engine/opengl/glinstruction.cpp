@@ -283,7 +283,7 @@ SetVertexArrayLayoutOpCodeParams::SetVertexArrayLayoutOpCodeParams(
 
 SetVertexArrayLayoutOpCodeParams::SetVertexArrayLayoutOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup)
     : VertexArrayPromise(reinterpret_cast<std::promise<std::shared_ptr<OpenGLVertexArrayHandle>>*>(inst.Params[0]))
-    , VertexArrayHandle(reinterpret_cast<std::shared_future<std::shared_future<OpenGLVertexArrayHandle>>*>(inst.Params[1]))
+    , VertexArrayHandle(reinterpret_cast<std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>*>(inst.Params[1]))
     , Format(reinterpret_cast<VertexFormat*>(inst.Params[2]))
     , AttributeBuffers(reinterpret_cast<std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>>*>(inst.Params[3]))
     , IndexBuffer(reinterpret_cast<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>*>(inst.Params[4]))
@@ -432,12 +432,16 @@ DrawVertexArrayOpCodeParams::DrawVertexArrayOpCodeParams(
         GLenum mode,
         GLint firstVertexIndex,
         GLsizei vertexCount,
+        bool isIndexed,
+        ArithmeticType indexType,
         bool autoCleanup)
     : VertexArrayHandle(std::move(vertexArrayHandle))
     , ProgramHandle(std::move(programHandle))
     , Mode(mode)
     , FirstVertexIndex(firstVertexIndex)
     , VertexCount(vertexCount)
+    , IsIndexed(isIndexed)
+    , IndexType(indexType)
     , AutoCleanup(autoCleanup)
 { }
 
@@ -448,6 +452,8 @@ DrawVertexArrayOpCodeParams::DrawVertexArrayOpCodeParams(
     , Mode(inst.Params[2])
     , FirstVertexIndex(inst.Params[3])
     , VertexCount(inst.Params[4])
+    , IsIndexed(inst.Params[5])
+    , IndexType(static_cast<ArithmeticType>(inst.Params[6]))
     , AutoCleanup(autoCleanup)
 { }
 
@@ -460,15 +466,17 @@ DrawVertexArrayOpCodeParams::~DrawVertexArrayOpCodeParams()
     }
 }
 
-SizedOpenGLInstruction<5> DrawVertexArrayOpCodeParams::ToInstruction() const
+SizedOpenGLInstruction<7> DrawVertexArrayOpCodeParams::ToInstruction() const
 {
-    SizedOpenGLInstruction<5> si(OpenGLOpCode::DrawVertexArray);
+    SizedOpenGLInstruction<7> si(OpenGLOpCode::DrawVertexArray);
     OpenGLInstruction& inst(si.Instruction);
     inst.Params[0] = reinterpret_cast<std::uintptr_t>(VertexArrayHandle.get());
     inst.Params[1] = reinterpret_cast<std::uintptr_t>(ProgramHandle.get());
     inst.Params[2] = Mode;
     inst.Params[3] = FirstVertexIndex;
     inst.Params[4] = VertexCount;
+    inst.Params[5] = IsIndexed;
+    inst.Params[6] = static_cast<std::uintptr_t>(IndexType);
     return si;
 }
 

@@ -113,7 +113,9 @@ public:
             std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> program,
             GLenum mode,
             GLint firstVertexIndex,
-            GLsizei vertexCount);
+            GLsizei vertexCount,
+            bool isIndexed,
+            ArithmeticType indexType);
 
     void Clear(bool color, bool depth, bool stencil) override;
 

@@ -44,37 +44,6 @@ void ShaderProgramReleasePolicy::Release(std::shared_ptr<OpenGLRenderer>& render
 
 } // end namespace detail
 
-//VertexArray::VertexArray(
-//        const VertexFormat& format,
-//        std::vector<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> vertexBufferHandles,
-//        std::shared_future<std::shared_ptr<OpenGLBufferHandle>> indexBufferHandle,
-//        std::size_t vertexCount)
-//    : Format(format)
-//    , VertexCount(vertexCount)
-//{
-//    if (Format.Position.IsEnabled)
-//    {
-//        Position = std::move(vertexBufferHandles.at(Format.Position.Index));
-//    }
-
-//    if (Format.Texcoord0.IsEnabled)
-//    {
-//        Texcoord0 = std::move(vertexBufferHandles.at(Format.Texcoord0.Index));
-//    }
-
-//    if (Format.Texcoord1.IsEnabled)
-//    {
-//        Texcoord1 = std::move(vertexBufferHandles.at(Format.Texcoord1.Index));
-//    }
-
-//    if (Format.Normal.IsEnabled)
-//    {
-//        Normal = std::move(vertexBufferHandles.at(Format.Normal.Index));
-//    }
-
-//    Indices = std::move(indexBufferHandle);
-//}
-
 OpenGLShaderProgram::OpenGLShaderProgram(std::shared_ptr<OpenGLRenderer> renderer)
     : mRenderer(std::move(renderer))
 { }
@@ -141,6 +110,9 @@ void OpenGLStaticMesh::Init(
        std::ptrdiff_t indexDataSize,
        std::size_t vertexCount)
 {
+    bool isIndexed = format.IsIndexed;
+    ArithmeticType indexType = format.IndexType;
+
     // upload vertexData
     std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> vertexBuffers;
     for (const auto& attrib : attributeDataAndSize)
@@ -165,9 +137,12 @@ void OpenGLStaticMesh::Init(
     }
 
     std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vao = mRenderer->SendGenVertexArray();
-    // TODO: Call a function that automatically sends down all the necessary commands to the GL pipeline
-    swap(vao, mVertexArray);
+    vao = mRenderer->SendSetVertexArrayLayout(vao, std::move(format), std::move(vertexBuffers), std::move(indexBuffer));
+
+    mVertexArray = std::move(vao);
     mVertexCount = vertexCount;
+    mIsIndexed = isIndexed;
+    mIndexType = indexType;
 }
 
 void OpenGLStaticMesh::Draw(const std::shared_ptr<IShaderProgram>& program,
@@ -175,7 +150,7 @@ void OpenGLStaticMesh::Draw(const std::shared_ptr<IShaderProgram>& program,
 {
     std::shared_ptr<OpenGLShaderProgram> programGL = std::static_pointer_cast<OpenGLShaderProgram>(program);
     mRenderer->SendDrawVertexArray(mVertexArray, programGL->GetFutureHandle(),
-                                   ToGLPrimitiveType(primitiveType), firstVertexIndex, vertexCount);
+                                   ToGLPrimitiveType(primitiveType), firstVertexIndex, vertexCount, mIsIndexed, mIndexType);
 }
 
 std::size_t OpenGLStaticMesh::GetVertexCount() const

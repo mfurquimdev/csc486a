@@ -204,9 +204,9 @@ enum class OpenGLOpCode : OpenGLInstruction::OpCodeType
     LinkShaderProgram,
     // params:
     //         0) std::promise<std::shared_ptr<OpenGLShaderProgramHandle>>* linkedProgramPromise
-    //         0) std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>* shaderProgramHandle
-    //         1) std::shared_future<std::shared_ptr<OpenGLShaderHandle>>* vertexShaderHandle
-    //         2) std::shared_future<std::shared_ptr<OpenGLShaderHandle>>* fragmentShaderHandle
+    //         1) std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>* shaderProgramHandle
+    //         2) std::shared_future<std::shared_ptr<OpenGLShaderHandle>>* vertexShaderHandle
+    //         3) std::shared_future<std::shared_ptr<OpenGLShaderHandle>>* fragmentShaderHandle
     // notes:
     //         * will fulfill the promise of a linked program.
     //         * will attach and link the vertex and fragment shaders to the program.
@@ -228,6 +228,8 @@ enum class OpenGLOpCode : OpenGLInstruction::OpCodeType
     //         2) GLenum mode
     //         3) GLint firstVertexIndex
     //         4) GLsizei vertexCount
+    //         5) bool isIndexed
+    //         6) ArithmeticType indexType
     // notes:
     //         * will render the vertexArray using the program.
     //         * will release ownership of the programHandle (ie. delete programHandle.)
@@ -250,6 +252,9 @@ static constexpr const char* OpenGLOpCodeToString(OpenGLOpCode code)
          : code == OpenGLOpCode::GenBuffer ? "GenBuffer"
          : code == OpenGLOpCode::DeleteBuffer ? "DeleteBuffer"
          : code == OpenGLOpCode::BufferData ? "BufferData"
+         : code == OpenGLOpCode::GenVertexArray ? "GenVertexArray"
+         : code == OpenGLOpCode::DeleteVertexArray ? "DeleteVertexArray"
+         : code == OpenGLOpCode::SetVertexArrayLayout ? "SetVertexArrayLayout"
          : code == OpenGLOpCode::GenShader ? "GenShader"
          : code == OpenGLOpCode::DeleteShader ? "DeleteShader"
          : code == OpenGLOpCode::CompileShader ? "CompileShader"
@@ -526,6 +531,8 @@ struct DrawVertexArrayOpCodeParams
     GLenum Mode;
     GLint FirstVertexIndex;
     GLsizei VertexCount;
+    bool IsIndexed;
+    ArithmeticType IndexType;
 
     bool AutoCleanup;
 
@@ -535,13 +542,15 @@ struct DrawVertexArrayOpCodeParams
             GLenum mode,
             GLint firstVertexIndex,
             GLsizei vertexCount,
+            bool isIndexed,
+            ArithmeticType indexType,
             bool autoCleanup);
 
     DrawVertexArrayOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup);
 
     ~DrawVertexArrayOpCodeParams();
 
-    SizedOpenGLInstruction<5> ToInstruction() const;
+    SizedOpenGLInstruction<7> ToInstruction() const;
 };
 
 struct SwapBuffersOpCodeParams

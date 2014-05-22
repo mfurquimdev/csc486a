@@ -104,25 +104,6 @@ using OpenGLVertexArrayHandle = OpenGLObject<detail::VertexArrayReleasePolicy>;
 using OpenGLShaderHandle = OpenGLObject<detail::ShaderReleasePolicy>;
 using OpenGLShaderProgramHandle = OpenGLObject<detail::ShaderProgramReleasePolicy>;
 
-//class VertexArray
-//{
-//public:
-//    VertexFormat Format;
-
-//    std::map<VertexAttributeName, std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> AttributeBuffers;
-
-//    std::shared_future<std::shared_ptr<OpenGLBufferHandle>> Indices;
-
-//    std::size_t VertexCount;
-
-//    VertexArray() = default;
-
-//    VertexArray(const VertexFormat& format,
-//                std::vector<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> vertexBufferHandles,
-//                std::shared_future<std::shared_ptr<OpenGLBufferHandle>> indexBufferHandle,
-//                std::size_t vertexCount);
-//};
-
 class OpenGLShaderProgram : public IShaderProgram
 {
     std::shared_ptr<OpenGLRenderer> mRenderer;
@@ -149,6 +130,8 @@ class OpenGLStaticMesh : public IStaticMesh
     std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> mVertexArray;
 
     size_t mVertexCount;
+    bool mIsIndexed;
+    ArithmeticType mIndexType;
 
 public:
     OpenGLStaticMesh(std::shared_ptr<OpenGLRenderer> renderer);
