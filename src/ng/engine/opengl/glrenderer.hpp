@@ -85,8 +85,7 @@ public:
             std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArrayHandle,
             VertexFormat format,
             std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> attributeBuffers,
-
-                                                              );
+            std::shared_future<std::shared_ptr<OpenGLBufferHandle>> indexBuffer);
 
     std::future<std::shared_ptr<OpenGLShaderHandle>> SendGenShader(GLenum shaderType);
 

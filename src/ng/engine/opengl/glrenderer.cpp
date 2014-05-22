@@ -287,7 +287,7 @@ std::future<std::shared_ptr<OpenGLVertexArrayHandle>> OpenGLRenderer::SendGenVer
     GenVertexArrayOpCodeParams params(ng::make_unique<std::promise<std::shared_ptr<OpenGLVertexArrayHandle>>>(), true);
     auto fut = params.Promise->get_future();
 
-    PushResourceInstruction(params.ToInstruction().Instruction);
+    PushRenderingInstruction(params.ToInstruction().Instruction);
     params.AutoCleanup = false;
 
     return std::move(fut);
@@ -296,7 +296,28 @@ std::future<std::shared_ptr<OpenGLVertexArrayHandle>> OpenGLRenderer::SendGenVer
 void OpenGLRenderer::SendDeleteVertexArray(GLuint vertexArray)
 {
     DeleteVertexArrayOpCodeParams params(vertexArray);
-    PushResourceInstruction(params.ToInstruction().Instruction);
+    PushRenderingInstruction(params.ToInstruction().Instruction);
+}
+
+std::future<std::shared_ptr<OpenGLVertexArrayHandle>> SendSetVertexArrayLayout(
+         std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArrayHandle,
+         VertexFormat format,
+         std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> attributeBuffers,
+         std::shared_future<std::shared_ptr<OpenGLBufferHandle>> indexBuffer)
+{
+    SetVertexArrayLayoutOpCodeParams params(
+            ng::make_unique<std::promise<std::shared_ptr<OpenGLVertexArrayHandle>>>(),
+            ng::make_unique<std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>>(std::move(vertexArrayHandle)),
+            ng::make_unique<VertexFormat>(std::move(format)),
+            ng::make_unique<std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>>>(std::move(attributeBuffers)),
+            ng::make_unique<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>>(std::move(indexBuffer)),
+            true);
+    auto fut = params.VertexArrayPromise->get_future();
+
+    PushRenderingInstruction(params.ToInstruction().Instruction);
+    params.AutoCleanup = false;
+
+    return std::move(fut);
 }
 
 std::future<std::shared_ptr<OpenGLShaderHandle>> OpenGLRenderer::SendGenShader(GLenum shaderType)
@@ -618,6 +639,35 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
 
             switch (code)
             {
+            case OpenGLOpCode::GenVertexArray: {
+                GenVertexArrayOpCodeParams params(inst, true);
+                GLuint handle;
+                glGenVertexArrays(1, &handle);
+                params.Promise->set_value(std::make_shared<OpenGLVertexArrayHandle>(threadData->mRenderer.shared_from_this(), handle));
+            } break;
+            case OpenGLOpCode::DeleteVertexArray: {
+                DeleteVertexArrayOpCodeParams params(inst);
+                glDeleteVertexArrays(1, &params.Handle);
+            } break;
+            case OpenGLOpCode::SetVertexArrayLayout: {
+                SetVertexArrayLayoutOpCodeParams params(inst, true);
+
+                glBindVertexArray(params.VertexArrayHandle->get()->GetHandle());
+
+                for (const std::pair<VertexAttributeName, std::shared_future<std::shared_ptr<OpenGLBufferHandle>>>& attrib
+                     : *params.AttributeBuffers)
+                {
+                    // TODO: bind attribute
+                    glBindBuffer(GL_ARRAY_BUFFER, attrib.second.get()->GetHandle());
+                }
+
+                if (params.IndexBuffer && params.IndexBuffer->valid())
+                {
+                    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, params.IndexBuffer->get()->GetHandle());
+                }
+
+                params.VertexArrayPromise->set_value(params.VertexArrayHandle->get());
+            } break;
             case OpenGLOpCode::DrawVertexArray: {
                 DrawVertexArrayOpCodeParams params(inst, true);
 
@@ -693,16 +743,6 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
         case OpenGLOpCode::DeleteBuffer: {
             DeleteBufferOpCodeParams params(inst);
             glDeleteBuffers(1, &params.Handle);
-        } break;
-        case OpenGLOpCode::GenVertexArray: {
-            GenVertexArrayOpCodeParams params(inst, true);
-            GLuint handle;
-            glGenVertexArrays(1, &handle);
-            params.Promise->set_value(std::make_shared<OpenGLVertexArrayHandle>(threadData->mRenderer.shared_from_this(), handle));
-        } break;
-        case OpenGLOpCode::DeleteVertexArray: {
-            DeleteVertexArrayOpCodeParams params(inst);
-            glDeleteVertexArrays(1, &params.Handle);
         } break;
         case OpenGLOpCode::GenShader: {
             GenShaderOpCodeParams params(inst, true);
