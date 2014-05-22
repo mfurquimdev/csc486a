@@ -10,27 +10,30 @@
 
 #include <memory>
 #include <future>
+#include <vector>
 
 namespace ng
 {
 
 class OpenGLRenderer;
 
-template<class ReleasePolicy>
-class OpenGLObject
+template<class ObjectPolicy>
+class OpenGLObject : private ObjectPolicy
 {
-    std::shared_ptr<OpenGLRenderer> mRenderer;
+    OpenGLRenderer* mRenderer;
     GLuint mHandle = 0;
 
 public:
-    OpenGLObject(std::shared_ptr<OpenGLRenderer> renderer, GLuint handle)
-        : mRenderer(std::move(renderer))
+    using ObjectPolicy::AddDependents;
+
+    OpenGLObject(OpenGLRenderer& renderer, GLuint handle)
+        : mRenderer(&renderer)
         , mHandle(handle)
     { }
 
     ~OpenGLObject()
     {
-        ReleasePolicy::Release(mRenderer, mHandle);
+        ObjectPolicy::Release(*mRenderer, mHandle);
     }
 
     OpenGLObject(const OpenGLObject& other) = delete;
@@ -58,9 +61,9 @@ public:
         swap(mHandle, other.mHandle);
     }
 
-    const std::shared_ptr<OpenGLRenderer>& GetRenderer() const
+    const OpenGLRenderer& GetRenderer() const
     {
-        return mRenderer;
+        return *mRenderer;
     }
 
     GLuint GetHandle() const
@@ -75,34 +78,53 @@ void swap(OpenGLObject<ResourceTraits>& a, OpenGLObject<ResourceTraits>& b)
     a.swap(b);
 }
 
-namespace detail
+namespace openglobjectpolicies
 {
-    struct BufferReleasePolicy
+    class BufferPolicy
     {
-        static void Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle);
+    public:
+        void Release(OpenGLRenderer& renderer, GLuint handle);
+        void AddDependents(); // no definition intentionally
     };
 
-    struct VertexArrayReleasePolicy
+    class ShaderPolicy
     {
-        static void Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle);
+    public:
+        void Release(OpenGLRenderer& renderer, GLuint handle);
+        void AddDependents(); // no definition intentionally
     };
 
-    struct ShaderReleasePolicy
+} // end namespace openglobjectpolicies
+
+using OpenGLBufferHandle = OpenGLObject<openglobjectpolicies::BufferPolicy>;
+using OpenGLShaderHandle = OpenGLObject<openglobjectpolicies::ShaderPolicy>;
+
+namespace openglobjectpolicies
+{
+    class VertexArrayPolicy
     {
-        static void Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle);
+        std::vector<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> mDependentBuffers;
+
+    public:
+        void Release(OpenGLRenderer& renderer, GLuint handle);
+        void AddDependents(std::vector<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> dependents);
     };
 
-    struct ShaderProgramReleasePolicy
+    class ShaderProgramPolicy
     {
-        static void Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle);
+        std::shared_future<std::shared_ptr<OpenGLShaderHandle>> mVertexShader;
+        std::shared_future<std::shared_ptr<OpenGLShaderHandle>> mFragmentShader;
+
+    public:
+        void Release(OpenGLRenderer& renderer, GLuint handle);
+        void AddDependents(std::shared_future<std::shared_ptr<OpenGLShaderHandle>> vertexShader,
+                           std::shared_future<std::shared_ptr<OpenGLShaderHandle>> fragmentShader);
     };
 
-} // end namespace detail
+} // end namespace openglobjectpolicies
 
-using OpenGLBufferHandle = OpenGLObject<detail::BufferReleasePolicy>;
-using OpenGLVertexArrayHandle = OpenGLObject<detail::VertexArrayReleasePolicy>;
-using OpenGLShaderHandle = OpenGLObject<detail::ShaderReleasePolicy>;
-using OpenGLShaderProgramHandle = OpenGLObject<detail::ShaderProgramReleasePolicy>;
+using OpenGLVertexArrayHandle = OpenGLObject<openglobjectpolicies::VertexArrayPolicy>;
+using OpenGLShaderProgramHandle = OpenGLObject<openglobjectpolicies::ShaderProgramPolicy>;
 
 class OpenGLShaderProgram : public IShaderProgram
 {
@@ -123,15 +145,34 @@ public:
     std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> GetFutureHandle() const;
 };
 
+class VertexArray
+{
+public:
+    VertexFormat Format;
+
+    std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> VertexArrayHandle;
+
+    std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> AttributeBuffers;
+    std::shared_future<std::shared_ptr<OpenGLBufferHandle>> IndexBuffer;
+
+    std::size_t VertexCount = 0;
+
+    VertexArray() = default;
+
+    VertexArray(
+        VertexFormat format,
+        std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArrayHandle,
+        std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> attributeBuffers,
+        std::shared_future<std::shared_ptr<OpenGLBufferHandle>> indexBuffer,
+        std::size_t vertexCount);
+};
+
+
 class OpenGLStaticMesh : public IStaticMesh
 {
     std::shared_ptr<OpenGLRenderer> mRenderer;
 
-    std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> mVertexArray;
-
-    size_t mVertexCount;
-    bool mIsIndexed;
-    ArithmeticType mIndexType;
+    VertexArray mVertexArray;
 
 public:
     OpenGLStaticMesh(std::shared_ptr<OpenGLRenderer> renderer);

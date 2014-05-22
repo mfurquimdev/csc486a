@@ -19,6 +19,8 @@ public:
     void post();
 
     void wait();
+
+    int getvalue() const;
 };
 
 } // end namespace ng

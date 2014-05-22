@@ -17,7 +17,7 @@
 #include <utility>
 #include <string>
 
-#if 1
+#if 0
 #define RenderDebugPrintf(...) DebugPrintf(__VA_ARGS__)
 #else
 #define RenderDebugPrintf(...)
@@ -175,7 +175,7 @@ void OpenGLRenderer::SwapRenderingInstructionQueues()
     // must have production rights to be able to start writing to the other thread.
     mRenderingThreadData->mInstructionProducerMutex[!finishedWriteIndex].lock();
 
-    // start writing to the other thread.
+    // switch the current buffer that is being written to
     mRenderingThreadData->mCurrentWriteBufferIndex = !mRenderingThreadData->mCurrentWriteBufferIndex;
 
     // allow consumer to begin reading what was just written
@@ -214,16 +214,40 @@ OpenGLRenderer::OpenGLRenderer(
 
 OpenGLRenderer::~OpenGLRenderer()
 {
-    // add a Quit instruction to the resource instructions then leave it to be executed.
-    SendQuit(ResourceInstructionHandler);
+    // NOTE: I wrote this function based on a lot of half-assed assumptions
+    // it looks like it works now, but it would be good to give it a more rigorous testing.
 
-    // add a Quit instruction to the current buffer then swap away from it and leave it to be executed.
-    std::unique_lock<std::recursive_mutex> renderingWriteLock(mRenderingThreadData->mCurrentWriteBufferMutex);
-    auto renderingWrittenBufferIndex = mRenderingThreadData->mCurrentWriteBufferIndex;
-    SendQuit(RenderingInstructionHandler);
+    // allow consumer to begin reading what was written last
+    mRenderingThreadData->mInstructionConsumerMutex[mRenderingThreadData->mCurrentWriteBufferIndex].unlock();
+
+    // wait until the current frontbuffer is done executing
+    mRenderingThreadData->mInstructionProducerMutex[mRenderingThreadData->mCurrentWriteBufferIndex].lock();
+
+    // there may now be user instructions left on the backbuffer
+    // must swap away from it to allow them to be executed.
+    mRenderingThreadData->mInstructionProducerMutex[mRenderingThreadData->mCurrentWriteBufferIndex].unlock();
     SwapRenderingInstructionQueues();
-    mRenderingThreadData->mInstructionConsumerMutex[renderingWrittenBufferIndex].unlock();
-    renderingWriteLock.unlock();
+
+    // also wait until the resource queue is empty
+    while (mResourceThreadData->mConsumerSemaphore.getvalue() > 0)
+    {
+        std::this_thread::yield();
+    }
+
+    // final runs of backbuffer and resource thread may have queued up destructors. must allow them to be run.
+    SwapRenderingInstructionQueues();
+
+    // likewise, destructors may have been queued up on the resource thread. let them be flushed.
+    while (mResourceThreadData->mConsumerSemaphore.getvalue() > 0)
+    {
+        std::this_thread::yield();
+    }
+
+    // add a Quit instruction to the now empty rendering thread queue.
+    SendQuit(RenderingInstructionHandler);
+
+    // add a Quit instruction to the now empty resource thread queue.
+    SendQuit(ResourceInstructionHandler);
 
     // finally join everything, which waits for both their Quit commands to be run.
     mResourceThread.join();
@@ -507,6 +531,7 @@ DeclareGLExtension(PFNGLGETPROGRAMIVPROC, glGetProgramiv);
 DeclareGLExtension(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog);
 DeclareGLExtension(PFNGLGETATTRIBLOCATIONPROC, glGetAttribLocation);
 DeclareGLExtension(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation);
+DeclareGLExtension(PFNGLBINDATTRIBLOCATIONPROC, glBindAttribLocation);
 
 // clean up define
 #undef DeclareGLExtension
@@ -551,6 +576,7 @@ DeclareGLExtension(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation);
         GetGLExtension(context, PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog); \
         GetGLExtension(context, PFNGLGETATTRIBLOCATIONPROC, glGetAttribLocation); \
         GetGLExtension(context, PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation); \
+        GetGLExtension(context, PFNGLBINDATTRIBLOCATIONPROC, glBindAttribLocation); \
         LoadedGLExtensions = true; \
     }
 
@@ -651,7 +677,7 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
                 GenVertexArrayOpCodeParams params(inst, true);
                 GLuint handle;
                 glGenVertexArrays(1, &handle);
-                params.Promise->set_value(std::make_shared<OpenGLVertexArrayHandle>(threadData->mRenderer.shared_from_this(), handle));
+                params.Promise->set_value(std::make_shared<OpenGLVertexArrayHandle>(threadData->mRenderer, handle));
             } break;
             case OpenGLOpCode::DeleteVertexArray: {
                 DeleteVertexArrayOpCodeParams params(inst);
@@ -664,6 +690,8 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
 
                 glBindVertexArray(params.VertexArrayHandle->get()->GetHandle());
 
+                std::vector<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> dependentBuffers;
+
                 for (const std::pair<VertexAttributeName, std::shared_future<std::shared_ptr<OpenGLBufferHandle>>>& attribBufferPair
                      : *params.AttributeBuffers)
                 {
@@ -674,12 +702,17 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
                                           attrib.Cardinality, ToGLArithmeticType(attrib.Type), attrib.IsNormalized,
                                           attrib.Stride, reinterpret_cast<void*>(attrib.Offset));
                     glEnableVertexAttribArray(ToGLAttributeIndex(attribBufferPair.first));
+
+                    dependentBuffers.push_back(attribBufferPair.second);
                 }
 
                 if (params.IndexBuffer && params.IndexBuffer->valid())
                 {
                     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, params.IndexBuffer->get()->GetHandle());
+                    dependentBuffers.push_back(*params.IndexBuffer);
                 }
+
+                params.VertexArrayHandle->get()->AddDependents(dependentBuffers);
 
                 params.VertexArrayPromise->set_value(params.VertexArrayHandle->get());
             } break;
@@ -753,7 +786,7 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
             GenBufferOpCodeParams params(inst, true);
             GLuint handle;
             glGenBuffers(1, &handle);
-            params.Promise->set_value(std::make_shared<OpenGLBufferHandle>(threadData->mRenderer.shared_from_this(), handle));
+            params.Promise->set_value(std::make_shared<OpenGLBufferHandle>(threadData->mRenderer, handle));
         } break;
         case OpenGLOpCode::DeleteBuffer: {
             DeleteBufferOpCodeParams params(inst);
@@ -761,7 +794,7 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
         } break;
         case OpenGLOpCode::GenShader: {
             GenShaderOpCodeParams params(inst, true);
-            params.ShaderPromise->set_value(std::make_shared<OpenGLShaderHandle>(threadData->mRenderer.shared_from_this(), glCreateShader(params.ShaderType)));
+            params.ShaderPromise->set_value(std::make_shared<OpenGLShaderHandle>(threadData->mRenderer, glCreateShader(params.ShaderType)));
         } break;
         case OpenGLOpCode::DeleteShader: {
             DeleteShaderOpCodeParams params(inst);
@@ -803,7 +836,7 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
         } break;
         case OpenGLOpCode::GenShaderProgram: {
             GenShaderProgramOpCodeParams params(inst, true);
-            params.Promise->set_value(std::make_shared<OpenGLShaderProgramHandle>(threadData->mRenderer.shared_from_this(), glCreateProgram()));
+            params.Promise->set_value(std::make_shared<OpenGLShaderProgramHandle>(threadData->mRenderer, glCreateProgram()));
         } break;
         case OpenGLOpCode::DeleteShaderProgram: {
             DeleteShaderProgramOpCodeParams params(inst);
@@ -812,12 +845,20 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
         case OpenGLOpCode::LinkShaderProgram: {
             LinkShaderProgramOpCodeParams params(inst, true);
 
+            params.ShaderProgramHandle->get()->AddDependents(
+                        *params.VertexShaderHandle, *params.FragmentShaderHandle);
+
             GLuint programHandle = params.ShaderProgramHandle->get()->GetHandle();
             GLuint vertexShaderHandle = params.VertexShaderHandle->get()->GetHandle();
             GLuint fragmentShaderHandle = params.FragmentShaderHandle->get()->GetHandle();
 
             glAttachShader(programHandle, vertexShaderHandle);
             glAttachShader(programHandle, fragmentShaderHandle);
+
+            glBindAttribLocation(programHandle, ToGLAttributeIndex(VertexAttributeName::Position), "iPosition");
+            glBindAttribLocation(programHandle, ToGLAttributeIndex(VertexAttributeName::Texcoord0), "iTexcoord0");
+            glBindAttribLocation(programHandle, ToGLAttributeIndex(VertexAttributeName::Texcoord1), "iTexcoord1");
+            glBindAttribLocation(programHandle, ToGLAttributeIndex(VertexAttributeName::Normal), "iNormal");
 
             glLinkProgram(programHandle);
 

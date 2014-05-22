@@ -24,4 +24,9 @@ void semaphore::wait()
     --mCount;
 }
 
+int semaphore::getvalue() const
+{
+    return mCount;
+}
+
 } // end namespace ng

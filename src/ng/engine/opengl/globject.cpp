@@ -7,39 +7,52 @@
 namespace ng
 {
 
-namespace detail
+namespace openglobjectpolicies
 {
 
-void BufferReleasePolicy::Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle)
+void BufferPolicy::Release(OpenGLRenderer& renderer, GLuint handle)
 {
-    if (renderer && handle)
+    if (handle)
     {
-        renderer->SendDeleteBuffer(handle);
+        renderer.SendDeleteBuffer(handle);
     }
 }
 
-void VertexArrayReleasePolicy::Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle)
+void ShaderPolicy::Release(OpenGLRenderer& renderer, GLuint handle)
 {
-    if (renderer && handle)
+    if (handle)
     {
-        renderer->SendDeleteVertexArray(handle);
+        renderer.SendDeleteShader(handle);
     }
 }
 
-void ShaderReleasePolicy::Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle)
+void VertexArrayPolicy::Release(OpenGLRenderer& renderer, GLuint handle)
 {
-    if (renderer && handle)
+    if (handle)
     {
-        renderer->SendDeleteShader(handle);
+        renderer.SendDeleteVertexArray(handle);
     }
 }
 
-void ShaderProgramReleasePolicy::Release(std::shared_ptr<OpenGLRenderer>& renderer, GLuint handle)
+void VertexArrayPolicy::AddDependents(std::vector<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> dependents)
 {
-    if (renderer && handle)
+    mDependentBuffers = std::move(dependents);
+}
+
+void ShaderProgramPolicy::Release(OpenGLRenderer& renderer, GLuint handle)
+{
+    if (handle)
     {
-        renderer->SendDeleteShaderProgram(handle);
+        renderer.SendDeleteShaderProgram(handle);
     }
+}
+
+void ShaderProgramPolicy::AddDependents(
+        std::shared_future<std::shared_ptr<OpenGLShaderHandle>> vertexShader,
+        std::shared_future<std::shared_ptr<OpenGLShaderHandle>> fragmentShader)
+{
+    mVertexShader = std::move(vertexShader);
+    mFragmentShader = std::move(fragmentShader);
 }
 
 } // end namespace detail
@@ -99,6 +112,19 @@ std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> OpenGLShaderProgr
     return mProgram;
 }
 
+VertexArray::VertexArray(
+    VertexFormat format,
+    std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArrayHandle,
+    std::map<VertexAttributeName, std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> attributeBuffers,
+    std::shared_future<std::shared_ptr<OpenGLBufferHandle>> indexBuffer,
+    std::size_t vertexCount)
+    : Format(std::move(format))
+    , VertexArrayHandle(std::move(vertexArrayHandle))
+    , AttributeBuffers(std::move(attributeBuffers))
+    , IndexBuffer(std::move(indexBuffer))
+    , VertexCount(vertexCount)
+{ }
+
 OpenGLStaticMesh::OpenGLStaticMesh(std::shared_ptr<OpenGLRenderer> renderer)
     : mRenderer(std::move(renderer))
 { }
@@ -110,9 +136,6 @@ void OpenGLStaticMesh::Init(
        std::ptrdiff_t indexDataSize,
        std::size_t vertexCount)
 {
-    bool isIndexed = format.IsIndexed;
-    ArithmeticType indexType = format.IndexType;
-
     // upload vertexData
     std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> vertexBuffers;
     for (const auto& attrib : attributeDataAndSize)
@@ -137,25 +160,24 @@ void OpenGLStaticMesh::Init(
     }
 
     std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vao = mRenderer->SendGenVertexArray();
-    vao = mRenderer->SendSetVertexArrayLayout(vao, std::move(format), std::move(vertexBuffers), std::move(indexBuffer));
+    vao = mRenderer->SendSetVertexArrayLayout(vao, format, vertexBuffers, indexBuffer);
 
-    mVertexArray = std::move(vao);
-    mVertexCount = vertexCount;
-    mIsIndexed = isIndexed;
-    mIndexType = indexType;
+    mVertexArray = VertexArray(std::move(format), std::move(vao),
+                               std::move(vertexBuffers), std::move(indexBuffer), vertexCount);
 }
 
 void OpenGLStaticMesh::Draw(const std::shared_ptr<IShaderProgram>& program,
                             PrimitiveType primitiveType, std::size_t firstVertexIndex, std::size_t vertexCount)
 {
     std::shared_ptr<OpenGLShaderProgram> programGL = std::static_pointer_cast<OpenGLShaderProgram>(program);
-    mRenderer->SendDrawVertexArray(mVertexArray, programGL->GetFutureHandle(),
-                                   ToGLPrimitiveType(primitiveType), firstVertexIndex, vertexCount, mIsIndexed, mIndexType);
+    mRenderer->SendDrawVertexArray(mVertexArray.VertexArrayHandle, programGL->GetFutureHandle(),
+                                   ToGLPrimitiveType(primitiveType), firstVertexIndex, vertexCount,
+                                   mVertexArray.Format.IsIndexed, mVertexArray.Format.IndexType);
 }
 
 std::size_t OpenGLStaticMesh::GetVertexCount() const
 {
-    return mVertexCount;
+    return mVertexArray.VertexCount;
 }
 
 } // end namespace ng
