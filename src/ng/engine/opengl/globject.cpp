@@ -34,7 +34,7 @@ void VertexArrayPolicy::Release(OpenGLRenderer& renderer, GLuint handle)
     }
 }
 
-void VertexArrayPolicy::AddDependents(std::vector<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> dependents)
+void VertexArrayPolicy::AddDependents(std::vector<std::shared_ptr<OpenGLBufferHandle>> dependents)
 {
     mDependentBuffers = std::move(dependents);
 }
@@ -48,8 +48,8 @@ void ShaderProgramPolicy::Release(OpenGLRenderer& renderer, GLuint handle)
 }
 
 void ShaderProgramPolicy::AddDependents(
-        std::shared_future<std::shared_ptr<OpenGLShaderHandle>> vertexShader,
-        std::shared_future<std::shared_ptr<OpenGLShaderHandle>> fragmentShader)
+        std::shared_ptr<OpenGLShaderHandle> vertexShader,
+        std::shared_ptr<OpenGLShaderHandle> fragmentShader)
 {
     mVertexShader = std::move(vertexShader);
     mFragmentShader = std::move(fragmentShader);

@@ -103,22 +103,22 @@ namespace openglobjectpolicies
 {
     class VertexArrayPolicy
     {
-        std::vector<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> mDependentBuffers;
+        std::vector<std::shared_ptr<OpenGLBufferHandle>> mDependentBuffers;
 
     public:
         void Release(OpenGLRenderer& renderer, GLuint handle);
-        void AddDependents(std::vector<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> dependents);
+        void AddDependents(std::vector<std::shared_ptr<OpenGLBufferHandle>> dependents);
     };
 
     class ShaderProgramPolicy
     {
-        std::shared_future<std::shared_ptr<OpenGLShaderHandle>> mVertexShader;
-        std::shared_future<std::shared_ptr<OpenGLShaderHandle>> mFragmentShader;
+        std::shared_ptr<OpenGLShaderHandle> mVertexShader;
+        std::shared_ptr<OpenGLShaderHandle> mFragmentShader;
 
     public:
         void Release(OpenGLRenderer& renderer, GLuint handle);
-        void AddDependents(std::shared_future<std::shared_ptr<OpenGLShaderHandle>> vertexShader,
-                           std::shared_future<std::shared_ptr<OpenGLShaderHandle>> fragmentShader);
+        void AddDependents(std::shared_ptr<OpenGLShaderHandle> vertexShader,
+                           std::shared_ptr<OpenGLShaderHandle> fragmentShader);
     };
 
 } // end namespace openglobjectpolicies

@@ -690,7 +690,7 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
 
                 glBindVertexArray(params.VertexArrayHandle->get()->GetHandle());
 
-                std::vector<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> dependentBuffers;
+                std::vector<std::shared_ptr<OpenGLBufferHandle>> dependentBuffers;
 
                 for (const std::pair<VertexAttributeName, std::shared_future<std::shared_ptr<OpenGLBufferHandle>>>& attribBufferPair
                      : *params.AttributeBuffers)
@@ -703,13 +703,13 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
                                           attrib.Stride, reinterpret_cast<void*>(attrib.Offset));
                     glEnableVertexAttribArray(ToGLAttributeIndex(attribBufferPair.first));
 
-                    dependentBuffers.push_back(attribBufferPair.second);
+                    dependentBuffers.push_back(attribBufferPair.second.get());
                 }
 
                 if (params.IndexBuffer && params.IndexBuffer->valid())
                 {
                     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, params.IndexBuffer->get()->GetHandle());
-                    dependentBuffers.push_back(*params.IndexBuffer);
+                    dependentBuffers.push_back(params.IndexBuffer->get());
                 }
 
                 params.VertexArrayHandle->get()->AddDependents(dependentBuffers);
@@ -846,7 +846,7 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
             LinkShaderProgramOpCodeParams params(inst, true);
 
             params.ShaderProgramHandle->get()->AddDependents(
-                        *params.VertexShaderHandle, *params.FragmentShaderHandle);
+                        params.VertexShaderHandle->get(), params.FragmentShaderHandle->get());
 
             GLuint programHandle = params.ShaderProgramHandle->get()->GetHandle();
             GLuint vertexShaderHandle = params.VertexShaderHandle->get()->GetHandle();
