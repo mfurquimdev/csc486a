@@ -1,8 +1,7 @@
 #ifndef NG_UNIFORM_HPP
 #define NG_UNIFORM_HPP
 
-#include "ng/engine/vec.hpp"
-#include "ng/engine/mat.hpp"
+#include "ng/engine/linearalgebra.hpp"
 
 #include <cstring>
 
@@ -11,7 +10,7 @@ namespace ng
 
 enum class UniformType
 {
-    Float,
+    Vec1,
     Vec2,
     Vec3,
     Vec4,
@@ -23,9 +22,9 @@ template<class T>
 struct ToUniformType { };
 
 template<>
-struct ToUniformType<float>
+struct ToUniformType<vec1>
 {
-    static const UniformType enum_value = UniformType::Float;
+    static const UniformType enum_value = UniformType::Vec1;
 };
 
 template<>
@@ -64,12 +63,12 @@ struct UniformValue
 
     union
     {
-        float AsFloat;
-        vec2  AsVec2;
-        vec3  AsVec3;
-        vec4  AsVec4;
-        mat3  AsMat3;
-        mat4  AsMat4;
+        vec1 AsVec1;
+        vec2 AsVec2;
+        vec3 AsVec3;
+        vec4 AsVec4;
+        mat3 AsMat3;
+        mat4 AsMat4;
     };
 
     UniformValue() = default;
@@ -78,17 +77,9 @@ struct UniformValue
     UniformValue(T t)
         : Type(ToUniformType<T>::enum_value)
     {
-        void* data = &AsFloat;
+        void* data = &AsVec1;
         std::memcpy(data, &t, sizeof(t));
     }
-};
-
-class IUniform
-{
-public:
-    virtual ~IUniform() = default;
-
-    virtual void SetValue(const UniformValue& value) = 0;
 };
 
 } // end namespace ng

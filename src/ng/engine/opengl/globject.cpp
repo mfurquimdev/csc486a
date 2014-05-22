@@ -166,11 +166,14 @@ void OpenGLStaticMesh::Init(
                                std::move(vertexBuffers), std::move(indexBuffer), vertexCount);
 }
 
-void OpenGLStaticMesh::Draw(const std::shared_ptr<IShaderProgram>& program,
+void OpenGLStaticMesh::Draw(std::shared_ptr<IShaderProgram> program,
+                            std::map<std::string, UniformValue> uniforms,
+                            RenderState renderState,
                             PrimitiveType primitiveType, std::size_t firstVertexIndex, std::size_t vertexCount)
 {
     std::shared_ptr<OpenGLShaderProgram> programGL = std::static_pointer_cast<OpenGLShaderProgram>(program);
     mRenderer->SendDrawVertexArray(mVertexArray.VertexArrayHandle, programGL->GetFutureHandle(),
+                                   std::move(uniforms), std::move(renderState),
                                    ToGLPrimitiveType(primitiveType), firstVertexIndex, vertexCount,
                                    mVertexArray.Format.IsIndexed, mVertexArray.Format.IndexType);
 }

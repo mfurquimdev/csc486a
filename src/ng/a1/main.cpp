@@ -16,8 +16,7 @@
 int main() try
 {
     auto windowManager = ng::CreateWindowManager();
-    ng::VideoFlags videoFlags{};
-    auto window = windowManager->CreateWindow("test", 640, 480, 0, 0, videoFlags);
+    auto window = windowManager->CreateWindow("test", 640, 480, 0, 0, ng::VideoFlags());
     auto renderer = ng::CreateRenderer(windowManager, window);
 
     auto mesh = renderer->CreateStaticMesh();
@@ -39,10 +38,12 @@ int main() try
     }
 
     const char* vsrc = "#version 150\n in vec4 iPosition; void main() { gl_Position = iPosition; }";
-    const char* fsrc = "#version 150\n out vec4 oColor; void main() { oColor = vec4(1,0,0,1); }";
+    const char* fsrc = "#version 150\n out vec4 oColor; uniform vec4 uTint; void main() { oColor = uTint; }";
     auto program = renderer->CreateShaderProgram();
     program->Init(std::shared_ptr<const char>(vsrc, [](const char*){}),
                   std::shared_ptr<const char>(fsrc, [](const char*){}));
+
+    ng::RenderState renderState;
 
     std::chrono::time_point<std::chrono::high_resolution_clock> now, then;
     then = std::chrono::high_resolution_clock::now();
@@ -88,7 +89,12 @@ int main() try
         renderProfiler.Start();
 
         renderer->Clear(true, true, false);
-        mesh->Draw(program, ng::PrimitiveType::Triangles, 0, mesh->GetVertexCount());
+        mesh->Draw(
+                    program,
+                     // uniforms
+                    { { "uTint", ng::UniformValue(ng::vec4(0,1,0,1)) } },
+                    renderState,
+                    ng::PrimitiveType::Triangles, 0, mesh->GetVertexCount());
         renderer->SwapBuffers();
 
         renderProfiler.Stop();

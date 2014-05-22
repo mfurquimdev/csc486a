@@ -111,6 +111,8 @@ public:
     void SendDrawVertexArray(
             std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArray,
             std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> program,
+            std::map<std::string, UniformValue> uniforms,
+            RenderState renderState,
             GLenum mode,
             GLint firstVertexIndex,
             GLsizei vertexCount,

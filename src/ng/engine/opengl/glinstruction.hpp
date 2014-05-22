@@ -225,13 +225,17 @@ enum class OpenGLOpCode : OpenGLInstruction::OpCodeType
     DrawVertexArray,
     //         0) std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>* vertexArrayHandle
     //         1) std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>* programHandle
-    //         2) GLenum mode
-    //         3) GLint firstVertexIndex
-    //         4) GLsizei vertexCount
-    //         5) bool isIndexed
-    //         6) ArithmeticType indexType
+    //         2) std::map<std::string,UniformValue>* uniforms
+    //         3) RenderState* renderState
+    //         4) GLenum mode
+    //         5) GLint firstVertexIndex
+    //         6) GLsizei vertexCount
+    //         7) bool isIndexed
+    //         8) ArithmeticType indexType
     // notes:
-    //         * will render the vertexArray using the program.
+    //         * will render the vertexArray using the program, uniforms, and state.
+    //         * will release ownership of the renderState (ie. delete renderState.)
+    //         * will release ownership of the uniforms (ie. delete uniforms.)
     //         * will release ownership of the programHandle (ie. delete programHandle.)
     //         * will release ownership of vertexArray (ie. delete vertexArray.)
     SwapBuffers,
@@ -528,6 +532,8 @@ struct DrawVertexArrayOpCodeParams
 {
     std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>> VertexArrayHandle;
     std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>> ProgramHandle;
+    std::unique_ptr<std::map<std::string,UniformValue>> Uniforms;
+    std::unique_ptr<RenderState> State;
     GLenum Mode;
     GLint FirstVertexIndex;
     GLsizei VertexCount;
@@ -539,6 +545,8 @@ struct DrawVertexArrayOpCodeParams
     DrawVertexArrayOpCodeParams(
             std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>> vertexArrayHandle,
             std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>> programHandle,
+            std::unique_ptr<std::map<std::string,UniformValue>> uniforms,
+            std::unique_ptr<RenderState> state,
             GLenum mode,
             GLint firstVertexIndex,
             GLsizei vertexCount,
@@ -550,7 +558,7 @@ struct DrawVertexArrayOpCodeParams
 
     ~DrawVertexArrayOpCodeParams();
 
-    SizedOpenGLInstruction<7> ToInstruction() const;
+    SizedOpenGLInstruction<9> ToInstruction() const;
 };
 
 struct SwapBuffersOpCodeParams

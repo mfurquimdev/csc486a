@@ -443,16 +443,20 @@ std::future<std::pair<bool,std::string>> OpenGLRenderer::SendGetProgramStatus(st
 }
 
 void OpenGLRenderer::SendDrawVertexArray(
-    std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArray,
-    std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> program,
-    GLenum mode,
-    GLint firstVertexIndex,
-    GLsizei vertexCount,
-    bool isIndexed,
-    ArithmeticType indexType)
+        std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArray,
+        std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> program,
+        std::map<std::string, UniformValue> uniforms,
+        RenderState renderState,
+        GLenum mode,
+        GLint firstVertexIndex,
+        GLsizei vertexCount,
+        bool isIndexed,
+        ArithmeticType indexType)
 {
     DrawVertexArrayOpCodeParams params(ng::make_unique<std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>>(std::move(vertexArray)),
                                        ng::make_unique<std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>>(std::move(program)),
+                                       ng::make_unique<std::map<std::string, UniformValue>>(std::move(uniforms)),
+                                       ng::make_unique<RenderState>(std::move(renderState)),
                                        mode, firstVertexIndex, vertexCount, isIndexed, indexType, true);
     PushInstruction(RenderingInstructionHandler, params.ToInstruction().Instruction);
     params.AutoCleanup = false;
@@ -532,6 +536,16 @@ DeclareGLExtension(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog);
 DeclareGLExtension(PFNGLGETATTRIBLOCATIONPROC, glGetAttribLocation);
 DeclareGLExtension(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation);
 DeclareGLExtension(PFNGLBINDATTRIBLOCATIONPROC, glBindAttribLocation);
+DeclareGLExtension(PFNGLUNIFORM1FPROC, glUniform1f);
+DeclareGLExtension(PFNGLUNIFORM2FPROC, glUniform2f);
+DeclareGLExtension(PFNGLUNIFORM3FPROC, glUniform3f);
+DeclareGLExtension(PFNGLUNIFORM4FPROC, glUniform4f);
+DeclareGLExtension(PFNGLUNIFORM1FVPROC, glUniform1fv);
+DeclareGLExtension(PFNGLUNIFORM2FVPROC, glUniform2fv);
+DeclareGLExtension(PFNGLUNIFORM3FVPROC, glUniform3fv);
+DeclareGLExtension(PFNGLUNIFORM4FVPROC, glUniform4fv);
+DeclareGLExtension(PFNGLUNIFORMMATRIX3FVPROC, glUniformMatrix3fv);
+DeclareGLExtension(PFNGLUNIFORMMATRIX4FVPROC, glUniformMatrix4fv);
 
 // clean up define
 #undef DeclareGLExtension
@@ -577,6 +591,16 @@ DeclareGLExtension(PFNGLBINDATTRIBLOCATIONPROC, glBindAttribLocation);
         GetGLExtension(context, PFNGLGETATTRIBLOCATIONPROC, glGetAttribLocation); \
         GetGLExtension(context, PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation); \
         GetGLExtension(context, PFNGLBINDATTRIBLOCATIONPROC, glBindAttribLocation); \
+        GetGLExtension(context, PFNGLUNIFORM1FPROC, glUniform1f); \
+        GetGLExtension(context, PFNGLUNIFORM2FPROC, glUniform2f); \
+        GetGLExtension(context, PFNGLUNIFORM3FPROC, glUniform3f); \
+        GetGLExtension(context, PFNGLUNIFORM4FPROC, glUniform4f); \
+        GetGLExtension(context, PFNGLUNIFORM1FVPROC, glUniform1fv); \
+        GetGLExtension(context, PFNGLUNIFORM2FVPROC, glUniform2fv); \
+        GetGLExtension(context, PFNGLUNIFORM3FVPROC, glUniform3fv); \
+        GetGLExtension(context, PFNGLUNIFORM4FVPROC, glUniform4fv); \
+        GetGLExtension(context, PFNGLUNIFORMMATRIX3FVPROC, glUniformMatrix3fv); \
+        GetGLExtension(context, PFNGLUNIFORMMATRIX4FVPROC, glUniformMatrix4fv); \
         LoadedGLExtensions = true; \
     }
 
@@ -719,10 +743,59 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
             case OpenGLOpCode::DrawVertexArray: {
                 DrawVertexArrayOpCodeParams params(inst, true);
 
-                glUseProgram(params.ProgramHandle->get()->GetHandle());
+                // enable the program
+                GLuint programHandle = params.ProgramHandle->get()->GetHandle();
+                glUseProgram(programHandle);
 
+                // enable the vertex array
                 glBindVertexArray(params.VertexArrayHandle->get()->GetHandle());
 
+                // bind all uniforms
+                for (const std::pair<std::string,UniformValue>& uniform : *params.Uniforms)
+                {
+                    GLint location = glGetUniformLocation(programHandle, uniform.first.c_str());
+                    if (location == -1)
+                    {
+                        continue;
+                    }
+
+                    const UniformValue& value = uniform.second;
+
+                    switch (value.Type)
+                    {
+                    case UniformType::Vec1:
+                        glUniform1fv(location, 1, &value.AsVec1[0]);
+                        break;
+                    case UniformType::Vec2:
+                        glUniform2fv(location, 1, &value.AsVec2[0]);
+                        break;
+                    case UniformType::Vec3:
+                        glUniform3fv(location, 1, &value.AsVec3[0]);
+                        break;
+                    case UniformType::Vec4:
+                        glUniform4fv(location, 1, &value.AsVec4[0]);
+                        break;
+                    case UniformType::Mat3:
+                        glUniformMatrix3fv(location, 1, GL_FALSE, &value.AsMat3[0][0]);
+                        break;
+                    case UniformType::Mat4:
+                        glUniformMatrix4fv(location, 1, GL_FALSE, &value.AsMat4[0][0]);
+                        break;
+                    }
+                }
+
+                // set up rendering state
+                const RenderState& state = *params.State;
+                if (state.DepthTestEnabled)
+                {
+                    glEnable(GL_DEPTH_TEST);
+                }
+                else
+                {
+                    glDisable(GL_DEPTH_TEST);
+                }
+
+                // perform the draw
                 if (params.IsIndexed)
                 {
                     glDrawElements(params.Mode, params.VertexCount,

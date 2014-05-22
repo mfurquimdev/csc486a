@@ -183,7 +183,9 @@ public:
               std::ptrdiff_t indexDataSize,
               std::size_t vertexCount) override;
 
-    void Draw(const std::shared_ptr<IShaderProgram>& program,
+    void Draw(std::shared_ptr<IShaderProgram> program,
+              std::map<std::string, UniformValue> uniforms,
+              RenderState renderState,
               PrimitiveType primitiveType, std::size_t firstVertexIndex, std::size_t vertexCount) override;
 
     std::size_t GetVertexCount() const override;

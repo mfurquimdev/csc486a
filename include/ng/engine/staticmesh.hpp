@@ -1,6 +1,8 @@
 #ifndef NG_STATICMESH_HPP
 #define NG_STATICMESH_HPP
 
+#include "ng/engine/renderstate.hpp"
+#include "ng/engine/uniform.hpp"
 #include "ng/engine/vertexformat.hpp"
 #include "ng/engine/primitivetype.hpp"
 
@@ -23,8 +25,9 @@ public:
                       std::ptrdiff_t indexDataSize,
                       std::size_t vertexCount) = 0;
 
-    // TODO: Pass uniforms somehow
-    virtual void Draw(const std::shared_ptr<IShaderProgram>& program,
+    virtual void Draw(std::shared_ptr<IShaderProgram> program,
+                      std::map<std::string, UniformValue> uniforms,
+                      RenderState renderState,
                       PrimitiveType primitiveType, std::size_t firstVertexIndex, std::size_t vertexCount) = 0;
 
     virtual std::size_t GetVertexCount() const = 0;
