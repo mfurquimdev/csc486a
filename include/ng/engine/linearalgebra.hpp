@@ -8,9 +8,6 @@
 namespace ng
 {
 
-// TODO: Would be nice to generalize vectors and matrices together.
-// would help a lot to allow operations to go both ways (matrices using vectors, vectors using matrices)
-
 template<class T, std::size_t N>
 struct genType_storage;
 
@@ -306,6 +303,7 @@ using dvec3 = genDType<3>;
 using dvec4 = genDType<4>;
 
 // TODO: tweak this to allow vec4(mat2) (where vec4 is column 0 followed by column 1)
+// can be done by adding (explicit?) conversion operators.
 template<class T, std::size_t C, std::size_t R>
 struct mat
 {
@@ -406,6 +404,13 @@ genType_base<T,R> operator*(mat<T,C,R> m, genType_base<T,C> v)
     }
 
     return tmp;
+}
+
+template<class T, std::size_t C, std::size_t R>
+genType_base<T,R>& operator*=(genType_base<T,R>& v, mat<T,C,R> m)
+{
+    v = m * v;
+    return v;
 }
 
 template<class T>
