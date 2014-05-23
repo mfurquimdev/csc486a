@@ -250,7 +250,7 @@ enum class OpenGLOpCode : OpenGLInstruction::OpCodeType
     //         * special instruction to exit the graphics thread.
 };
 
-static constexpr const char* OpenGLOpCodeToString(OpenGLOpCode code)
+constexpr const char* OpenGLOpCodeToString(OpenGLOpCode code)
 {
     return code == OpenGLOpCode::Clear ? "Clear"
          : code == OpenGLOpCode::GenBuffer ? "GenBuffer"

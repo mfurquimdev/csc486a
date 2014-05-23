@@ -19,7 +19,7 @@ enum class UniformType
 };
 
 template<class T>
-struct ToUniformType { };
+struct ToUniformType;
 
 template<>
 struct ToUniformType<vec1>

@@ -1,7 +1,6 @@
 #ifndef NG_WINDOWEVENT_HPP
 #define NG_WINDOWEVENT_HPP
 
-#include <ostream>
 #include <memory>
 
 namespace ng
@@ -9,25 +8,37 @@ namespace ng
 
 class IWindow;
 
-enum class WindowEventType : int
+enum class WindowEventType
 {
     Quit,
     MouseMotion,
     MouseButton
 };
 
-std::ostream& operator<<(std::ostream& os, WindowEventType);
+constexpr const char* WindowEventTypeToString(WindowEventType et)
+{
+    return et == WindowEventType::Quit ? "Quit"
+         : et == WindowEventType::MouseMotion ? "MouseMotion"
+         : et == WindowEventType::MouseButton ? "MouseButton"
+         : throw std::logic_error("No such WindowEventType");
+}
 
-enum class MouseButton : int
+enum class MouseButton
 {
     Left,
     Middle,
     Right
 };
 
-std::ostream& operator<<(std::ostream& os, MouseButton);
+constexpr const char* MouseButtonToString(MouseButton mb)
+{
+    return mb == MouseButton::Left ? "Left"
+         : mb == MouseButton::Middle ? "Middle"
+         : mb == MouseButton::Right ? "Right"
+         : throw std::logic_error("No such MouseButton");
+}
 
-enum class KeyState : int
+enum class KeyState
 {
     Pressed,
     Released
@@ -35,7 +46,17 @@ enum class KeyState : int
 
 using ButtonState = KeyState;
 
-std::ostream& operator<<(std::ostream& os, KeyState);
+constexpr const char* KeyStateToString(KeyState ks)
+{
+    return ks == KeyState::Pressed ? "Pressed"
+         : ks == KeyState::Released ? "Released"
+         : throw std::logic_error("No such KeyState");
+}
+
+constexpr const char* ButtonStateToString(ButtonState bs)
+{
+    return KeyStateToString(bs);
+}
 
 struct MouseMotionEvent
 {

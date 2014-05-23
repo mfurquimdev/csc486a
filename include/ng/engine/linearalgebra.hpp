@@ -7,7 +7,7 @@ namespace ng
 {
 
 template<class T, std::size_t N>
-struct gentype { };
+struct gentype;
 
 template<class T>
 struct gentype<T,1>

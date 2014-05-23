@@ -10,8 +10,6 @@
 #include "ng/engine/shaderprogram.hpp"
 
 #include <chrono>
-#include <sstream>
-#include <iostream>
 
 int main() try
 {
@@ -73,10 +71,10 @@ int main() try
             }
             else if (e.type == ng::WindowEventType::MouseButton)
             {
-                std::stringstream ss;
-                ss << e.button.state << " button " << e.button.button
-                   << " at (" << e.button.x << ", " << e.button.y << ")";
-                ng::DebugPrintf("%s\n", ss.str().c_str());
+                ng::DebugPrintf("%s button %s at (%d, %d)\n",
+                                ButtonStateToString(e.button.state),
+                                MouseButtonToString(e.button.button),
+                                e.button.x, e.button.y);
             }
         }
 
@@ -101,9 +99,9 @@ int main() try
 }
 catch (const std::exception& e)
 {
-    std::cerr << "Caught fatal exception: " << e.what() << std::endl;
+    ng::DebugPrintf("Caught fatal exception: %s\n", e.what());
 }
 catch (...)
 {
-    std::cerr << "Caught fatal unknown exception." << std::endl;
+    ng::DebugPrintf("Caught fatal unknown exception.");
 }
