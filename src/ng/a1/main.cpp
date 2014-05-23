@@ -91,8 +91,7 @@ int main() try
         renderer->Clear(true, true, false);
         mesh->Draw(
                     program,
-                     // uniforms
-                    { { "uTint", ng::UniformValue(ng::vec4(0,1,0,1)) } },
+                    { { "uTint", ng::vec4(0,1,0,1) } },
                     renderState,
                     ng::PrimitiveType::Triangles, 0, mesh->GetVertexCount());
         renderer->SwapBuffers();
