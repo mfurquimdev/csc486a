@@ -323,7 +323,7 @@ public:
         glXSwapBuffers(mDisplay, mWindow.mHandle);
     }
 
-    void GetSize(int* width, int* height) override
+    void GetSize(int* width, int* height) const override
     {
         std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
         ScopedErrorHandler scopedErrors(ngXErrorHandler);

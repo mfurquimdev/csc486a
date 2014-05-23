@@ -16,7 +16,21 @@ public:
 
     virtual void SwapBuffers() = 0;
 
-    virtual void GetSize(int* width, int* height) = 0;
+    virtual void GetSize(int* width, int* height) const = 0;
+
+    int GetWidth() const
+    {
+        int w;
+        GetSize(&w, nullptr);
+        return w;
+    }
+
+    int GetHeight() const
+    {
+        int h;
+        GetSize(nullptr, &h);
+        return h;
+    }
 
     virtual const VideoFlags& GetVideoFlags() const = 0;
 };

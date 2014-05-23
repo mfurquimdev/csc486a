@@ -20,13 +20,13 @@ int main() try
     auto mesh = renderer->CreateStaticMesh();
     {
         static const float rawMeshData[] = {
-            0.0f, 0.0f,
-            1.0f, 0.0f,
-            1.0f, 1.0f,
+            0.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 1.0f,
         };
 
         ng::VertexFormat meshFormat( {
-                { ng::VertexAttributeName::Position, ng::VertexAttribute(2, ng::ArithmeticType::Float, false, 0, 0) }
+                { ng::VertexAttributeName::Position, ng::VertexAttribute(3, ng::ArithmeticType::Float, false, 0, 0) }
             });
 
         std::shared_ptr<const void> meshData(rawMeshData, [](const float*){});
@@ -35,13 +35,18 @@ int main() try
                    }, nullptr, 0, 3);
     }
 
-    const char* vsrc = "#version 150\n in vec4 iPosition; void main() { gl_Position = iPosition; }";
-    const char* fsrc = "#version 150\n out vec4 oColor; uniform vec4 uTint; void main() { oColor = uTint; }";
+    const char* vsrc = "#version 150\n"
+                       "in vec4 iPosition; uniform mat4 uModelView; uniform mat4 uProjection;"
+                       "void main() { gl_Position = uProjection * uModelView * iPosition; }";
+    const char* fsrc = "#version 150\n"
+                       "out vec4 oColor; uniform vec4 uTint;"
+                       "void main() { oColor = uTint; }";
     std::shared_ptr<ng::IShaderProgram> program = renderer->CreateShaderProgram();
     program->Init(std::shared_ptr<const char>(vsrc, [](const char*){}),
                   std::shared_ptr<const char>(fsrc, [](const char*){}));
 
     ng::RenderState renderState;
+    renderState.DepthTestEnabled = true;
 
     std::chrono::time_point<std::chrono::high_resolution_clock> now, then;
     then = std::chrono::high_resolution_clock::now();
@@ -90,10 +95,17 @@ int main() try
 
         renderProfiler.Start();
 
+        ng::mat4 modelview = ng::LookAt<float>({ 3.0f, 3.0f, 3.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
+        ng::mat4 projection = ng::Perspective(70.0f, (float) window->GetWidth() / window->GetHeight(), 0.1f, 1000.0f);
+
         renderer->Clear(true, true, false);
         mesh->Draw(
                     program,
-                    { { "uTint", ng::vec4(0,1,0,1) } },
+                    {
+                        { "uTint", ng::vec4(0,1,0,1) },
+                        { "uModelView", modelview },
+                        { "uProjection", projection }
+                    },
                     renderState,
                     ng::PrimitiveType::Triangles, 0, mesh->GetVertexCount());
         renderer->SwapBuffers();
