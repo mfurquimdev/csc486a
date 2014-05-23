@@ -47,6 +47,7 @@ int main() try
 
     ng::RenderState renderState;
     renderState.DepthTestEnabled = true;
+    renderState.PolygonMode = ng::PolygonMode::Line;
 
     std::chrono::time_point<std::chrono::high_resolution_clock> now, then;
     then = std::chrono::high_resolution_clock::now();

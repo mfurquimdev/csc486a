@@ -795,6 +795,22 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
                     glDisable(GL_DEPTH_TEST);
                 }
 
+                switch (state.PolygonMode)
+                {
+                case PolygonMode::Point:
+                    glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+                    break;
+                case PolygonMode::Line:
+                    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+                    break;
+                case PolygonMode::Fill:
+                    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+                    break;
+                }
+
+                glLineWidth(state.LineWidth);
+                glPointSize(state.PointSize);
+
                 // perform the draw
                 if (params.IsIndexed)
                 {
