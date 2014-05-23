@@ -15,9 +15,9 @@
 
 int main() try
 {
-    auto windowManager = ng::CreateWindowManager();
-    auto window = windowManager->CreateWindow("test", 640, 480, 0, 0, ng::VideoFlags());
-    auto renderer = ng::CreateRenderer(windowManager, window);
+    std::shared_ptr<ng::IWindowManager> windowManager = ng::CreateWindowManager();
+    std::shared_ptr<ng::IWindow> window = windowManager->CreateWindow("test", 640, 480, 0, 0, ng::VideoFlags());
+    std::shared_ptr<ng::IRenderer> renderer = ng::CreateRenderer(windowManager, window);
 
     auto mesh = renderer->CreateStaticMesh();
     {
@@ -39,7 +39,7 @@ int main() try
 
     const char* vsrc = "#version 150\n in vec4 iPosition; void main() { gl_Position = iPosition; }";
     const char* fsrc = "#version 150\n out vec4 oColor; uniform vec4 uTint; void main() { oColor = uTint; }";
-    auto program = renderer->CreateShaderProgram();
+    std::shared_ptr<ng::IShaderProgram> program = renderer->CreateShaderProgram();
     program->Init(std::shared_ptr<const char>(vsrc, [](const char*){}),
                   std::shared_ptr<const char>(fsrc, [](const char*){}));
 
