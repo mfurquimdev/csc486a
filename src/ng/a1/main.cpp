@@ -59,22 +59,26 @@ int main() try
         ng::WindowEvent e;
         while (windowManager->PollEvent(e))
         {
-            if (e.type == ng::WindowEventType::Quit)
+            if (e.Type == ng::WindowEventType::Quit)
             {
                 ng::DebugPrintf("Time spent rendering clientside: %lfms\n", renderProfiler.GetTotalTimeMS());
                 ng::DebugPrintf("Average clientside rendering time per frame: %lfms\n", renderProfiler.GetAverageTimeMS());
                 return 0;
             }
-            else if (e.type == ng::WindowEventType::MouseMotion)
+            else if (e.Type == ng::WindowEventType::MouseMotion)
             {
-                ng::DebugPrintf("Motion: (%d, %d)\n", e.motion.x, e.motion.y);
+                ng::DebugPrintf("Motion: (%d, %d)\n", e.Motion.X, e.Motion.Y);
             }
-            else if (e.type == ng::WindowEventType::MouseButton)
+            else if (e.Type == ng::WindowEventType::MouseButton)
             {
                 ng::DebugPrintf("%s button %s at (%d, %d)\n",
-                                ButtonStateToString(e.button.state),
-                                MouseButtonToString(e.button.button),
-                                e.button.x, e.button.y);
+                                ButtonStateToString(e.Button.State),
+                                MouseButtonToString(e.Button.Button),
+                                e.Button.X, e.Button.Y);
+            }
+            else if (e.Type == ng::WindowEventType::MouseScroll)
+            {
+                ng::DebugPrintf("Scrolled %s\n", e.Scroll.Direction > 0 ? "up" : "down");
             }
         }
 

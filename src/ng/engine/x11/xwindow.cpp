@@ -578,6 +578,24 @@ public:
         }
     }
 
+    static bool MapXScrollButton(unsigned int xbutton, int& direction)
+    {
+        if (xbutton == Button4)
+        {
+            direction = 1;
+            return true;
+        }
+        else if (xbutton == Button5)
+        {
+            direction = -1;
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
     bool PollEvent(WindowEvent& we) override
     {
         std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
@@ -593,40 +611,49 @@ public:
                 (Atom) ev.xclient.data.l[0] == mWMDeleteMessage)
             {
                 source = ev.xdestroywindow.window;
-                we.type = WindowEventType::Quit;
+                we.Type = WindowEventType::Quit;
             }
             else if (ev.type == MotionNotify)
             {
                 source = ev.xmotion.window;
-                we.motion.type = WindowEventType::MouseMotion;
-                we.motion.x = ev.xmotion.x;
-                we.motion.y = ev.xmotion.y;
+                we.Motion.Type = WindowEventType::MouseMotion;
+                we.Motion.X = ev.xmotion.x;
+                we.Motion.Y = ev.xmotion.y;
             }
             else if (ev.type == ButtonPress)
             {
-                if (!MapXButton(ev.xbutton.button, we.button.button))
+                if (MapXButton(ev.xbutton.button, we.Button.Button))
+                {
+                    source = ev.xbutton.window;
+                    we.Button.Type = WindowEventType::MouseButton;
+                    we.Button.State = ButtonState::Pressed;
+                    we.Button.X = ev.xbutton.x;
+                    we.Button.Y = ev.xbutton.y;
+                }
+                else if (MapXScrollButton(ev.xbutton.button, we.Scroll.Direction))
+                {
+                    source = ev.xbutton.window;
+                    we.Scroll.Type = WindowEventType::MouseScroll;
+                }
+                else
                 {
                     continue;
                 }
-
-                source = ev.xbutton.window;
-                we.button.type = WindowEventType::MouseButton;
-                we.button.state = ButtonState::Pressed;
-                we.button.x = ev.xbutton.x;
-                we.button.y = ev.xbutton.y;
             }
             else if (ev.type == ButtonRelease)
             {
-                if (!MapXButton(ev.xbutton.button, we.button.button))
+                if (MapXButton(ev.xbutton.button, we.Button.Button))
+                {
+                    source = ev.xbutton.window;
+                    we.Button.Type = WindowEventType::MouseButton;
+                    we.Button.State = ButtonState::Released;
+                    we.Button.X = ev.xbutton.x;
+                    we.Button.Y = ev.xbutton.y;
+                }
+                else
                 {
                     continue;
                 }
-
-                source = ev.xbutton.window;
-                we.button.type = WindowEventType::MouseButton;
-                we.button.state = ButtonState::Released;
-                we.button.x = ev.xbutton.x;
-                we.button.y = ev.xbutton.y;
             }
             else
             {
@@ -634,7 +661,7 @@ public:
                 continue;
             }
 
-            we.source.reset();
+            we.Source.reset();
 
             if (source != None)
             {
@@ -642,7 +669,7 @@ public:
                 {
                     if (windowRecord.mHandle == source)
                     {
-                        we.source = windowRecord.mWeakRef;
+                        we.Source = windowRecord.mWeakRef;
                         break;
                     }
                 }

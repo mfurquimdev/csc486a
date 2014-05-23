@@ -12,7 +12,8 @@ enum class WindowEventType
 {
     Quit,
     MouseMotion,
-    MouseButton
+    MouseButton,
+    MouseScroll
 };
 
 constexpr const char* WindowEventTypeToString(WindowEventType et)
@@ -20,6 +21,7 @@ constexpr const char* WindowEventTypeToString(WindowEventType et)
     return et == WindowEventType::Quit ? "Quit"
          : et == WindowEventType::MouseMotion ? "MouseMotion"
          : et == WindowEventType::MouseButton ? "MouseButton"
+         : et == WindowEventType::MouseScroll ? "MouseScroll"
          : throw std::logic_error("No such WindowEventType");
 }
 
@@ -60,29 +62,36 @@ constexpr const char* ButtonStateToString(ButtonState bs)
 
 struct MouseMotionEvent
 {
-    WindowEventType type;
-    int x;
-    int y;
+    WindowEventType Type;
+    int X;
+    int Y;
 };
 
 struct MouseButtonEvent
 {
-    WindowEventType type;
-    MouseButton button;
-    ButtonState state;
-    int x;
-    int y;
+    WindowEventType Type;
+    MouseButton Button;
+    ButtonState State;
+    int X;
+    int Y;
+};
+
+struct MouseScrollEvent
+{
+    WindowEventType Type;
+    int Direction;
 };
 
 struct WindowEvent
 {
-    std::weak_ptr<IWindow> source;
+    std::weak_ptr<IWindow> Source;
 
     union
     {
-        WindowEventType type;
-        MouseMotionEvent motion;
-        MouseButtonEvent button;
+        WindowEventType Type;
+        MouseMotionEvent Motion;
+        MouseButtonEvent Button;
+        MouseScrollEvent Scroll;
     };
 };
 
