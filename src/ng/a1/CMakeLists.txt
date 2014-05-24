@@ -12,4 +12,4 @@ set(SOURCES
 include_directories(${NG_INCLUDE_DIR} ${NG_SRC_DIR})
 
 add_executable(a1 ${SOURCES})
-target_link_libraries(a1 engine)
+target_link_libraries(a1 engine framework)

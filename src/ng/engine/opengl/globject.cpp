@@ -136,6 +136,16 @@ void OpenGLStaticMesh::Init(
        std::ptrdiff_t indexDataSize,
        std::size_t vertexCount)
 {
+    // hopefully catch some user errors
+    if (format.IsIndexed && indexData == nullptr)
+    {
+        throw std::logic_error("format.IsIndexed == true, but indexData == nullptr");
+    }
+    if (!format.IsIndexed && indexData != nullptr)
+    {
+        throw std::logic_error("format.IsIndexed == false, but indexData != nullptr");
+    }
+
     // upload vertexData
     std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> vertexBuffers;
     for (const auto& attrib : attributeDataAndSize)

@@ -132,7 +132,9 @@ struct genType_storage<T,1>
 {
     T x;
 
-    genType_storage() = default;
+    genType_storage()
+        : x(0)
+    { }
 
     genType_storage(T xx)
         : x(xx)
@@ -154,7 +156,9 @@ struct genType_storage<T,2>
 {
     T x,y;
 
-    genType_storage() = default;
+    genType_storage()
+        : x(0), y(0)
+    { }
 
     genType_storage(T s)
         : x(s), y(s)
@@ -170,7 +174,9 @@ struct genType_storage<T,3>
 {
     T x,y,z;
 
-    genType_storage() = default;
+    genType_storage()
+        : x(0), y(0), z(0)
+    { }
 
     genType_storage(T s)
         : x(s), y(s), z(s)
@@ -194,7 +200,9 @@ struct genType_storage<T,4>
 {
     T x,y,z,w;
 
-    genType_storage() = default;
+    genType_storage()
+        : x(0), y(0), z(0), w(1)
+    { }
 
     genType_storage(T s)
         : x(s), y(s), z(s), w(s)
@@ -302,27 +310,16 @@ using dvec2 = genDType<2>;
 using dvec3 = genDType<3>;
 using dvec4 = genDType<4>;
 
-// TODO: tweak this to allow vec4(mat2) (where vec4 is column 0 followed by column 1)
-// can be done by adding (explicit?) conversion operators.
 template<class T, std::size_t C, std::size_t R>
-struct mat
+struct mat_storage
 {
     genType_base<T,R> e[C];
 
-    mat() = default;
+    mat_storage() = default;
 
-    mat(T diagonal)
-        : e {
-              { diagonal, 0, 0, 0 },
-              { 0, diagonal, 0, 0 },
-              { 0, 0, diagonal, 0 },
-              { 0, 0, 0, diagonal }
-          }
-    { }
-
-    mat(T c11, T c12, T c13,
-        T c21, T c22, T c23,
-        T c31, T c32, T c33)
+    mat_storage(T c11, T c12, T c13,
+                T c21, T c22, T c23,
+                T c31, T c32, T c33)
         : e {
               { c11, c12, c13 },
               { c21, c22, c23 },
@@ -330,10 +327,10 @@ struct mat
           }
     { }
 
-    mat(T c11, T c12, T c13, T c14,
-        T c21, T c22, T c23, T c24,
-        T c31, T c32, T c33, T c34,
-        T c41, T c42, T c43, T c44)
+    mat_storage(T c11, T c12, T c13, T c14,
+                T c21, T c22, T c23, T c24,
+                T c31, T c32, T c33, T c34,
+                T c41, T c42, T c43, T c44)
         : e {
               { c11, c12, c13, c14 },
               { c21, c22, c23, c24 },
@@ -342,25 +339,73 @@ struct mat
           }
     { }
 
-    mat(genType_base<T,R> col1,
-        genType_base<T,R> col2,
-        genType_base<T,R> col3)
+    mat_storage(genType_base<T,R> col1,
+                genType_base<T,R> col2,
+                genType_base<T,R> col3)
         : e { col1, col2, col3 }
     { }
 
-    mat(genType_base<T,R> col1,
-        genType_base<T,R> col2,
-        genType_base<T,R> col3,
-        genType_base<T,R> col4)
+    mat_storage(genType_base<T,R> col1,
+                genType_base<T,R> col2,
+                genType_base<T,R> col3,
+                genType_base<T,R> col4)
         : e { col1, col2, col3, col4 }
     { }
 
-    mat(const genType_base<T,R> (&ee)[C])
+    mat_storage(const genType_base<T,R> (&ee)[C])
         : e(ee)
     { }
 
     const genType_base<T,R>& operator[](std::size_t col) const { return e[col]; }
           genType_base<T,R>& operator[](std::size_t col)       { return e[col]; }
+};
+
+template<class T, std::size_t C, std::size_t R>
+struct mat_base : mat_storage<T,C,R>
+{
+    using mat_storage<T,C,R>::mat_storage;
+    using mat_storage<T,C,R>::e;
+
+    // TODO: Figure out how a non-square matrix default constructor should be formed.
+    mat_base();
+};
+
+template<class T, std::size_t N>
+struct mat_base<T,N,N> : mat_storage<T,N,N>
+{
+    using mat_storage<T,N,N>::mat_storage;
+    using mat_storage<T,N,N>::e;
+
+    mat_base()
+    {
+        for (std::size_t c = 0; c < N; c++)
+        {
+            for (std::size_t r = 0; r < N; r++)
+            {
+                e[c][r] = c == r ? 1 : 0;
+            }
+        }
+    }
+
+    mat_base(T diagonal)
+    {
+        for (std::size_t c = 0; c < N; c++)
+        {
+            for (std::size_t r = 0; r < N; r++)
+            {
+                e[c][r] = c == r ? diagonal : 0;
+            }
+        }
+    }
+};
+
+// TODO: tweak this to allow vec4(mat2) (where vec4 is column 0 followed by column 1)
+// can be done by adding (explicit?) conversion operators.
+template<class T, std::size_t C, std::size_t R>
+struct mat : mat_base<T,C,R>
+{
+    using mat_base<T,C,R>::mat_base;
+    using mat_base<T,C,R>::e;
 
     mat& operator*=(mat<T,C,R> other)
     {
