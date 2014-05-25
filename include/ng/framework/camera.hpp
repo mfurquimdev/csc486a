@@ -112,8 +112,7 @@ public:
 
     void SetLookAt(vec3 eye, vec3 center, vec3 up)
     {
-        mat4 worldView = LookAt(eye, center, up);
-        SetLocalTransform(inverse(worldView));
+        SetLocalTransform(inverse(LookAt(eye, center, up)));
     }
 
     ivec4 GetViewport() const

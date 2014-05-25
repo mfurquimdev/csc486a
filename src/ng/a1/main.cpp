@@ -106,8 +106,6 @@ int main() try
 
                     ng::vec2 mouseCoord(e.Button.X, window->GetHeight() - e.Button.Y);
 
-                    ng::DebugPrintf("Mouse coord: {%f, %f}\n", mouseCoord.x, mouseCoord.y);
-
                     ng::vec3 nearUnProject = ng::UnProject(ng::vec3(mouseCoord, 0.0f),
                                                            worldView, cameraNode->GetProjection(),
                                                            cameraNode->GetViewport());
@@ -116,17 +114,10 @@ int main() try
                                                           worldView, cameraNode->GetProjection(),
                                                           cameraNode->GetViewport());
 
-                    ng::DebugPrintf("Near unProject: {%f, %f, %f}\n", nearUnProject.x, nearUnProject.y, nearUnProject.z);
-                    ng::DebugPrintf("Far unProject: {%f, %f, %f}\n", farUnProject.x, farUnProject.y, farUnProject.z);
-
                     ng::mat4 viewWorld = cameraNode->GetLocalTransform();
 
                     ng::Ray<float> clickRay(ng::vec3(viewWorld * ng::vec4(0,0,0,1)),
                                             farUnProject - nearUnProject);
-
-                    ng::DebugPrintf("ClickRay: origin {%f, %f, %f} direction {%f, %f, %f}\n",
-                                    clickRay.Origin.x, clickRay.Origin.y, clickRay.Origin.z,
-                                    clickRay.Direction.x, clickRay.Direction.y, clickRay.Direction.z);
 
                     // convert the grid's AABB into world space
                     ng::AxisAlignedBoundingBox<float> gridAABB = gridNode->GetWorldBoundingBox();
