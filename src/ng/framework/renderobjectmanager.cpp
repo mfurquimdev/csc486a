@@ -89,7 +89,7 @@ static void DrawDepthFirst(
 
         MatrixStackScope modelViewScope(modelViewStack, node->GetLocalTransform());
 
-        if (node->GetRenderObject())
+        if (node->GetRenderObject() && !node->IsHidden())
         {
             mat4 modelView = modelViewStack.top();
 

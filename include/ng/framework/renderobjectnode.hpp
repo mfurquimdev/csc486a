@@ -20,6 +20,8 @@ class RenderObjectNode : public std::enable_shared_from_this<RenderObjectNode>
     // TODO: Add list of "weak children" for handling cycles
     std::vector<std::shared_ptr<RenderObjectNode>> mChildNodes;
 
+    bool mIsHidden = false;
+
     mat4 mLocalTransform;
 
     mutable mat4 mWorldTransform;
@@ -46,6 +48,21 @@ public:
     RenderObjectNode(std::shared_ptr<IRenderObject> renderObject)
         : mRenderObject(std::move(renderObject))
     { }
+
+    bool IsHidden() const
+    {
+        return mIsHidden;
+    }
+
+    void Hide()
+    {
+        mIsHidden = true;
+    }
+
+    void Show()
+    {
+        mIsHidden = false;
+    }
 
     mat4 GetLocalTransform() const
     {

@@ -64,6 +64,17 @@ struct AxisAlignedBoundingBox
             (Minimum.z + Maximum.z) / 2
         };
     }
+
+    void AddPoint(vec3 point)
+    {
+        if (point.x < Minimum.x) Minimum.x = point.x;
+        if (point.y < Minimum.y) Minimum.y = point.y;
+        if (point.z < Minimum.z) Minimum.z = point.z;
+
+        if (point.x > Maximum.x) Maximum.x = point.x;
+        if (point.y > Maximum.y) Maximum.y = point.y;
+        if (point.z > Maximum.z) Maximum.z = point.z;
+    }
 };
 
 template<class T>

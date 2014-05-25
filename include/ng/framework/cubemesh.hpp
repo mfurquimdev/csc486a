@@ -1,31 +1,24 @@
-#ifndef NG_UVSPHERE_HPP
-#define NG_UVSPHERE_HPP
+#ifndef NG_CUBEMESH_HPP
+#define NG_CUBEMESH_HPP
 
 #include "ng/framework/renderobject.hpp"
 
 namespace ng
 {
 
-class IRenderer;
 class IStaticMesh;
+class IRenderer;
 
-class UVSphere : public IRenderObject
+class CubeMesh : public IRenderObject
 {
     std::shared_ptr<IStaticMesh> mMesh;
 
-    int mNumRings = 0;
-    int mNumSegments = 0;
-    float mRadius = 0.0f;
+    float mSideLength = 0.0f;
 
 public:
-    UVSphere(std::shared_ptr<IRenderer> renderer);
+    CubeMesh(std::shared_ptr<IRenderer> renderer);
 
-    void Init(int numRings, int numSegments, float radius);
-
-    float GetRadius() const
-    {
-        return mRadius;
-    }
+    void Init(float sideLength);
 
     RenderObjectPass PreUpdate(std::chrono::milliseconds deltaTime,
                                RenderObjectNode& node) override;
@@ -42,4 +35,4 @@ public:
 
 } // end namespace ng
 
-#endif // NG_UVSPHERE_HPP
+#endif // NG_CUBEMESH_HPP

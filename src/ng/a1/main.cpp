@@ -14,6 +14,8 @@
 #include "ng/framework/camera.hpp"
 #include "ng/framework/gridmesh.hpp"
 #include "ng/framework/uvsphere.hpp"
+#include "ng/framework/linestrip.hpp"
+#include "ng/framework/cubemesh.hpp"
 
 #include <chrono>
 #include <vector>
@@ -61,6 +63,14 @@ int main() try
     std::shared_ptr<ng::RenderObjectNode> gridNode = std::make_shared<ng::RenderObjectNode>(gridMesh);
     gridNode->SetLocalTransform(ng::Translate(-5.0f, 0.0f, -5.0f));
     cameraNode->AdoptChild(gridNode);
+
+    std::shared_ptr<ng::LineStrip> lineStrip = std::make_shared<ng::LineStrip>(renderer);
+    std::shared_ptr<ng::RenderObjectNode> lineStripNode = std::make_shared<ng::RenderObjectNode>(lineStrip);
+    cameraNode->AdoptChild(lineStripNode);
+
+    std::shared_ptr<ng::CubeMesh> selectorCube = std::make_shared<ng::CubeMesh>(renderer);
+    std::shared_ptr<ng::RenderObjectNode> selectorCubeNode = std::make_shared<ng::RenderObjectNode>(selectorCube);
+    selectorCubeNode->Hide();
 
     // do an initial update to get things going
     roManager.Update(std::chrono::milliseconds(0));
@@ -147,6 +157,17 @@ int main() try
                         std::shared_ptr<ng::RenderObjectNode> sphereNode = std::make_shared<ng::RenderObjectNode>(sphere);
                         sphereNode->SetLocalTransform(ng::Translate(collisonPoint));
                         cameraNode->AdoptChild(sphereNode);
+
+                        lineStrip->AddPoint(collisonPoint);
+
+                        if (!selectorCubeNode->GetParent().expired())
+                        {
+                            selectorCubeNode->GetParent().lock()->AbandonChild(selectorCubeNode);
+                        }
+
+                        selectorCube->Init(sphere->GetRadius() * 2);
+                        selectorCubeNode->Show();
+                        sphereNode->AdoptChild(selectorCubeNode);
                     }
                 }
             }

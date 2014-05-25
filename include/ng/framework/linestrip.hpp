@@ -1,31 +1,33 @@
-#ifndef NG_UVSPHERE_HPP
-#define NG_UVSPHERE_HPP
+#ifndef NG_LINESTRIP_HPP
+#define NG_LINESTRIP_HPP
 
 #include "ng/framework/renderobject.hpp"
+
+#include "ng/framework/geometry.hpp"
+#include "ng/engine/linearalgebra.hpp"
+
+#include <vector>
 
 namespace ng
 {
 
-class IRenderer;
 class IStaticMesh;
+class IRenderer;
 
-class UVSphere : public IRenderObject
+class LineStrip : public IRenderObject
 {
     std::shared_ptr<IStaticMesh> mMesh;
 
-    int mNumRings = 0;
-    int mNumSegments = 0;
-    float mRadius = 0.0f;
+    bool mIsMeshDirty = true;
+    std::vector<vec3> mPoints;
+    AxisAlignedBoundingBox<float> mBoundingBox;
 
 public:
-    UVSphere(std::shared_ptr<IRenderer> renderer);
+    LineStrip(std::shared_ptr<IRenderer> renderer);
 
-    void Init(int numRings, int numSegments, float radius);
+    void Reset();
 
-    float GetRadius() const
-    {
-        return mRadius;
-    }
+    void AddPoint(vec3 point);
 
     RenderObjectPass PreUpdate(std::chrono::milliseconds deltaTime,
                                RenderObjectNode& node) override;
@@ -42,4 +44,4 @@ public:
 
 } // end namespace ng
 
-#endif // NG_UVSPHERE_HPP
+#endif // NG_LINESTRIP_HPP
