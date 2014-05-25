@@ -38,8 +38,12 @@ int main() try
                   std::shared_ptr<const char>(fsrc, [](const char*){}));
 
     ng::RenderState renderState;
+
     renderState.DepthTestEnabled = true;
+    renderState.ActivatedParameters.set(ng::RenderState::Activate_DepthTestEnabled);
+
     renderState.PolygonMode = ng::PolygonMode::Line;
+    renderState.ActivatedParameters.set(ng::RenderState::Activate_PolygonMode);
 
     // prepare the scene
     ng::RenderObjectManager roManager;
@@ -48,6 +52,7 @@ int main() try
     std::shared_ptr<ng::CameraNode> cameraNode = std::make_shared<ng::CameraNode>(camera);
     cameraNode->SetPerspectiveProjection(70.0f, (float) window->GetWidth() / window->GetHeight(), 0.1f, 1000.0f);
     cameraNode->SetLookAt({10.0f, 10.0f, 10.0f}, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
+    cameraNode->SetViewport(0, 0, window->GetWidth(), window->GetHeight());
     roManager.SetCurrentCamera(cameraNode);
 
     std::shared_ptr<ng::GridMesh> gridMesh = std::make_shared<ng::GridMesh>(renderer);
@@ -93,6 +98,48 @@ int main() try
                                 ButtonStateToString(e.Button.State),
                                 MouseButtonToString(e.Button.Button),
                                 e.Button.X, e.Button.Y);
+
+                // create ray from camera and unprojected coordinate
+                ng::mat4 worldView = inverse(cameraNode->GetWorldTransform());
+
+                ng::vec2 mouseCoord(e.Button.X, window->GetHeight() - e.Button.Y);
+
+                ng::vec3 nearUnProject = ng::UnProject(ng::vec3(mouseCoord, 0.0f),
+                                                       worldView, cameraNode->GetProjection(),
+                                                       cameraNode->GetViewport());
+
+                ng::vec3 farUnProject = ng::UnProject(ng::vec3(mouseCoord, 1.0f),
+                                                      worldView, cameraNode->GetProjection(),
+                                                      cameraNode->GetViewport());
+
+                ng::Ray<float> clickRay(ng::vec3(cameraNode->GetLocalTransform() * ng::vec4(0,0,0,1)),
+                                        farUnProject - nearUnProject);
+
+                // convert the grid's AABB into world space
+                ng::mat4 gridToWorld = gridNode->GetWorldTransform();
+                ng::AxisAlignedBoundingBox<float> gridAABB = gridNode->GetLocalBoundingBox();
+                gridAABB.Minimum = ng::vec3(gridToWorld * ng::vec4(gridAABB.Minimum, 1.0f));
+                gridAABB.Maximum = ng::vec3(gridToWorld * ng::vec4(gridAABB.Maximum, 1.0f));
+
+                // Use the center of the AABB as the point on the plane
+                ng::vec3 pointOnPlane = gridAABB.GetCenter();
+
+                // convert the grid's normal vector into world space
+                ng::vec3 gridNormal = gridNode->GetNormalMatrix() * gridMesh->GetNormal();
+
+                // Create a plane from the grid's point and normal
+                ng::Plane<float> gridPlane(gridNormal, pointOnPlane);
+
+                // Check if ray and grid intersect
+                float t;
+                if (ng::RayPlaneIntersect(clickRay, gridPlane, 0.0f, std::numeric_limits<float>::infinity(), t))
+                {
+                    // collided with plane
+
+                    ng::vec3 collisonPoint = clickRay.Origin + t * clickRay.Direction;
+                    ng::DebugPrintf("TODO: Spawn a control point at {%f %f %f}\n",
+                                    collisonPoint.x, collisonPoint.y, collisonPoint.z);
+                }
             }
             else if (e.Type == ng::WindowEventType::MouseScroll)
             {

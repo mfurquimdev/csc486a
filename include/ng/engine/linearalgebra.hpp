@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstdint>
 #include <type_traits>
+#include <limits>
+#include <stdexcept>
 
 namespace ng
 {
@@ -19,8 +21,10 @@ struct genType_base : public genType_storage<T,N>
     genType_base() = default;
 
     template<class U, std::size_t M>
-    genType_base(typename std::enable_if<(M >= N),genType_base<U,M>>::type other)
+    explicit genType_base(genType_base<U,M> other)
     {
+        static_assert(M >= N, "Can only create smaller vectors from bigger vectors");
+
         for (std::size_t i = 0; i < N; i++)
         {
             (*this)[i] = other[i];
@@ -114,6 +118,13 @@ genType_base<T,N> operator*(genType_base<T,N> lhs, T rhs)
 }
 
 template<class T, std::size_t N>
+genType_base<T,N> operator*(T lhs, genType_base<T,N> rhs)
+{
+    rhs *= lhs;
+    return rhs;
+}
+
+template<class T, std::size_t N>
 genType_base<T,N> operator/(genType_base<T,N> lhs, genType_base<T,N> rhs)
 {
     lhs /= rhs;
@@ -127,6 +138,26 @@ genType_base<T,N> operator/(genType_base<T,N> lhs, T rhs)
     return lhs;
 }
 
+template<class T, std::size_t N>
+bool operator==(genType_base<T,N> lhs, genType_base<T,N> rhs)
+{
+    for (std::size_t i = 0; i < N; i++)
+    {
+        if (lhs[i] != rhs[i])
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+template<class T, std::size_t N>
+bool operator!=(genType_base<T,N> lhs, genType_base<T,N> rhs)
+{
+    return !(lhs == rhs);
+}
+
 template<class T>
 struct genType_storage<T,1>
 {
@@ -136,7 +167,7 @@ struct genType_storage<T,1>
         : x(0)
     { }
 
-    genType_storage(T xx)
+    explicit genType_storage(T xx)
         : x(xx)
     { }
 
@@ -178,7 +209,7 @@ struct genType_storage<T,3>
         : x(0), y(0), z(0)
     { }
 
-    genType_storage(T s)
+    explicit genType_storage(T s)
         : x(s), y(s), z(s)
     { }
 
@@ -204,7 +235,7 @@ struct genType_storage<T,4>
         : x(0), y(0), z(0), w(1)
     { }
 
-    genType_storage(T s)
+    explicit genType_storage(T s)
         : x(s), y(s), z(s), w(s)
     { }
 
@@ -361,7 +392,7 @@ struct mat_storage
           }
     { }
 
-    mat_storage(const genType_base<T,R> (&ee)[C])
+    explicit mat_storage(const genType_base<T,R> (&ee)[C])
         : e(ee)
     { }
 
@@ -408,13 +439,25 @@ struct mat_base<T,N,N> : mat_storage<T,N,N>
     }
 };
 
-// TODO: tweak this to allow vec4(mat2) (where vec4 is column 0 followed by column 1)
-// can be done by adding (explicit?) conversion operators.
 template<class T, std::size_t C, std::size_t R>
 struct mat : mat_base<T,C,R>
 {
     using mat_base<T,C,R>::mat_base;
     using mat_base<T,C,R>::e;
+
+    mat() = default;
+
+    template<class U, std::size_t C2, std::size_t R2>
+    explicit mat(mat<U,C2,R2> other)
+    {
+        for (std::size_t c = 0; c < std::min(C,C2); c++)
+        {
+            for (std::size_t r = 0; r < std::min(R,R2); r++)
+            {
+                e[c][r] = other[c][r];
+            }
+        }
+    }
 
     mat& operator*=(mat<T,C,R> other)
     {
@@ -468,6 +511,12 @@ mat<T,C,R> operator*(mat<T,C,R> m, T s)
 }
 
 template<class T, std::size_t C, std::size_t R>
+mat<T,C,R> operator*(T s, mat<T,C,R> m)
+{
+    return m *= s;
+}
+
+template<class T, std::size_t C, std::size_t R>
 mat<T,C,R> operator/(mat<T,C,R> m, T s)
 {
     return m /= s;
@@ -495,6 +544,20 @@ genType_base<T,R>& operator*=(genType_base<T,R>& v, mat<T,C,R> m)
 {
     v = m * v;
     return v;
+}
+
+template<class T, std::size_t C, std::size_t R>
+mat<T,C,R> transpose(mat<T,C,R> m)
+{
+    mat<T,R,C> result;
+    for (std::size_t c = 0; c < C; c++)
+    {
+        for (std::size_t r = 0; r < R; r++)
+        {
+            result[r][c] = m[c][r];
+        }
+    }
+    return result;
 }
 
 template<class T>
@@ -546,9 +609,14 @@ mat<T,4,4>>::type inverse(mat<T,4,4> m)
         + (m[0][0] * subFactor15 - m[0][1] * subFactor17 + m[0][2] * subFactor18));
 
     T det = m[0][0] * inv[0][0]
-                   + m[0][1] * inv[1][0]
-                   + m[0][2] * inv[2][0]
-                   + m[0][3] * inv[3][0];
+          + m[0][1] * inv[1][0]
+          + m[0][2] * inv[2][0]
+          + m[0][3] * inv[3][0];
+
+    if (std::abs(det) <= std::numeric_limits<T>::epsilon())
+    {
+        throw std::logic_error("Matrix not invertible");
+    }
 
     inv /= det;
     return inv;
@@ -593,6 +661,39 @@ mat<T,4,4>>::type Perspective(T fovy, T aspect, T zNear, T zFar)
         { 0, f, 0, 0 },
         { 0, 0, (zFar + zNear) / (zNear - zFar), -1 },
         { 0, 0, (2 * zFar * zNear) / (zNear - zFar), 0 }
+    };
+}
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+genType_base<T,3>>::type UnProject(genType_base<T,3> windowCoordinate,
+                      mat<T,4,4> modelView, mat<T,4,4> projection,
+                      ivec4 viewport)
+{
+    mat<T,4,4> mvp = projection * modelView;
+
+    mat<T,4,4> pmv = inverse(mvp);
+
+    genType_base<T,4> normalizedCoordinates = {
+        (windowCoordinate.x - (float) viewport[0]) / (float) viewport[2] * 2 - 1,
+        (windowCoordinate.y - (float) viewport[1]) / (float) viewport[3] * 2 - 1,
+        2 * windowCoordinate.z - 1,
+        1
+    };
+
+    genType_base<T,4> perspected = pmv * normalizedCoordinates;
+
+    if (std::abs(perspected[3]) <= std::numeric_limits<T>::epsilon())
+    {
+        throw std::logic_error("Can't unproject, no perspective component");
+    }
+
+    perspected[3] = 1 / perspected[3];
+
+    return {
+        perspected[0] * perspected[3],
+        perspected[1] * perspected[3],
+        perspected[2] * perspected[3]
     };
 }
 

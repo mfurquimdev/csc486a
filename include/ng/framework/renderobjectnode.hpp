@@ -16,11 +16,27 @@ class RenderObjectNode : public std::enable_shared_from_this<RenderObjectNode>
 {
     std::weak_ptr<RenderObjectNode> mParentNode;
     std::shared_ptr<IRenderObject> mRenderObject;
+
+    // TODO: Add list of "weak children" for handling cycles
     std::vector<std::shared_ptr<RenderObjectNode>> mChildNodes;
 
     mat4 mLocalTransform;
 
+    mutable mat4 mWorldTransform;
+    mutable bool mIsWorldTransformDirty = true;
+
+    mutable mat3 mNormalMatrix;
+    mutable bool mIsNormalMatrixDirty = true;
+
     AxisAlignedBoundingBox<float> mLocalBoundingBox;
+
+    void SetDirtyRecursively() const;
+
+protected:
+    virtual bool IsCamera()
+    {
+        return false;
+    }
 
 public:
     RenderObjectNode() = default;
@@ -36,10 +52,11 @@ public:
         return mLocalTransform;
     }
 
-    void SetLocalTransform(mat4 localTransform)
-    {
-        mLocalTransform = localTransform;
-    }
+    void SetLocalTransform(mat4 localTransform);
+
+    mat4 GetWorldTransform() const;
+
+    mat3 GetNormalMatrix() const;
 
     AxisAlignedBoundingBox<float> GetLocalBoundingBox() const
     {
@@ -61,38 +78,19 @@ public:
         mRenderObject = std::move(renderObject);
     }
 
-    const std::weak_ptr<RenderObjectNode>& GetParent() const
+    std::weak_ptr<RenderObjectNode> GetParent() const
     {
         return mParentNode;
     }
 
-    const std::vector<std::shared_ptr<RenderObjectNode>>& GetChildren() const
+    std::vector<std::shared_ptr<RenderObjectNode>> GetChildren() const
     {
         return mChildNodes;
     }
 
-    void AdoptChild(std::shared_ptr<RenderObjectNode> childNode)
-    {
-        auto it = std::find(mChildNodes.begin(), mChildNodes.end(), childNode);
-        if (it != mChildNodes.end())
-        {
-            throw std::logic_error("Child already adopted");
-        }
+    void AdoptChild(std::shared_ptr<RenderObjectNode> childNode);
 
-        childNode->mParentNode = shared_from_this();
-        mChildNodes.push_back(std::move(childNode));
-    }
-
-    void AbandonChild(std::shared_ptr<RenderObjectNode> childNode)
-    {
-        auto it = std::find(mChildNodes.begin(), mChildNodes.end(), childNode);
-        if (it == mChildNodes.end())
-        {
-            throw std::logic_error("Can't abandon a node that isn't a child");
-        }
-
-        mChildNodes.erase(it);
-    }
+    void AbandonChild(std::shared_ptr<RenderObjectNode> childNode);
 };
 
 } // end namespace ng

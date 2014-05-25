@@ -786,30 +786,49 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
 
                 // set up rendering state
                 const RenderState& state = *params.State;
-                if (state.DepthTestEnabled)
+
+                if (state.ActivatedParameters.test(RenderState::Activate_DepthTestEnabled))
                 {
-                    glEnable(GL_DEPTH_TEST);
-                }
-                else
-                {
-                    glDisable(GL_DEPTH_TEST);
+                    if (state.DepthTestEnabled)
+                    {
+                        glEnable(GL_DEPTH_TEST);
+                    }
+                    else
+                    {
+                        glDisable(GL_DEPTH_TEST);
+                    }
                 }
 
-                switch (state.PolygonMode)
+                if (state.ActivatedParameters.test(RenderState::Activate_PolygonMode))
                 {
-                case PolygonMode::Point:
-                    glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
-                    break;
-                case PolygonMode::Line:
-                    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-                    break;
-                case PolygonMode::Fill:
-                    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-                    break;
+                    switch (state.PolygonMode)
+                    {
+                    case PolygonMode::Point:
+                        glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+                        break;
+                    case PolygonMode::Line:
+                        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+                        break;
+                    case PolygonMode::Fill:
+                        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+                        break;
+                    }
                 }
 
-                glLineWidth(state.LineWidth);
-                glPointSize(state.PointSize);
+                if (state.ActivatedParameters.test(RenderState::Activate_LineWidth))
+                {
+                    glLineWidth(state.LineWidth);
+                }
+
+                if (state.ActivatedParameters.test(RenderState::Activate_PointSize))
+                {
+                    glPointSize(state.PointSize);
+                }
+
+                if (state.ActivatedParameters.test(RenderState::Activate_Viewport))
+                {
+                    glViewport(state.Viewport[0], state.Viewport[1], state.Viewport[2], state.Viewport[3]);
+                }
 
                 // perform the draw
                 if (params.IsIndexed)

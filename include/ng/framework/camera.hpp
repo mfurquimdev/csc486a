@@ -52,6 +52,13 @@ class CameraNode : public RenderObjectNode
 {
     std::shared_ptr<ng::Camera> mCamera;
     mat4 mProjection;
+    ivec4 mViewport;
+
+protected:
+    bool IsCamera() override
+    {
+        return true;
+    }
 
 public:
     CameraNode(std::shared_ptr<ng::Camera> camera)
@@ -88,6 +95,21 @@ public:
     void SetLookAt(vec3 eye, vec3 center, vec3 up)
     {
         SetLocalTransform(inverse(LookAt(eye, center, up)));
+    }
+
+    ivec4 GetViewport() const
+    {
+        return mViewport;
+    }
+
+    void SetViewport(int x, int y, int w, int h)
+    {
+        SetViewport({x,y,w,h});
+    }
+
+    void SetViewport(ivec4 viewport)
+    {
+        mViewport = viewport;
     }
 };
 

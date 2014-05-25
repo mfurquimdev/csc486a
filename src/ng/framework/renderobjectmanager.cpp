@@ -7,6 +7,8 @@
 #include "ng/framework/renderobject.hpp"
 #include "ng/framework/renderobjectnode.hpp"
 
+#include "ng/engine/renderstate.hpp"
+
 #include <stack>
 #include <algorithm>
 
@@ -113,6 +115,15 @@ void RenderObjectManager::Draw(
         return;
     }
 
+    RenderState decoratedState = renderState;
+    decoratedState.Viewport = GetCurrentCamera()->GetViewport();
+    decoratedState.ActivatedParameters.set(RenderState::Activate_Viewport);
+
+    if (decoratedState.Viewport == ng::ivec4(0,0,0,1))
+    {
+        throw std::logic_error("Woops, you forgot to initialize the viewport with meaningful values.");
+    }
+
     // create the viewWorld matrix
     mat4 viewWorld = GetCurrentCamera()->GetLocalTransform();
 
@@ -129,7 +140,7 @@ void RenderObjectManager::Draw(
     for (const std::shared_ptr<RenderObjectNode>& child : GetCurrentCamera()->GetChildren())
     {
         DrawDepthFirst(GetCurrentCamera()->GetProjection(),
-                       modelViewStack, program, renderState, child);
+                       modelViewStack, program, decoratedState, child);
     }
 }
 

@@ -1,6 +1,10 @@
 #ifndef NG_RENDERSTATE_HPP
 #define NG_RENDERSTATE_HPP
 
+#include "ng/engine/linearalgebra.hpp"
+
+#include <bitset>
+
 namespace ng
 {
 
@@ -13,10 +17,27 @@ enum class PolygonMode
 
 struct RenderState
 {
-    bool DepthTestEnabled = false;
-    ng::PolygonMode PolygonMode = ng::PolygonMode::Fill;
-    float LineWidth = 1.0f;
-    float PointSize = 1.0f;
+    enum ActiveParamMask
+    {
+        Activate_DepthTestEnabled,
+        Activate_PolygonMode,
+        Activate_LineWidth,
+        Activate_PointSize,
+        Activate_Viewport,
+        NumActivationParams
+    };
+
+    std::bitset<NumActivationParams> ActivatedParameters;
+
+    bool DepthTestEnabled;
+
+    ng::PolygonMode PolygonMode;
+
+    float LineWidth;
+
+    float PointSize;
+
+    ivec4 Viewport;
 };
 
 } // end namespace ng
