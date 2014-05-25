@@ -13,7 +13,8 @@ enum class WindowEventType
     Quit,
     MouseMotion,
     MouseButton,
-    MouseScroll
+    MouseScroll,
+    KeyPress
 };
 
 constexpr const char* WindowEventTypeToString(WindowEventType et)
@@ -22,6 +23,7 @@ constexpr const char* WindowEventTypeToString(WindowEventType et)
          : et == WindowEventType::MouseMotion ? "MouseMotion"
          : et == WindowEventType::MouseButton ? "MouseButton"
          : et == WindowEventType::MouseScroll ? "MouseScroll"
+         : et == WindowEventType::KeyPress ? "KeyPress"
          : throw std::logic_error("No such WindowEventType");
 }
 
@@ -80,6 +82,11 @@ struct MouseScrollEvent
 {
     WindowEventType Type;
     int Direction;
+};
+
+struct KeyPressEvent
+{
+    WindowEventType Type;
 };
 
 struct WindowEvent

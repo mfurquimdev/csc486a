@@ -525,7 +525,7 @@ public:
         setWindowAttributes.colormap = colormap.mHandle;
         setWindowAttributes.background_pixmap = None;
         setWindowAttributes.border_pixel = 0;
-        setWindowAttributes.event_mask = StructureNotifyMask | PointerMotionMask | ButtonPressMask | ButtonReleaseMask;
+        setWindowAttributes.event_mask = StructureNotifyMask | PointerMotionMask | ButtonPressMask | ButtonReleaseMask | KeyPressMask | KeyReleaseMask;
 
         Window root = DefaultRootWindow(display);
         std::shared_ptr<ngXWindow> createdWindow(
@@ -654,6 +654,16 @@ public:
                 {
                     continue;
                 }
+            }
+            else if (ev.type == KeyPress)
+            {
+                puts("TODO: handle pressed key event");
+                continue;
+            }
+            else if (ev.type == KeyRelease)
+            {
+                puts("TODO: handle released key event");
+                continue;
             }
             else
             {

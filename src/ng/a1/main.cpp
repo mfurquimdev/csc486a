@@ -110,7 +110,7 @@ int main() try
                                 MouseButtonToString(e.Button.Button),
                                 e.Button.X, e.Button.Y);
 
-                if (e.Button.State == ng::ButtonState::Pressed)
+                if (e.Button.State == ng::ButtonState::Pressed && e.Button.Button == ng::MouseButton::Left)
                 {
                     // create ray from camera and unprojected coordinate
                     ng::mat4 worldView = inverse(cameraNode->GetWorldTransform());
