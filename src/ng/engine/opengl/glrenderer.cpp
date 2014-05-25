@@ -245,9 +245,12 @@ OpenGLRenderer::~OpenGLRenderer()
 
     // add a Quit instruction to the now empty rendering thread queue.
     SendQuit(RenderingInstructionHandler);
+    mRenderingThreadData->mInstructionConsumerMutex[mRenderingThreadData->mCurrentWriteBufferIndex].unlock();
+    mRenderingThreadData->mInstructionConsumerMutex[!mRenderingThreadData->mCurrentWriteBufferIndex].unlock();
 
     // add a Quit instruction to the now empty resource thread queue.
     SendQuit(ResourceInstructionHandler);
+    mResourceThreadData->mConsumerSemaphore.post();
 
     // finally join everything, which waits for both their Quit commands to be run.
     mResourceThread.join();

@@ -87,6 +87,11 @@ struct genType_base : public genType_storage<T,N>
         }
         return *this;
     }
+
+    genType_base operator-() const
+    {
+        return (*this) * T(-1);
+    }
 };
 
 template<class T, std::size_t N>
@@ -636,6 +641,13 @@ mat<T,4,4>>::type Translate(T x, T y, T z)
         { 0, 0, 1, 0 },
         { x, y, z, 1 }
     };
+}
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,4,4>>::type Translate(genType_base<T,3> v)
+{
+   return Translate(v.x, v.y, v.z);
 }
 
 template<class T>

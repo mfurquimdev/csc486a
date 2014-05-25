@@ -26,7 +26,7 @@ void GridMesh::Init(int numColumns, int numRows, vec2 tileSize)
         throw std::logic_error("Invalid tileSize for GridMesh (must be >= 0)");
     }
 
-    std::vector<ng::vec3> gridVertices;
+    std::vector<vec3> gridVertices;
 
     // add all vertices in the grid
     for (int row = 0; row < numRows + 1; row++)
@@ -62,15 +62,15 @@ void GridMesh::Init(int numColumns, int numRows, vec2 tileSize)
     auto pGridIndices = std::make_shared<std::vector<std::uint32_t>>(std::move(gridIndices));
     std::shared_ptr<const void> indexBuffer(pGridIndices->data(), [pGridIndices](const void*){});
 
-    auto pGridPositions = std::make_shared<std::vector<vec3>>(std::move(gridVertices));
-    std::shared_ptr<const void> vertexBuffer(pGridPositions->data(), [pGridPositions](const void*){});
+    auto pGridVertices = std::make_shared<std::vector<vec3>>(std::move(gridVertices));
+    std::shared_ptr<const void> vertexBuffer(pGridVertices->data(), [pGridVertices](const void*){});
 
     VertexFormat gridFormat({
             { VertexAttributeName::Position, VertexAttribute(3, ArithmeticType::Float, false, 0, 0) }
         }, ArithmeticType::UInt32);
 
     mMesh->Init(gridFormat, {
-                    { VertexAttributeName::Position, { vertexBuffer, pGridPositions->size() * sizeof(vec3) } }
+                    { VertexAttributeName::Position, { vertexBuffer, pGridVertices->size() * sizeof(vec3) } }
                 }, indexBuffer, indexBufferSize, indexCount);
 
     mNumColumns = numColumns;

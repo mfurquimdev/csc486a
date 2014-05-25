@@ -13,6 +13,7 @@
 #include "ng/framework/renderobjectnode.hpp"
 #include "ng/framework/camera.hpp"
 #include "ng/framework/gridmesh.hpp"
+#include "ng/framework/uvsphere.hpp"
 
 #include <chrono>
 #include <vector>
@@ -140,6 +141,12 @@ int main() try
                         ng::vec3 collisonPoint = clickRay.Origin + t * clickRay.Direction;
                         ng::DebugPrintf("TODO: Spawn a control point at {%f %f %f}\n",
                                         collisonPoint.x, collisonPoint.y, collisonPoint.z);
+
+                        std::shared_ptr<ng::UVSphere> sphere = std::make_shared<ng::UVSphere>(renderer);
+                        sphere->Init(10, 5, 0.3f);
+                        std::shared_ptr<ng::RenderObjectNode> sphereNode = std::make_shared<ng::RenderObjectNode>(sphere);
+                        sphereNode->SetLocalTransform(ng::Translate(collisonPoint));
+                        cameraNode->AdoptChild(sphereNode);
                     }
                 }
             }
