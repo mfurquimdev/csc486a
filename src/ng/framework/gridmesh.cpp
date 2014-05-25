@@ -72,12 +72,18 @@ void GridMesh::Init(int numCols, int numRows, vec2 tileSize)
                 }, indexBuffer, indexBufferSize, indexCount);
 }
 
-void GridMesh::Draw(const std::shared_ptr<IShaderProgram>& program,
-          const std::map<std::string, UniformValue>& uniforms,
-          const RenderState& renderState)
+RenderObjectPass GridMesh::Draw(
+        const std::shared_ptr<IShaderProgram>& program,
+        const std::map<std::string, UniformValue>& uniforms,
+        const RenderState& renderState)
 {
-    mMesh->Draw(program, uniforms, renderState,
+    auto extraUniforms = uniforms;
+    extraUniforms.emplace("uTint", vec4(0,1,0,1));
+
+    mMesh->Draw(program, extraUniforms, renderState,
                 PrimitiveType::TriangleStrip, 0, mMesh->GetVertexCount());
+
+    return RenderObjectPass::Continue;
 }
 
 } // end namespace ng

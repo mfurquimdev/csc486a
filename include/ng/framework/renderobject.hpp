@@ -12,15 +12,28 @@ namespace ng
 class IShaderProgram;
 class UniformValue;
 class RenderState;
+struct RenderObjectNode;
+
+enum class RenderObjectPass
+{
+    Continue,
+    SkipChildren
+};
 
 class IRenderObject
 {
 public:
     virtual ~IRenderObject() = default;
 
-    virtual void Update(std::chrono::milliseconds deltaTime) = 0;
+    // return true if you want to "eat" the update, which means that children won't be updated.
+    // return false if you want the children to also be updated.
+    virtual RenderObjectPass PreUpdate(std::chrono::milliseconds deltaTime,
+                                       RenderObjectNode& node) = 0;
 
-    virtual void Draw(
+    virtual void PostUpdate(std::chrono::milliseconds deltaTime,
+                            RenderObjectNode& node) = 0;
+
+    virtual RenderObjectPass Draw(
             const std::shared_ptr<IShaderProgram>& program,
             const std::map<std::string, UniformValue>& uniforms,
             const RenderState& renderState) = 0;

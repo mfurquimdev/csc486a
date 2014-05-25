@@ -313,7 +313,7 @@ using dvec4 = genDType<4>;
 template<class T, std::size_t C, std::size_t R>
 struct mat_storage
 {
-    genType_base<T,R> e[C];
+    T e[C][R];
 
     mat_storage() = default;
 
@@ -342,22 +342,31 @@ struct mat_storage
     mat_storage(genType_base<T,R> col1,
                 genType_base<T,R> col2,
                 genType_base<T,R> col3)
-        : e { col1, col2, col3 }
+        : e {
+              { col1.x, col1.y, col1.z },
+              { col2.x, col2.y, col2.z },
+              { col3.x, col3.y, col3.z },
+          }
     { }
 
     mat_storage(genType_base<T,R> col1,
                 genType_base<T,R> col2,
                 genType_base<T,R> col3,
                 genType_base<T,R> col4)
-        : e { col1, col2, col3, col4 }
+        : e {
+              { col1.x, col1.y, col1.z, col1.w },
+              { col2.x, col2.y, col2.z, col2.w },
+              { col3.x, col3.y, col3.z, col3.w },
+              { col4.x, col4.y, col4.z, col4.w }
+          }
     { }
 
     mat_storage(const genType_base<T,R> (&ee)[C])
         : e(ee)
     { }
 
-    const genType_base<T,R>& operator[](std::size_t col) const { return e[col]; }
-          genType_base<T,R>& operator[](std::size_t col)       { return e[col]; }
+    const T (&operator[](std::size_t col) const) [R] { return e[col]; }
+          T (&operator[](std::size_t col))       [R] { return e[col]; }
 };
 
 template<class T, std::size_t C, std::size_t R>
@@ -456,6 +465,18 @@ genType_base<T,R>& operator*=(genType_base<T,R>& v, mat<T,C,R> m)
 {
     v = m * v;
     return v;
+}
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,4,4>>::type Translate(T x, T y, T z)
+{
+    return {
+        { 1, 0, 0, 0 },
+        { 0, 1, 0, 0 },
+        { 0, 0, 1, 0 },
+        { x, y, z, 1 }
+    };
 }
 
 template<class T>

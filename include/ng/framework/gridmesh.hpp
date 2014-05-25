@@ -26,9 +26,17 @@ public:
 
     void Init(int numCols, int numRows, vec2 tileSize);
 
-    void Update(std::chrono::milliseconds) override { }
+    RenderObjectPass PreUpdate(std::chrono::milliseconds,
+                               RenderObjectNode&) override
+    {
+        return RenderObjectPass::Continue;
+    }
 
-    void Draw(
+    void PostUpdate(std::chrono::milliseconds,
+                    RenderObjectNode&) override
+    { }
+
+    RenderObjectPass Draw(
             const std::shared_ptr<IShaderProgram>& program,
             const std::map<std::string, UniformValue>& uniforms,
             const RenderState& renderState) override;
