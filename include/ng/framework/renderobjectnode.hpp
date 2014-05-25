@@ -68,6 +68,8 @@ public:
         mLocalBoundingBox = localBoundingBox;
     }
 
+    AxisAlignedBoundingBox<float> GetWorldBoundingBox() const;
+
     const std::shared_ptr<IRenderObject>& GetRenderObject() const
     {
         return mRenderObject;

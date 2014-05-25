@@ -57,6 +57,23 @@ mat3 RenderObjectNode::GetNormalMatrix() const
     return mNormalMatrix;
 }
 
+AxisAlignedBoundingBox<float> RenderObjectNode::GetWorldBoundingBox() const
+{
+    AxisAlignedBoundingBox<float> boundingBox = GetLocalBoundingBox();
+    mat4 worldTransform = GetWorldTransform();
+
+    vec4 newMin = worldTransform * vec4(boundingBox.Minimum, 1.0f);
+    vec4 newMax = worldTransform * vec4(boundingBox.Maximum, 1.0f);
+
+    using std::min;
+    using std::max;
+
+    boundingBox.Minimum = vec3(min(newMin.x, newMax.x), min(newMin.y, newMax.y), min(newMin.z, newMax.z));
+    boundingBox.Maximum = vec3(max(newMin.x, newMax.x), max(newMin.y, newMax.y), max(newMin.z, newMax.z));
+
+    return boundingBox;
+}
+
 void RenderObjectNode::AdoptChild(std::shared_ptr<RenderObjectNode> childNode)
 {
     auto it = std::find(mChildNodes.begin(), mChildNodes.end(), childNode);

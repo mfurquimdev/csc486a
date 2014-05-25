@@ -99,46 +99,57 @@ int main() try
                                 MouseButtonToString(e.Button.Button),
                                 e.Button.X, e.Button.Y);
 
-                // create ray from camera and unprojected coordinate
-                ng::mat4 worldView = inverse(cameraNode->GetWorldTransform());
-
-                ng::vec2 mouseCoord(e.Button.X, window->GetHeight() - e.Button.Y);
-
-                ng::vec3 nearUnProject = ng::UnProject(ng::vec3(mouseCoord, 0.0f),
-                                                       worldView, cameraNode->GetProjection(),
-                                                       cameraNode->GetViewport());
-
-                ng::vec3 farUnProject = ng::UnProject(ng::vec3(mouseCoord, 1.0f),
-                                                      worldView, cameraNode->GetProjection(),
-                                                      cameraNode->GetViewport());
-
-                ng::Ray<float> clickRay(ng::vec3(cameraNode->GetLocalTransform() * ng::vec4(0,0,0,1)),
-                                        farUnProject - nearUnProject);
-
-                // convert the grid's AABB into world space
-                ng::mat4 gridToWorld = gridNode->GetWorldTransform();
-                ng::AxisAlignedBoundingBox<float> gridAABB = gridNode->GetLocalBoundingBox();
-                gridAABB.Minimum = ng::vec3(gridToWorld * ng::vec4(gridAABB.Minimum, 1.0f));
-                gridAABB.Maximum = ng::vec3(gridToWorld * ng::vec4(gridAABB.Maximum, 1.0f));
-
-                // Use the center of the AABB as the point on the plane
-                ng::vec3 pointOnPlane = gridAABB.GetCenter();
-
-                // convert the grid's normal vector into world space
-                ng::vec3 gridNormal = gridNode->GetNormalMatrix() * gridMesh->GetNormal();
-
-                // Create a plane from the grid's point and normal
-                ng::Plane<float> gridPlane(gridNormal, pointOnPlane);
-
-                // Check if ray and grid intersect
-                float t;
-                if (ng::RayPlaneIntersect(clickRay, gridPlane, 0.0f, std::numeric_limits<float>::infinity(), t))
+                if (e.Button.State == ng::ButtonState::Pressed)
                 {
-                    // collided with plane
+                    // create ray from camera and unprojected coordinate
+                    ng::mat4 worldView = inverse(cameraNode->GetWorldTransform());
 
-                    ng::vec3 collisonPoint = clickRay.Origin + t * clickRay.Direction;
-                    ng::DebugPrintf("TODO: Spawn a control point at {%f %f %f}\n",
-                                    collisonPoint.x, collisonPoint.y, collisonPoint.z);
+                    ng::vec2 mouseCoord(e.Button.X, window->GetHeight() - e.Button.Y);
+
+                    ng::DebugPrintf("Mouse coord: {%f, %f}\n", mouseCoord.x, mouseCoord.y);
+
+                    ng::vec3 nearUnProject = ng::UnProject(ng::vec3(mouseCoord, 0.0f),
+                                                           worldView, cameraNode->GetProjection(),
+                                                           cameraNode->GetViewport());
+
+                    ng::vec3 farUnProject = ng::UnProject(ng::vec3(mouseCoord, 1.0f),
+                                                          worldView, cameraNode->GetProjection(),
+                                                          cameraNode->GetViewport());
+
+                    ng::DebugPrintf("Near unProject: {%f, %f, %f}\n", nearUnProject.x, nearUnProject.y, nearUnProject.z);
+                    ng::DebugPrintf("Far unProject: {%f, %f, %f}\n", farUnProject.x, farUnProject.y, farUnProject.z);
+
+                    ng::mat4 viewWorld = cameraNode->GetLocalTransform();
+
+                    ng::Ray<float> clickRay(ng::vec3(viewWorld * ng::vec4(0,0,0,1)),
+                                            farUnProject - nearUnProject);
+
+                    ng::DebugPrintf("ClickRay: origin {%f, %f, %f} direction {%f, %f, %f}\n",
+                                    clickRay.Origin.x, clickRay.Origin.y, clickRay.Origin.z,
+                                    clickRay.Direction.x, clickRay.Direction.y, clickRay.Direction.z);
+
+                    // convert the grid's AABB into world space
+                    ng::AxisAlignedBoundingBox<float> gridAABB = gridNode->GetWorldBoundingBox();
+
+                    // Use the center of the AABB as the point on the plane
+                    ng::vec3 pointOnPlane = gridAABB.GetCenter();
+
+                    // convert the grid's normal vector into world space
+                    ng::vec3 gridNormal = gridNode->GetNormalMatrix() * gridMesh->GetNormal();
+
+                    // Create a plane from the grid's point and normal
+                    ng::Plane<float> gridPlane(gridNormal, pointOnPlane);
+
+                    // Check if ray and grid intersect
+                    float t;
+                    if (ng::RayPlaneIntersect(clickRay, gridPlane, std::numeric_limits<float>::epsilon(), std::numeric_limits<float>::infinity(), t))
+                    {
+                        // collided with plane
+
+                        ng::vec3 collisonPoint = clickRay.Origin + t * clickRay.Direction;
+                        ng::DebugPrintf("TODO: Spawn a control point at {%f %f %f}\n",
+                                        collisonPoint.x, collisonPoint.y, collisonPoint.z);
+                    }
                 }
             }
             else if (e.Type == ng::WindowEventType::MouseScroll)

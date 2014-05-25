@@ -32,6 +32,8 @@ public:
         {
             return RenderObjectPass::SkipChildren;
         }
+
+        return RenderObjectPass::Continue;
     }
 
     void PostUpdate(std::chrono::milliseconds,
@@ -51,7 +53,11 @@ public:
 class CameraNode : public RenderObjectNode
 {
     std::shared_ptr<ng::Camera> mCamera;
+
     mat4 mProjection;
+    float mZFar = 0.0f;
+    float mZNear = 0.0f;
+
     ivec4 mViewport;
 
 protected:
@@ -89,12 +95,25 @@ public:
 
     void SetPerspectiveProjection(float fovy, float aspect, float zNear, float zFar)
     {
+        mZNear = zNear;
+        mZFar = zFar;
         mProjection = Perspective(fovy, aspect, zNear, zFar);
+    }
+
+    float GetZNear() const
+    {
+        return mZNear;
+    }
+
+    float GetZFar() const
+    {
+        return mZFar;
     }
 
     void SetLookAt(vec3 eye, vec3 center, vec3 up)
     {
-        SetLocalTransform(inverse(LookAt(eye, center, up)));
+        mat4 worldView = LookAt(eye, center, up);
+        SetLocalTransform(inverse(worldView));
     }
 
     ivec4 GetViewport() const

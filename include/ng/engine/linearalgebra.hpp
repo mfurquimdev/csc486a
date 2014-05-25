@@ -344,7 +344,7 @@ using dvec4 = genDType<4>;
 template<class T, std::size_t C, std::size_t R>
 struct mat_storage
 {
-    T e[C][R];
+    genType_base<T,R> e[C];
 
     mat_storage() = default;
 
@@ -396,8 +396,8 @@ struct mat_storage
         : e(ee)
     { }
 
-    const T (&operator[](std::size_t col) const) [R] { return e[col]; }
-          T (&operator[](std::size_t col))       [R] { return e[col]; }
+    const genType_base<T,R>& operator[](std::size_t col) const { return e[col]; }
+          genType_base<T,R>& operator[](std::size_t col)       { return e[col]; }
 };
 
 template<class T, std::size_t C, std::size_t R>
@@ -566,60 +566,64 @@ mat<T,4,4>>::type inverse(mat<T,4,4> m)
 {
     // note: basically copy and pasted from glm.
 
-    // Calculate all mat2 determinants
-    T subFactor00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
-    T subFactor01 = m[2][1] * m[3][3] - m[3][1] * m[2][3];
-    T subFactor02 = m[2][1] * m[3][2] - m[3][1] * m[2][2];
-    T subFactor03 = m[2][0] * m[3][3] - m[3][0] * m[2][3];
-    T subFactor04 = m[2][0] * m[3][2] - m[3][0] * m[2][2];
-    T subFactor05 = m[2][0] * m[3][1] - m[3][0] * m[2][1];
-    T subFactor06 = m[1][2] * m[3][3] - m[3][2] * m[1][3];
-    T subFactor07 = m[1][1] * m[3][3] - m[3][1] * m[1][3];
-    T subFactor08 = m[1][1] * m[3][2] - m[3][1] * m[1][2];
-    T subFactor09 = m[1][0] * m[3][3] - m[3][0] * m[1][3];
-    T subFactor10 = m[1][0] * m[3][2] - m[3][0] * m[1][2];
-    T subFactor11 = m[1][1] * m[3][3] - m[3][1] * m[1][3];
-    T subFactor12 = m[1][0] * m[3][1] - m[3][0] * m[1][1];
-    T subFactor13 = m[1][2] * m[2][3] - m[2][2] * m[1][3];
-    T subFactor14 = m[1][1] * m[2][3] - m[2][1] * m[1][3];
-    T subFactor15 = m[1][1] * m[2][2] - m[2][1] * m[1][2];
-    T subFactor16 = m[1][0] * m[2][3] - m[2][0] * m[1][3];
-    T subFactor17 = m[1][0] * m[2][2] - m[2][0] * m[1][2];
-    T subFactor18 = m[1][0] * m[2][1] - m[2][0] * m[1][1];
+    T Coef00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
+    T Coef02 = m[1][2] * m[3][3] - m[3][2] * m[1][3];
+    T Coef03 = m[1][2] * m[2][3] - m[2][2] * m[1][3];
 
-    mat<T,4,4> inv(
-        + (m[1][1] * subFactor00 - m[1][2] * subFactor01 + m[1][3] * subFactor02),
-        - (m[1][0] * subFactor00 - m[1][2] * subFactor03 + m[1][3] * subFactor04),
-        + (m[1][0] * subFactor01 - m[1][1] * subFactor03 + m[1][3] * subFactor05),
-        - (m[1][0] * subFactor02 - m[1][1] * subFactor04 + m[1][2] * subFactor05),
+    T Coef04 = m[2][1] * m[3][3] - m[3][1] * m[2][3];
+    T Coef06 = m[1][1] * m[3][3] - m[3][1] * m[1][3];
+    T Coef07 = m[1][1] * m[2][3] - m[2][1] * m[1][3];
 
-        - (m[0][1] * subFactor00 - m[0][2] * subFactor01 + m[0][3] * subFactor02),
-        + (m[0][0] * subFactor00 - m[0][2] * subFactor03 + m[0][3] * subFactor04),
-        - (m[0][0] * subFactor01 - m[0][1] * subFactor03 + m[0][3] * subFactor05),
-        + (m[0][0] * subFactor02 - m[0][1] * subFactor04 + m[0][2] * subFactor05),
+    T Coef08 = m[2][1] * m[3][2] - m[3][1] * m[2][2];
+    T Coef10 = m[1][1] * m[3][2] - m[3][1] * m[1][2];
+    T Coef11 = m[1][1] * m[2][2] - m[2][1] * m[1][2];
 
-        + (m[0][1] * subFactor06 - m[0][2] * subFactor07 + m[0][3] * subFactor08),
-        - (m[0][0] * subFactor06 - m[0][2] * subFactor09 + m[0][3] * subFactor10),
-        + (m[0][0] * subFactor11 - m[0][1] * subFactor09 + m[0][3] * subFactor12),
-        - (m[0][0] * subFactor08 - m[0][1] * subFactor10 + m[0][2] * subFactor12),
+    T Coef12 = m[2][0] * m[3][3] - m[3][0] * m[2][3];
+    T Coef14 = m[1][0] * m[3][3] - m[3][0] * m[1][3];
+    T Coef15 = m[1][0] * m[2][3] - m[2][0] * m[1][3];
 
-        - (m[0][1] * subFactor13 - m[0][2] * subFactor14 + m[0][3] * subFactor15),
-        + (m[0][0] * subFactor13 - m[0][2] * subFactor16 + m[0][3] * subFactor17),
-        - (m[0][0] * subFactor14 - m[0][1] * subFactor16 + m[0][3] * subFactor18),
-        + (m[0][0] * subFactor15 - m[0][1] * subFactor17 + m[0][2] * subFactor18));
+    T Coef16 = m[2][0] * m[3][2] - m[3][0] * m[2][2];
+    T Coef18 = m[1][0] * m[3][2] - m[3][0] * m[1][2];
+    T Coef19 = m[1][0] * m[2][2] - m[2][0] * m[1][2];
 
-    T det = m[0][0] * inv[0][0]
-          + m[0][1] * inv[1][0]
-          + m[0][2] * inv[2][0]
-          + m[0][3] * inv[3][0];
+    T Coef20 = m[2][0] * m[3][1] - m[3][0] * m[2][1];
+    T Coef22 = m[1][0] * m[3][1] - m[3][0] * m[1][1];
+    T Coef23 = m[1][0] * m[2][1] - m[2][0] * m[1][1];
 
-    if (std::abs(det) <= std::numeric_limits<T>::epsilon())
+    genType_base<T,4> Fac0(Coef00, Coef00, Coef02, Coef03);
+    genType_base<T,4> Fac1(Coef04, Coef04, Coef06, Coef07);
+    genType_base<T,4> Fac2(Coef08, Coef08, Coef10, Coef11);
+    genType_base<T,4> Fac3(Coef12, Coef12, Coef14, Coef15);
+    genType_base<T,4> Fac4(Coef16, Coef16, Coef18, Coef19);
+    genType_base<T,4> Fac5(Coef20, Coef20, Coef22, Coef23);
+
+    genType_base<T,4> Vec0(m[1][0], m[0][0], m[0][0], m[0][0]);
+    genType_base<T,4> Vec1(m[1][1], m[0][1], m[0][1], m[0][1]);
+    genType_base<T,4> Vec2(m[1][2], m[0][2], m[0][2], m[0][2]);
+    genType_base<T,4> Vec3(m[1][3], m[0][3], m[0][3], m[0][3]);
+
+    genType_base<T,4> Inv0(Vec1 * Fac0 - Vec2 * Fac1 + Vec3 * Fac2);
+    genType_base<T,4> Inv1(Vec0 * Fac0 - Vec2 * Fac3 + Vec3 * Fac4);
+    genType_base<T,4> Inv2(Vec0 * Fac1 - Vec1 * Fac3 + Vec3 * Fac5);
+    genType_base<T,4> Inv3(Vec0 * Fac2 - Vec1 * Fac4 + Vec2 * Fac5);
+
+    genType_base<T,4> SignA(+1, -1, +1, -1);
+    genType_base<T,4> SignB(-1, +1, -1, +1);
+    mat<T,4,4> Inverse(Inv0 * SignA, Inv1 * SignB, Inv2 * SignA, Inv3 * SignB);
+
+    genType_base<T,4> Row0(Inverse[0][0], Inverse[1][0], Inverse[2][0], Inverse[3][0]);
+
+    genType_base<T,4> Dot0(m[0] * Row0);
+    T Dot1 = (Dot0.x + Dot0.y) + (Dot0.z + Dot0.w);
+
+    if (std::abs(Dot1) <= std::numeric_limits<T>::epsilon())
     {
-        throw std::logic_error("Matrix not invertible");
+        throw std::logic_error("Matrix inversion failed");
     }
 
-    inv /= det;
-    return inv;
+    T OneOverDeterminant = static_cast<T>(1) / Dot1;
+
+    return Inverse * OneOverDeterminant;
 }
 
 template<class T>
