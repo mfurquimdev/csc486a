@@ -2,6 +2,8 @@
 
 #include "ng/engine/uniform.hpp"
 
+#include "ng/framework/camera.hpp"
+
 #include "ng/framework/renderobject.hpp"
 #include "ng/framework/renderobjectnode.hpp"
 
@@ -11,22 +13,15 @@
 namespace ng
 {
 
-std::shared_ptr<RenderObjectNode> RenderObjectManager::AddRoot()
+void RenderObjectManager::SetCurrentCamera(std::shared_ptr<CameraNode> currentCamera)
 {
-    mRootNodes.push_back(std::make_shared<RenderObjectNode>());
-    return mRootNodes.back();
-}
-
-void RenderObjectManager::RemoveRoot(std::shared_ptr<RenderObjectNode> node)
-{
-    auto it = std::find(mRootNodes.begin(), mRootNodes.end(), node);
-
-    if (it == mRootNodes.end())
+    if (mCurrentCamera)
     {
-        throw std::logic_error("Cannot remove a non-root from the root set");
+        mCurrentCamera->GetCamera()->mIsCurrentCamera = false;
     }
 
-    mRootNodes.erase(it);
+    mCurrentCamera = currentCamera;
+    mCurrentCamera->GetCamera()->mIsCurrentCamera = true;
 }
 
 static void UpdateDepthFirst(
@@ -59,16 +54,13 @@ static void UpdateDepthFirst(
 
 void RenderObjectManager::Update(std::chrono::milliseconds deltaTime)
 {
-    for (const std::shared_ptr<RenderObjectNode>& root : GetRoots())
-    {
-        UpdateDepthFirst(deltaTime, root);
-    }
+    UpdateDepthFirst(deltaTime, mCurrentCamera);
 }
 
 using MatrixStack = std::stack<mat4, std::vector<mat4>>;
 
 static void DrawDepthFirst(
-        MatrixStack& projectionStack,
+        const mat4& projection,
         MatrixStack& modelViewStack,
         const std::shared_ptr<IShaderProgram>& program,
         const RenderState& renderState,
@@ -93,12 +85,10 @@ static void DrawDepthFirst(
             }
         };
 
-        MatrixStackScope projectionScope(projectionStack, node->GetProjectionTransform());
-        MatrixStackScope modelViewScope(modelViewStack, node->GetModelViewTransform());
+        MatrixStackScope modelViewScope(modelViewStack, node->GetLocalTransform());
 
         if (node->GetRenderObject())
         {
-            mat4 projection = projectionStack.top();
             mat4 modelView = modelViewStack.top();
 
             node->GetRenderObject()->Draw(program, {
@@ -109,7 +99,7 @@ static void DrawDepthFirst(
 
         for (const std::shared_ptr<RenderObjectNode>& child : node->GetChildren())
         {
-            DrawDepthFirst(projectionStack, modelViewStack, program, renderState, child);
+            DrawDepthFirst(projection, modelViewStack, program, renderState, child);
         }
     }
 }
@@ -118,15 +108,28 @@ void RenderObjectManager::Draw(
         const std::shared_ptr<IShaderProgram>& program,
         const RenderState& renderState) const
 {
-    mat4 id = mat4();
-
-    MatrixStack modelViewStack, projectionStack;
-    modelViewStack.push(id);
-    projectionStack.push(id);
-
-    for (const std::shared_ptr<RenderObjectNode>& root : GetRoots())
+    if (!GetCurrentCamera())
     {
-        DrawDepthFirst(projectionStack, modelViewStack, program, renderState, root);
+        return;
+    }
+
+    // create the viewWorld matrix
+    mat4 viewWorld = GetCurrentCamera()->GetLocalTransform();
+
+    for (std::weak_ptr<RenderObjectNode> parent = GetCurrentCamera()->GetParent();
+         !parent.expired() && parent.lock() != GetCurrentCamera();
+         parent = parent.lock()->GetParent())
+    {
+        viewWorld = viewWorld * parent.lock()->GetLocalTransform();
+    }
+
+    MatrixStack modelViewStack;
+    modelViewStack.push(inverse(viewWorld));
+
+    for (const std::shared_ptr<RenderObjectNode>& child : GetCurrentCamera()->GetChildren())
+    {
+        DrawDepthFirst(GetCurrentCamera()->GetProjection(),
+                       modelViewStack, program, renderState, child);
     }
 }
 

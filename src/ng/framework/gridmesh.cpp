@@ -3,6 +3,8 @@
 #include "ng/engine/renderer.hpp"
 #include "ng/engine/staticmesh.hpp"
 
+#include "ng/framework/renderobjectnode.hpp"
+
 #include <vector>
 
 namespace ng
@@ -12,9 +14,9 @@ GridMesh::GridMesh(std::shared_ptr<IRenderer> renderer)
     : mMesh(renderer->CreateStaticMesh())
 { }
 
-void GridMesh::Init(int numCols, int numRows, vec2 tileSize)
+void GridMesh::Init(int numColumns, int numRows, vec2 tileSize)
 {
-    if (numCols < 1 || numRows < 1)
+    if (numColumns < 1 || numRows < 1)
     {
         throw std::logic_error("Invalid dimensions for GridMesh (must be >= 1)");
     }
@@ -29,7 +31,7 @@ void GridMesh::Init(int numCols, int numRows, vec2 tileSize)
     // add all vertices in the grid
     for (int row = 0; row < numRows + 1; row++)
     {
-        for (int col = 0; col < numCols + 1; col++)
+        for (int col = 0; col < numColumns + 1; col++)
         {
             gridVertices.emplace_back(tileSize.x * col, 0, tileSize.y * row);
         }
@@ -40,17 +42,17 @@ void GridMesh::Init(int numCols, int numRows, vec2 tileSize)
     // add all the indices
     for (int row = 0; row < numRows; row++)
     {
-        for (int col = 0; col < numCols + 1; col++)
+        for (int col = 0; col < numColumns + 1; col++)
         {
-            gridIndices.push_back(row * (numCols + 1) + col);
-            gridIndices.push_back((row + 1) * (numCols + 1) + col);
+            gridIndices.push_back(row * (numColumns + 1) + col);
+            gridIndices.push_back((row + 1) * (numColumns + 1) + col);
         }
 
         // every row except the last one needs degenerate triangles to tie them together
         if (row < numRows - 1)
         {
-            gridIndices.push_back((row + 1) * (numCols + 1) + numCols);
-            gridIndices.push_back((row + 1) * (numCols + 1));
+            gridIndices.push_back((row + 1) * (numColumns + 1) + numColumns);
+            gridIndices.push_back((row + 1) * (numColumns + 1));
         }
     }
 
@@ -70,6 +72,20 @@ void GridMesh::Init(int numCols, int numRows, vec2 tileSize)
     mMesh->Init(gridFormat, {
                     { VertexAttributeName::Position, { vertexBuffer, pGridPositions->size() * sizeof(vec3) } }
                 }, indexBuffer, indexBufferSize, indexCount);
+
+    mNumColumns = numColumns;
+    mNumRows = numRows;
+    mTileSize = tileSize;
+}
+
+RenderObjectPass GridMesh::PreUpdate(std::chrono::milliseconds,
+                                     RenderObjectNode& node)
+{
+    node.SetLocalBoundingBox(AxisAlignedBoundingBox<float>(
+                                 vec3(0.0f),
+                                 vec3(mTileSize.x * mNumColumns, 0.0f, mTileSize.y * mNumRows)));
+
+    return RenderObjectPass::Continue;
 }
 
 RenderObjectPass GridMesh::Draw(

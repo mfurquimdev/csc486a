@@ -21,16 +21,22 @@ class GridMesh : public IRenderObject
 {
     std::shared_ptr<IStaticMesh> mMesh;
 
+    int mNumColumns = 0;
+    int mNumRows = 0;
+    vec2 mTileSize;
+
 public:
     GridMesh(std::shared_ptr<IRenderer> renderer);
 
-    void Init(int numCols, int numRows, vec2 tileSize);
+    void Init(int numColumns, int numRows, vec2 tileSize);
 
-    RenderObjectPass PreUpdate(std::chrono::milliseconds,
-                               RenderObjectNode&) override
+    vec3 GetNormal() const
     {
-        return RenderObjectPass::Continue;
+        return { 0.0f, 1.0f, 0.0f };
     }
+
+    RenderObjectPass PreUpdate(std::chrono::milliseconds deltaTime,
+                               RenderObjectNode& node) override;
 
     void PostUpdate(std::chrono::milliseconds,
                     RenderObjectNode&) override

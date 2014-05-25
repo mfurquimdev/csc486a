@@ -13,31 +13,27 @@ namespace ng
 class IRenderObject;
 class IShaderProgram;
 class RenderState;
-struct RenderObjectNode;
+class CameraNode;
 
 class RenderObjectManager
 {
+    std::shared_ptr<CameraNode> mCurrentCamera;
+
 public:
-    const std::vector<std::shared_ptr<RenderObjectNode>>& GetRoots() const
+    void SetCurrentCamera(std::shared_ptr<CameraNode> currentCamera);
+
+    const std::shared_ptr<CameraNode>& GetCurrentCamera() const
     {
-        return mRootNodes;
+        return mCurrentCamera;
     }
 
-    std::shared_ptr<RenderObjectNode> AddRoot();
-
-    void RemoveRoot(std::shared_ptr<RenderObjectNode> node);
-
-    // RenderObject tree currently does not handle being updated during a pass
+    // Currently not allowed to modify the scene graph during an update pass.
     // ... but that might be a nice feature for later? Just gotta find a good way to do it.
-    // Perhaps using std::set instead of std::vector?
     void Update(std::chrono::milliseconds deltaTime);
 
-    // RenderObject tree may not be modified during drawing.
+    // Not allowed to modify the scene graph during a draw pass.
     void Draw(const std::shared_ptr<IShaderProgram>& program,
               const RenderState& renderState) const;
-
-private:
-    std::vector<std::shared_ptr<RenderObjectNode>> mRootNodes;
 };
 
 } // end namespace ng

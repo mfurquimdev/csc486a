@@ -421,6 +421,24 @@ struct mat : mat_base<T,C,R>
         e = ((*this) * other).e;
         return *this;
     }
+
+    mat& operator*=(T s)
+    {
+        for (std::size_t c = 0; c < C; c++)
+        {
+            for (std::size_t r = 0; r < R; r++)
+            {
+                e[c][r] *= s;
+            }
+        }
+
+        return *this;
+    }
+
+    mat& operator/=(T s)
+    {
+        return (*this) *= (1 / s);
+    }
 };
 
 template<class T, std::size_t C1, std::size_t R1, std::size_t C2>
@@ -441,6 +459,18 @@ mat<T,C2,R1> operator*(mat<T,C1,R1> lhs, mat<T,C2,C1> rhs)
     }
 
     return tmp;
+}
+
+template<class T, std::size_t C, std::size_t R>
+mat<T,C,R> operator*(mat<T,C,R> m, T s)
+{
+    return m *= s;
+}
+
+template<class T, std::size_t C, std::size_t R>
+mat<T,C,R> operator/(mat<T,C,R> m, T s)
+{
+    return m /= s;
 }
 
 template<class T, std::size_t C, std::size_t R>
@@ -465,6 +495,63 @@ genType_base<T,R>& operator*=(genType_base<T,R>& v, mat<T,C,R> m)
 {
     v = m * v;
     return v;
+}
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,4,4>>::type inverse(mat<T,4,4> m)
+{
+    // note: basically copy and pasted from glm.
+
+    // Calculate all mat2 determinants
+    T subFactor00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
+    T subFactor01 = m[2][1] * m[3][3] - m[3][1] * m[2][3];
+    T subFactor02 = m[2][1] * m[3][2] - m[3][1] * m[2][2];
+    T subFactor03 = m[2][0] * m[3][3] - m[3][0] * m[2][3];
+    T subFactor04 = m[2][0] * m[3][2] - m[3][0] * m[2][2];
+    T subFactor05 = m[2][0] * m[3][1] - m[3][0] * m[2][1];
+    T subFactor06 = m[1][2] * m[3][3] - m[3][2] * m[1][3];
+    T subFactor07 = m[1][1] * m[3][3] - m[3][1] * m[1][3];
+    T subFactor08 = m[1][1] * m[3][2] - m[3][1] * m[1][2];
+    T subFactor09 = m[1][0] * m[3][3] - m[3][0] * m[1][3];
+    T subFactor10 = m[1][0] * m[3][2] - m[3][0] * m[1][2];
+    T subFactor11 = m[1][1] * m[3][3] - m[3][1] * m[1][3];
+    T subFactor12 = m[1][0] * m[3][1] - m[3][0] * m[1][1];
+    T subFactor13 = m[1][2] * m[2][3] - m[2][2] * m[1][3];
+    T subFactor14 = m[1][1] * m[2][3] - m[2][1] * m[1][3];
+    T subFactor15 = m[1][1] * m[2][2] - m[2][1] * m[1][2];
+    T subFactor16 = m[1][0] * m[2][3] - m[2][0] * m[1][3];
+    T subFactor17 = m[1][0] * m[2][2] - m[2][0] * m[1][2];
+    T subFactor18 = m[1][0] * m[2][1] - m[2][0] * m[1][1];
+
+    mat<T,4,4> inv(
+        + (m[1][1] * subFactor00 - m[1][2] * subFactor01 + m[1][3] * subFactor02),
+        - (m[1][0] * subFactor00 - m[1][2] * subFactor03 + m[1][3] * subFactor04),
+        + (m[1][0] * subFactor01 - m[1][1] * subFactor03 + m[1][3] * subFactor05),
+        - (m[1][0] * subFactor02 - m[1][1] * subFactor04 + m[1][2] * subFactor05),
+
+        - (m[0][1] * subFactor00 - m[0][2] * subFactor01 + m[0][3] * subFactor02),
+        + (m[0][0] * subFactor00 - m[0][2] * subFactor03 + m[0][3] * subFactor04),
+        - (m[0][0] * subFactor01 - m[0][1] * subFactor03 + m[0][3] * subFactor05),
+        + (m[0][0] * subFactor02 - m[0][1] * subFactor04 + m[0][2] * subFactor05),
+
+        + (m[0][1] * subFactor06 - m[0][2] * subFactor07 + m[0][3] * subFactor08),
+        - (m[0][0] * subFactor06 - m[0][2] * subFactor09 + m[0][3] * subFactor10),
+        + (m[0][0] * subFactor11 - m[0][1] * subFactor09 + m[0][3] * subFactor12),
+        - (m[0][0] * subFactor08 - m[0][1] * subFactor10 + m[0][2] * subFactor12),
+
+        - (m[0][1] * subFactor13 - m[0][2] * subFactor14 + m[0][3] * subFactor15),
+        + (m[0][0] * subFactor13 - m[0][2] * subFactor16 + m[0][3] * subFactor17),
+        - (m[0][0] * subFactor14 - m[0][1] * subFactor16 + m[0][3] * subFactor18),
+        + (m[0][0] * subFactor15 - m[0][1] * subFactor17 + m[0][2] * subFactor18));
+
+    T det = m[0][0] * inv[0][0]
+                   + m[0][1] * inv[1][0]
+                   + m[0][2] * inv[2][0]
+                   + m[0][3] * inv[3][0];
+
+    inv /= det;
+    return inv;
 }
 
 template<class T>

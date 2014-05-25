@@ -28,7 +28,7 @@ struct Plane
 {
     // Plane equation: Normal.x * x + Normal.y * y + Normal.z * z + d = 0
     genType_base<T,3> Normal;
-    T D;
+    T D = 0;
 
     Plane() = default;
 
@@ -41,6 +41,29 @@ struct Plane
         : Normal(normal)
         , D(-(dot(normal, pointOnPlane)))
     { }
+};
+
+template<class T>
+struct AxisAlignedBoundingBox
+{
+    genType_base<T,3> Minimum;
+    genType_base<T,3> Maximum;
+
+    AxisAlignedBoundingBox() = default;
+
+    AxisAlignedBoundingBox(genType_base<T,3> minimum, genType_base<T,3> maximum)
+        : Minimum(minimum)
+        , Maximum(maximum)
+    { }
+
+    genType_base<T,3> GetCenter() const
+    {
+        return {
+            (Minimum.x + Maximum.x) / 2,
+            (Minimum.y + Maximum.y) / 2,
+            (Minimum.z + Maximum.z) / 2
+        };
+    }
 };
 
 template<class T>

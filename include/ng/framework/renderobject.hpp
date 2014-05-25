@@ -12,7 +12,7 @@ namespace ng
 class IShaderProgram;
 class UniformValue;
 class RenderState;
-struct RenderObjectNode;
+class RenderObjectNode;
 
 enum class RenderObjectPass
 {

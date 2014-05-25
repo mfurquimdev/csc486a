@@ -1,7 +1,7 @@
 #ifndef NG_RENDEROBJECTNODE_HPP
 #define NG_RENDEROBJECTNODE_HPP
 
-#include "ng/engine/linearalgebra.hpp"
+#include "ng/framework/geometry.hpp"
 
 #include <memory>
 #include <vector>
@@ -18,34 +18,37 @@ class RenderObjectNode : public std::enable_shared_from_this<RenderObjectNode>
     std::shared_ptr<IRenderObject> mRenderObject;
     std::vector<std::shared_ptr<RenderObjectNode>> mChildNodes;
 
-    mat4 mProjectionTransform;
-    mat4 mModelViewTransform;
+    mat4 mLocalTransform;
+
+    AxisAlignedBoundingBox<float> mLocalBoundingBox;
 
 public:
     RenderObjectNode() = default;
+
+    virtual ~RenderObjectNode() = default;
 
     RenderObjectNode(std::shared_ptr<IRenderObject> renderObject)
         : mRenderObject(std::move(renderObject))
     { }
 
-    mat4 GetProjectionTransform() const
+    mat4 GetLocalTransform() const
     {
-        return mProjectionTransform;
+        return mLocalTransform;
     }
 
-    void SetProjectionTransform(mat4 projectionTransform)
+    void SetLocalTransform(mat4 localTransform)
     {
-        mProjectionTransform = projectionTransform;
+        mLocalTransform = localTransform;
     }
 
-    mat4 GetModelViewTransform() const
+    AxisAlignedBoundingBox<float> GetLocalBoundingBox() const
     {
-        return mModelViewTransform;
+        return mLocalBoundingBox;
     }
 
-    void SetModelViewTransform(mat4 modelViewTransform)
+    void SetLocalBoundingBox(AxisAlignedBoundingBox<float> localBoundingBox)
     {
-        mModelViewTransform = modelViewTransform;
+        mLocalBoundingBox = localBoundingBox;
     }
 
     const std::shared_ptr<IRenderObject>& GetRenderObject() const
@@ -53,7 +56,7 @@ public:
         return mRenderObject;
     }
 
-    void SetRenderObject(std::shared_ptr<IRenderObject> renderObject)
+    virtual void SetRenderObject(std::shared_ptr<IRenderObject> renderObject)
     {
         mRenderObject = std::move(renderObject);
     }

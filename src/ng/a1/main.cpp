@@ -43,26 +43,27 @@ int main() try
 
     // prepare the scene
     ng::RenderObjectManager roManager;
-    std::shared_ptr<ng::RenderObjectNode> rootNode = roManager.AddRoot();
 
-    std::shared_ptr<ng::PerspectiveView> perspectiveView = std::make_shared<ng::PerspectiveView>();
-    std::shared_ptr<ng::RenderObjectNode> perspectiveNode = std::make_shared<ng::RenderObjectNode>(perspectiveView);
-    rootNode->AdoptChild(perspectiveNode);
-
-    std::shared_ptr<ng::LookAtCamera> lookAtCamera = std::make_shared<ng::LookAtCamera>();
-    std::shared_ptr<ng::RenderObjectNode> lookAtNode = std::make_shared<ng::RenderObjectNode>(lookAtCamera);
-    perspectiveNode->AdoptChild(lookAtNode);
+    std::shared_ptr<ng::Camera> camera = std::make_shared<ng::Camera>();
+    std::shared_ptr<ng::CameraNode> cameraNode = std::make_shared<ng::CameraNode>(camera);
+    cameraNode->SetPerspectiveProjection(70.0f, (float) window->GetWidth() / window->GetHeight(), 0.1f, 1000.0f);
+    cameraNode->SetLookAt({10.0f, 10.0f, 10.0f}, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
+    roManager.SetCurrentCamera(cameraNode);
 
     std::shared_ptr<ng::GridMesh> gridMesh = std::make_shared<ng::GridMesh>(renderer);
     gridMesh->Init(10, 10, ng::vec2(1.0f,1.0f));
     std::shared_ptr<ng::RenderObjectNode> gridNode = std::make_shared<ng::RenderObjectNode>(gridMesh);
-    gridNode->SetModelViewTransform(ng::Translate(-5.0f, 0.0f, -5.0f));
-    lookAtNode->AdoptChild(gridNode);
+    gridNode->SetLocalTransform(ng::Translate(-5.0f, 0.0f, -5.0f));
+    cameraNode->AdoptChild(gridNode);
+
+    // do an initial update to get things going
+    roManager.Update(std::chrono::milliseconds(0));
 
     // initialize time stuff
     std::chrono::time_point<std::chrono::high_resolution_clock> now, then;
     then = std::chrono::high_resolution_clock::now();
-    std::chrono::milliseconds lag(1000/60); // to make sure things are updated on the first tick
+    std::chrono::milliseconds lag(0);
+    const std::chrono::milliseconds fixedUpdateStep(1000/60);
 
     ng::Profiler renderProfiler;
 
@@ -100,17 +101,14 @@ int main() try
         }
 
         // update perspective to window
-        perspectiveView->SetAspectRatio((float) window->GetWidth() / window->GetHeight());
-
-        // update camera to input
-        lookAtCamera->SetEyePosition(ng::vec3(10.0f, 10.0f, 10.0f));
+        cameraNode->SetPerspectiveProjection(70.0f, (float) window->GetWidth() / window->GetHeight(), 0.1f, 1000.0f);
 
         // do fixed step updates
-        while (lag >= std::chrono::milliseconds(1000/60))
+        while (lag >= fixedUpdateStep)
         {
-            roManager.Update(std::chrono::milliseconds(1000/60));
+            roManager.Update(fixedUpdateStep);
 
-            lag -= std::chrono::milliseconds(1000/60);
+            lag -= fixedUpdateStep;
         }
 
         renderProfiler.Start();
