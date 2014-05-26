@@ -125,6 +125,14 @@ int main() try
     std::shared_ptr<ng::RenderObjectNode> selectorCubeNode = std::make_shared<ng::RenderObjectNode>(selectorCube);
     selectorCubeNode->Hide();
 
+    std::shared_ptr<ng::UVSphere> splineRider = std::make_shared<ng::UVSphere>(renderer);
+    splineRider->Init(5, 3, 0.6f);
+    std::shared_ptr<ng::RenderObjectNode> splineRiderNode = std::make_shared<ng::RenderObjectNode>(splineRider);
+    cameraNode->AdoptChild(splineRiderNode);
+    splineRiderNode->Hide();
+    float splineRiderT = 0.0f;
+    float splineRiderTSpeed = 3.0f; // units per second
+
     // do an initial update to get things going
     roManager.Update(std::chrono::milliseconds(0));
 
@@ -192,6 +200,9 @@ int main() try
 
                         // remove the deleted node from its parent
                         parentOfSelected->AbandonChild(selected);
+
+                        // reset the spline rider
+                        splineRiderT = 0.0f;
                     }
                 }
             }
@@ -310,7 +321,21 @@ int main() try
         // do fixed step updates
         while (lag >= fixedUpdateStep)
         {
+            float stepInSeconds = fixedUpdateStep.count() / 1000.0f;
+
             roManager.Update(fixedUpdateStep);
+
+            if (catmullRomSpline.ControlPoints.size() >= 4)
+            {
+                splineRiderNode->Show();
+                splineRiderT = std::fmod(splineRiderT + splineRiderTSpeed * stepInSeconds, catmullRomSpline.ControlPoints.size() - 3);
+                int segment = int(splineRiderT);
+                splineRiderNode->SetLocalTransform(ng::Translate(catmullRomSpline.CalculatePoint(segment, splineRiderT - segment)));
+            }
+            else
+            {
+                splineRiderNode->Hide();
+            }
 
             lag -= fixedUpdateStep;
         }
