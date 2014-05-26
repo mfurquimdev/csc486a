@@ -2,17 +2,19 @@
 #define NG_WINDOWEVENT_HPP
 
 #include <memory>
+#include <bitset>
 
 namespace ng
 {
 
 class IWindow;
 
-enum class MouseButton
+enum class MouseButton : int
 {
     Left,
     Middle,
-    Right
+    Right,
+    NumButtons
 };
 
 constexpr const char* MouseButtonToString(MouseButton mb)
@@ -246,8 +248,14 @@ constexpr const char* WindowEventTypeToString(WindowEventType et)
 struct MouseMotionEvent
 {
     WindowEventType Type;
+
+    int OldX;
+    int OldY;
+
     int X;
     int Y;
+
+    bool ButtonStates[int(MouseButton::NumButtons)];
 };
 
 struct MouseButtonEvent
@@ -257,6 +265,8 @@ struct MouseButtonEvent
     ButtonState State;
     int X;
     int Y;
+
+    bool ButtonStates[int(MouseButton::NumButtons)];
 };
 
 struct MouseScrollEvent

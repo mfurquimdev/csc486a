@@ -403,6 +403,11 @@ class ngXWindowManager : public IWindowManager
     std::vector<WindowRecord> mWindows;
     std::vector<std::weak_ptr<ngXGLContext>> mContexts;
 
+    int mLastMouseX = -1;
+    int mLastMouseY = -1;
+
+    bool mMouseButtonMask[int(MouseButton::NumButtons)] = { };
+
 public:
     ngXWindowManager()
         : mDisplay()
@@ -776,8 +781,17 @@ public:
             {
                 source = ev.xmotion.window;
                 we.Motion.Type = WindowEventType::MouseMotion;
+
                 we.Motion.X = ev.xmotion.x;
                 we.Motion.Y = ev.xmotion.y;
+
+                we.Motion.OldX = mLastMouseX == -1 ? we.Motion.X : mLastMouseX;
+                we.Motion.OldY = mLastMouseY == -1 ? we.Motion.Y : mLastMouseY;
+
+                mLastMouseX = we.Motion.X;
+                mLastMouseY = we.Motion.Y;
+
+                std::memcpy(we.Motion.ButtonStates, mMouseButtonMask, sizeof(mMouseButtonMask));
             }
             else if (ev.type == ButtonPress)
             {
@@ -788,6 +802,9 @@ public:
                     we.Button.State = ButtonState::Pressed;
                     we.Button.X = ev.xbutton.x;
                     we.Button.Y = ev.xbutton.y;
+
+                    mMouseButtonMask[int(we.Button.Button)] = true;
+                    std::memcpy(we.Button.ButtonStates, mMouseButtonMask, sizeof(mMouseButtonMask));
                 }
                 else if (MapXScrollButton(ev.xbutton.button, we.Scroll.Direction))
                 {
@@ -808,6 +825,9 @@ public:
                     we.Button.State = ButtonState::Released;
                     we.Button.X = ev.xbutton.x;
                     we.Button.Y = ev.xbutton.y;
+
+                    mMouseButtonMask[int(we.Button.Button)] = false;
+                    std::memcpy(we.Button.ButtonStates, mMouseButtonMask, sizeof(mMouseButtonMask));
                 }
                 else
                 {

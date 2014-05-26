@@ -17,6 +17,7 @@
 #include "ng/framework/linestrip.hpp"
 #include "ng/framework/cubemesh.hpp"
 #include "ng/framework/catmullromspline.hpp"
+#include "ng/engine/constants.hpp"
 
 #include <chrono>
 #include <vector>
@@ -99,7 +100,8 @@ int main() try
     std::shared_ptr<ng::Camera> camera = std::make_shared<ng::Camera>();
     std::shared_ptr<ng::CameraNode> cameraNode = std::make_shared<ng::CameraNode>(camera);
     cameraNode->SetPerspectiveProjection(70.0f, (float) window->GetWidth() / window->GetHeight(), 0.1f, 1000.0f);
-    cameraNode->SetLookAt({10.0f, 10.0f, 10.0f}, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
+    ng::vec3 eyePosition{ 10.0f, 10.0f, 10.0f };
+    cameraNode->SetLookAt(eyePosition, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
     cameraNode->SetViewport(0, 0, window->GetWidth(), window->GetHeight());
     roManager.SetCurrentCamera(cameraNode);
 
@@ -162,12 +164,18 @@ int main() try
             }
             else if (e.Type == ng::WindowEventType::MouseMotion)
             {
-                ng::DebugPrintf("Motion: (%d, %d)\n", e.Motion.X, e.Motion.Y);
+                if (e.Motion.ButtonStates[int(ng::MouseButton::Right)])
+                {
+                    int deltaX = e.Motion.X - e.Motion.OldX;
+                    float rotation = (float) - deltaX / window->GetWidth() * ng::pi<float>::value * 2;
+
+                    eyePosition = ng::vec3(ng::Rotate(rotation, 0.0f, 1.0f, 0.0f) * ng::vec4(eyePosition, 0.0f));
+
+                    cameraNode->SetLookAt(eyePosition, { 0, 0, 0 }, { 0, 1, 0 });
+                }
             }
             else if (e.Type == ng::WindowEventType::KeyPress)
             {
-                ng::DebugPrintf("Got button press\n");
-
                 if (e.KeyPress.Scancode == ng::Scancode::Delete)
                 {
                     // get the control point the selector is currently bound to
@@ -208,11 +216,6 @@ int main() try
             }
             else if (e.Type == ng::WindowEventType::MouseButton)
             {
-                ng::DebugPrintf("%s button %s at (%d, %d)\n",
-                                ButtonStateToString(e.Button.State),
-                                MouseButtonToString(e.Button.Button),
-                                e.Button.X, e.Button.Y);
-
                 if (e.Button.State == ng::ButtonState::Pressed && e.Button.Button == ng::MouseButton::Left)
                 {
 

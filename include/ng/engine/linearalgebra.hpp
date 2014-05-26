@@ -652,6 +652,32 @@ mat<T,4,4>>::type Translate(genType_base<T,3> v)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,4,4>>::type Rotate(T angle, genType_base<T,3> v)
+{
+    T c = std::cos(angle);
+    T s = std::sin(angle);
+    v = normalize(v);
+    T x = v.x;
+    T y = v.y;
+    T z = v.z;
+    return {
+       { x * x * (1 - c) + c    , y * x * (1 - c) + z * s, x * z * (1 - c) - y * s, 0 },
+       { x * y * (1 - c) - z * s, y * y * (1 - c) + c    , y * z * (1 - c) + x * s, 0 },
+       { x * z * (1 - c) + y * s, y * z * (1 - c) - x * s, z * z * (1 - c) + c    , 0 },
+       { 0                      , 0                      , 0                      , 1 }
+    };
+}
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,4,4>>::type Rotate(T angle, T x, T y, T z)
+{
+    return Rotate(angle, { x, y, z });
+}
+
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
 mat<T,4,4>>::type LookAt(genType_base<T,3> eye, genType_base<T,3> center, genType_base<T,3> up)
 {
     auto f = normalize(center - eye);
