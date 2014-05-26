@@ -29,6 +29,11 @@ public:
 
     void AddPoint(vec3 point);
 
+    std::size_t GetPointCount() const
+    {
+        return mPoints.size();
+    }
+
     RenderObjectPass PreUpdate(std::chrono::milliseconds deltaTime,
                                RenderObjectNode& node) override;
 

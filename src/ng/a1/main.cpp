@@ -16,6 +16,7 @@
 #include "ng/framework/uvsphere.hpp"
 #include "ng/framework/linestrip.hpp"
 #include "ng/framework/cubemesh.hpp"
+#include "ng/framework/catmullromspline.hpp"
 
 #include <chrono>
 #include <vector>
@@ -68,6 +69,11 @@ int main() try
     std::shared_ptr<ng::RenderObjectNode> lineStripNode = std::make_shared<ng::RenderObjectNode>(lineStrip);
     cameraNode->AdoptChild(lineStripNode);
 
+    ng::CatmullRomSpline<float> catmullRomSpline;
+    std::shared_ptr<ng::LineStrip> catmullRomStrip = std::make_shared<ng::LineStrip>(renderer);
+    std::shared_ptr<ng::RenderObjectNode> catmullStripNode = std::make_shared<ng::RenderObjectNode>(catmullRomStrip);
+    cameraNode->AdoptChild(catmullStripNode);
+
     std::shared_ptr<ng::RenderObjectNode> controlPointGroupNode = std::make_shared<ng::RenderObjectNode>();
     cameraNode->AdoptChild(controlPointGroupNode);
 
@@ -105,6 +111,10 @@ int main() try
             else if (e.Type == ng::WindowEventType::MouseMotion)
             {
                 ng::DebugPrintf("Motion: (%d, %d)\n", e.Motion.X, e.Motion.Y);
+            }
+            else if (e.Type == ng::WindowEventType::KeyPress)
+            {
+                ng::DebugPrintf("Got button press\n");
             }
             else if (e.Type == ng::WindowEventType::MouseButton)
             {
@@ -199,6 +209,7 @@ int main() try
                             controlPointGroupNode->AdoptChild(sphereNode);
 
                             lineStrip->AddPoint(collisonPoint);
+                            catmullRomSpline.ControlPoints.push_back(collisonPoint);
 
                             if (!selectorCubeNode->GetParent().expired())
                             {
@@ -208,6 +219,24 @@ int main() try
                             selectorCube->Init(sphere->GetRadius() * 2);
                             selectorCubeNode->Show();
                             sphereNode->AdoptChild(selectorCubeNode);
+
+                            // rebuild the catmull rom mesh
+                            if (catmullRomSpline.ControlPoints.size() >= 4)
+                            {
+                                int numDivisions = 10;
+
+                                catmullRomStrip->Reset();
+
+                                std::size_t numSegments = catmullRomSpline.ControlPoints.size() - 4 + 1;
+
+                                for (std::size_t segment = 0; segment < numSegments; segment++)
+                                {
+                                    for (int division = 0; division <= numDivisions; division++)
+                                    {
+                                        catmullRomStrip->AddPoint(catmullRomSpline.CalculatePoint(segment, (float) division / numDivisions));
+                                    }
+                                }
+                            }
                         }
                     }
                 }

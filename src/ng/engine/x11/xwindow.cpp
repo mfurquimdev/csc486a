@@ -5,6 +5,8 @@
 #include "ng/engine/windowmanager.hpp"
 #include "ng/engine/windowevent.hpp"
 
+#include "ng/engine/debug.hpp"
+
 #include <X11/X.h>
 #include <X11/Xlib.h>
 #include <GL/glx.h>
@@ -596,6 +598,163 @@ public:
         }
     }
 
+    static Scancode MapXKeyToScancode(Display* dpy, XKeyEvent* ev)
+    {
+        KeySym sym = XLookupKeysym(ev, 0);
+
+        if (sym >= XK_A && sym <= XK_Z)
+        {
+            return Scancode(int(Scancode::A) + (sym - XK_A));
+        }
+
+        if (sym >= XK_a && sym <= XK_z)
+        {
+            return Scancode(int(Scancode::A) + (sym - XK_a));
+        }
+
+        if (sym == XK_0)
+        {
+            return Scancode::Zero;
+        }
+
+        if (sym >= XK_1 && sym <= XK_9)
+        {
+            return Scancode(int(Scancode::A) + (sym - XK_1));
+        }
+
+        if (sym == XK_KP_0)
+        {
+            return Scancode::Keypad0;
+        }
+
+        if (sym >= XK_KP_1 && sym <= XK_KP_9)
+        {
+            return Scancode(int(Scancode::Keypad1) + (sym - XK_KP_1));
+        }
+
+        if (sym >= XK_F1 && sym <= XK_F12)
+        {
+            return Scancode(int(Scancode::F1) + (sym - XK_F1));
+        }
+
+        if (sym >= XK_F13 && sym <= XK_F24)
+        {
+            return Scancode(int(Scancode::F13) + (sym - XK_F13));
+        }
+
+        switch (sym)
+        {
+        case XK_BackSpace: return Scancode::Backspace;
+        case XK_Tab: return Scancode::Tab;
+        case XK_Clear: return Scancode::Clear;
+        case XK_Return: return Scancode::Enter;
+        case XK_Pause: return Scancode::Pause;
+        case XK_Scroll_Lock: return Scancode::ScrollLock;
+        case XK_Sys_Req: return Scancode::SysReqAttention;
+        case XK_Escape: return Scancode::Esc;
+        case XK_Delete: return Scancode::Delete;
+        case XK_Home: return Scancode::Home;
+        case XK_Left: return Scancode::LeftArrow;
+        case XK_Up: return Scancode::UpArrow;
+        case XK_Right: return Scancode::RightArrow;
+        case XK_Down: return Scancode::DownArrow;
+        case XK_Page_Up: return Scancode::PageUp;
+        case XK_Page_Down: return Scancode::PageDown;
+        case XK_End: return Scancode::End;
+        case XK_Select: return Scancode::Select;
+        case XK_Print: return Scancode::PrintScreen;
+        case XK_Execute: return Scancode::Execute;
+        case XK_Insert: return Scancode::Insert;
+        case XK_Undo: return Scancode::Undo;
+        case XK_Menu: return Scancode::Menu;
+        case XK_Find: return Scancode::Find;
+        case XK_Cancel: return Scancode::Cancel;
+        case XK_Help: return Scancode::Help;
+        case XK_Break: return Scancode::Break;
+        case XK_Num_Lock: return Scancode::NumLock;
+        case XK_KP_Enter: return Scancode::KeypadEnter;
+        case XK_KP_Home: return Scancode::KeypadHome;
+        case XK_KP_Left: return Scancode::KeypadLeft;
+        case XK_KP_Up: return Scancode::KeypadUp;
+        case XK_KP_Right: return Scancode::KeypadRight;
+        case XK_KP_Down: return Scancode::KeypadDown;
+        case XK_KP_Page_Up: return Scancode::KeypadPageUp;
+        case XK_KP_Page_Down: return Scancode::KeypadPageDown;
+        case XK_KP_End: return Scancode::KeypadEnd;
+        case XK_KP_Begin: return Scancode::KeypadBegin;
+        case XK_KP_Insert: return Scancode::KeypadInsert;
+        case XK_KP_Delete: return Scancode::KeypadDelete;
+        case XK_KP_Equal: return Scancode::KeypadEqual;
+        case XK_KP_Multiply: return Scancode::KeypadTimes;
+        case XK_KP_Add: return Scancode::KeypadPlus;
+        case XK_KP_Separator: return Scancode::KeypadComma;
+        case XK_KP_Subtract: return Scancode::KeypadMinus;
+        case XK_KP_Divide: return Scancode::KeypadSlash;
+        case XK_Shift_L: return Scancode::LeftShift;
+        case XK_Shift_R: return Scancode::RightShift;
+        case XK_Control_L: return Scancode::LeftControl;
+        case XK_Control_R: return Scancode::RightControl;
+        case XK_Caps_Lock: return Scancode::CapsLock;
+        case XK_Super_L: return Scancode::LeftGUI;
+        case XK_Super_R: return Scancode::RightGUI;
+        case XK_Alt_L: return Scancode::LeftAlt;
+        case XK_Alt_R: return Scancode::RightAlt;
+        case XK_space: return Scancode::Space;
+        case XK_exclam: return Scancode::ExclamationMark;
+        case XK_quotedbl: return Scancode::DoubleQuote;
+        case XK_numbersign: return Scancode::Hash;
+        case XK_dollar: return Scancode::Dollar;
+        case XK_percent: return Scancode::Percent;
+        case XK_ampersand: return Scancode::Ampersand;
+        case XK_apostrophe: return Scancode::SingleQuote;
+        case XK_parenleft: return Scancode::LeftParenthesis;
+        case XK_parenright: return Scancode::RightParenthesis;
+        case XK_asterisk: return Scancode::Times;
+        case XK_plus: return Scancode::Plus;
+        case XK_comma: return Scancode::Comma;
+        case XK_minus: return Scancode::Minus;
+        case XK_period: return Scancode::Period;
+        case XK_slash: return Scancode::Slash;
+        case XK_colon: return Scancode::Colon;
+        case XK_semicolon: return Scancode::Semicolon;
+        case XK_less: return Scancode::LessThan;
+        case XK_equal: return Scancode::Equals;
+        case XK_greater: return Scancode::GreaterThan;
+        case XK_question: return Scancode::QuestionMark;
+        case XK_at: return Scancode::At;
+        case XK_bracketleft: return Scancode::LeftBracket;
+        case XK_backslash: return Scancode::Backslash;
+        case XK_bracketright: return Scancode::RightBracket;
+        case XK_underscore: return Scancode::Underscore;
+        case XK_grave: return Scancode::GraveAccent;
+        case XK_braceleft: return Scancode::LeftBrace;
+        case XK_bar: return Scancode::VerticalBar;
+        case XK_braceright: return Scancode::RightBrace;
+        case XK_asciitilde: return Scancode::Tilde;
+        default: {
+            struct FreeAtEndOfScope
+            {
+                KeySym* keysym = nullptr;
+                ~FreeAtEndOfScope()
+                {
+                    if (keysym != nullptr)
+                    {
+                        XFree(keysym);
+                    }
+                }
+            };
+
+            FreeAtEndOfScope endOfScope;
+            int keysymsPerKeycode;
+            KeySym* keysym = XGetKeyboardMapping(dpy, ev->keycode, 1, &keysymsPerKeycode);
+            endOfScope.keysym = keysym;
+
+            ng::DebugPrintf("Didn't handle key press of %s\n", XKeysymToString(keysym[0]));
+            return Scancode::Unknown;
+        }
+        }
+    }
+
     bool PollEvent(WindowEvent& we) override
     {
         std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
@@ -657,13 +816,33 @@ public:
             }
             else if (ev.type == KeyPress)
             {
-                puts("TODO: handle pressed key event");
-                continue;
+
+#define KeyPressTmp KeyPress
+#undef KeyPress
+
+                source = ev.xkey.window;
+                we.KeyPress.Type = WindowEventType::KeyPress;
+                we.KeyPress.State = KeyState::Pressed;
+                we.KeyPress.Scancode = MapXKeyToScancode(mDisplay.mHandle, &ev.xkey);
+
+#define KeyPress KeyPressTmp
+#undef KeyPressTmp
+
             }
             else if (ev.type == KeyRelease)
             {
-                puts("TODO: handle released key event");
-                continue;
+
+#define KeyReleaseTmp KeyRelease
+#undef KeyRelease
+
+                source = ev.xkey.window;
+                we.KeyRelease.Type = WindowEventType::KeyRelease;
+                we.KeyRelease.State = KeyState::Released;
+                we.KeyRelease.Scancode = MapXKeyToScancode(mDisplay.mHandle, &ev.xkey);
+
+#define KeyRelease KeyReleaseTmp
+#undef KeyReleaseTmp
+
             }
             else
             {
