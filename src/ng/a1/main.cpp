@@ -21,6 +21,50 @@
 #include <chrono>
 #include <vector>
 
+ng::Ray<float> RayFromClick(const ng::CameraNode& cameraNode,
+                            const ng::IWindow& window,
+                            ng::ivec2 click)
+{
+    // create ray from camera and unprojected coordinate
+    ng::mat4 worldView = inverse(cameraNode.GetWorldTransform());
+
+    ng::vec2 mouseCoord(click.x, window.GetHeight() - click.y);
+
+    ng::vec3 nearUnProject = ng::UnProject(ng::vec3(mouseCoord, 0.0f),
+                                           worldView, cameraNode.GetProjection(),
+                                           cameraNode.GetViewport());
+
+    ng::vec3 farUnProject = ng::UnProject(ng::vec3(mouseCoord, 1.0f),
+                                          worldView, cameraNode.GetProjection(),
+                                          cameraNode.GetViewport());
+
+    ng::Ray<float> clickRay(ng::vec3(cameraNode.GetLocalTransform() * ng::vec4(0,0,0,1)),
+                            farUnProject - nearUnProject);
+
+    return clickRay;
+}
+
+void RebuildCatmullRomSpline(const ng::CatmullRomSpline<float>& spline,
+                             ng::LineStrip& lineStrip)
+{
+    lineStrip.Reset();
+
+    if (spline.ControlPoints.size() >= 4)
+    {
+        int numDivisions = 10;
+
+        std::size_t numSegments = spline.ControlPoints.size() - 4 + 1;
+
+        for (std::size_t segment = 0; segment < numSegments; segment++)
+        {
+            for (int division = 0; division <= numDivisions; division++)
+            {
+                lineStrip.AddPoint(spline.CalculatePoint(segment, (float) division / numDivisions));
+            }
+        }
+    }
+}
+
 int main() try
 {
     // set up rendering
@@ -115,6 +159,42 @@ int main() try
             else if (e.Type == ng::WindowEventType::KeyPress)
             {
                 ng::DebugPrintf("Got button press\n");
+
+                if (e.KeyPress.Scancode == ng::Scancode::Delete)
+                {
+                    // get the control point the selector is currently bound to
+                    std::shared_ptr<ng::RenderObjectNode> selected = selectorCubeNode->GetParent().lock();
+
+                    // unhook the selector from who it was previously hooked to
+                    if (selected)
+                    {
+                        selected->AbandonChild(selectorCubeNode);
+                    }
+                    selectorCubeNode->Hide();
+
+                    // get the parent of the node to remove
+                    std::shared_ptr<ng::RenderObjectNode> parentOfSelected = selected->GetParent().lock();
+                    if (parentOfSelected == nullptr)
+                    {
+                        throw std::logic_error("Selected node should have a parent that contains it.");
+                    }
+
+                    // get the index of the selected node in its parent's children
+                    std::vector<std::shared_ptr<ng::RenderObjectNode>> controlPointList = parentOfSelected->GetChildren();
+                    std::size_t indexToDelete = std::distance(controlPointList.begin(), std::find(controlPointList.begin(), controlPointList.end(), selected));
+
+                    // remove that index from the catmull rom spline
+                    catmullRomSpline.ControlPoints.erase(catmullRomSpline.ControlPoints.begin() + indexToDelete);
+
+                    // remove that index from the line strip
+                    lineStrip->RemovePoint(lineStrip->GetPoints().begin() + indexToDelete);
+
+                    // rebuild the catmull rom spline
+                    RebuildCatmullRomSpline(catmullRomSpline, *catmullRomStrip);
+
+                    // remove the deleted node from its parent
+                    parentOfSelected->AbandonChild(selected);
+                }
             }
             else if (e.Type == ng::WindowEventType::MouseButton)
             {
@@ -125,21 +205,8 @@ int main() try
 
                 if (e.Button.State == ng::ButtonState::Pressed && e.Button.Button == ng::MouseButton::Left)
                 {
-                    // create ray from camera and unprojected coordinate
-                    ng::mat4 worldView = inverse(cameraNode->GetWorldTransform());
 
-                    ng::vec2 mouseCoord(e.Button.X, window->GetHeight() - e.Button.Y);
-
-                    ng::vec3 nearUnProject = ng::UnProject(ng::vec3(mouseCoord, 0.0f),
-                                                           worldView, cameraNode->GetProjection(),
-                                                           cameraNode->GetViewport());
-
-                    ng::vec3 farUnProject = ng::UnProject(ng::vec3(mouseCoord, 1.0f),
-                                                          worldView, cameraNode->GetProjection(),
-                                                          cameraNode->GetViewport());
-
-                    ng::Ray<float> clickRay(ng::vec3(cameraNode->GetLocalTransform() * ng::vec4(0,0,0,1)),
-                                            farUnProject - nearUnProject);
+                    ng::Ray<float> clickRay = RayFromClick(*cameraNode, *window, ng::ivec2(e.Button.X, e.Button.Y));
 
                     float closestControlPointT = std::numeric_limits<float>::infinity();
                     std::shared_ptr<ng::RenderObjectNode> closestControlPoint;
@@ -199,44 +266,35 @@ int main() try
                             // collided with plane
 
                             ng::vec3 collisonPoint = clickRay.Origin + t * clickRay.Direction;
-                            ng::DebugPrintf("TODO: Spawn a control point at {%f %f %f}\n",
-                                            collisonPoint.x, collisonPoint.y, collisonPoint.z);
 
+                            // create a sphere and sphere node to represent the newly added control point
                             std::shared_ptr<ng::UVSphere> sphere = std::make_shared<ng::UVSphere>(renderer);
                             sphere->Init(10, 5, 0.3f);
                             std::shared_ptr<ng::RenderObjectNode> sphereNode = std::make_shared<ng::RenderObjectNode>(sphere);
                             sphereNode->SetLocalTransform(ng::Translate(collisonPoint));
+
+                            // add it to the node that hosts all control points
                             controlPointGroupNode->AdoptChild(sphereNode);
 
+                            // add the new point to the line strip
                             lineStrip->AddPoint(collisonPoint);
+
+                            // add the new point to the catmull rom spline
                             catmullRomSpline.ControlPoints.push_back(collisonPoint);
 
+                            // unhook the selector from its previous parent
                             if (!selectorCubeNode->GetParent().expired())
                             {
                                 selectorCubeNode->GetParent().lock()->AbandonChild(selectorCubeNode);
                             }
 
+                            // update the selector to point to this new node
                             selectorCube->Init(sphere->GetRadius() * 2);
                             selectorCubeNode->Show();
                             sphereNode->AdoptChild(selectorCubeNode);
 
                             // rebuild the catmull rom mesh
-                            if (catmullRomSpline.ControlPoints.size() >= 4)
-                            {
-                                int numDivisions = 10;
-
-                                catmullRomStrip->Reset();
-
-                                std::size_t numSegments = catmullRomSpline.ControlPoints.size() - 4 + 1;
-
-                                for (std::size_t segment = 0; segment < numSegments; segment++)
-                                {
-                                    for (int division = 0; division <= numDivisions; division++)
-                                    {
-                                        catmullRomStrip->AddPoint(catmullRomSpline.CalculatePoint(segment, (float) division / numDivisions));
-                                    }
-                                }
-                            }
+                            RebuildCatmullRomSpline(catmullRomSpline, *catmullRomStrip);
                         }
                     }
                 }

@@ -94,6 +94,7 @@ void RenderObjectNode::AbandonChild(std::shared_ptr<RenderObjectNode> childNode)
         throw std::logic_error("Can't abandon a node that isn't a child");
     }
 
+    childNode->mParentNode.reset();
     mChildNodes.erase(it);
 }
 

@@ -26,6 +26,20 @@ void LineStrip::AddPoint(vec3 point)
     mIsMeshDirty = true;
 }
 
+void LineStrip::RemovePoint(std::vector<vec3>::const_iterator which)
+{
+    mPoints.erase(mPoints.begin() + std::distance(mPoints.cbegin(), which));
+
+    // rebuild bounding box
+    mBoundingBox = ng::AxisAlignedBoundingBox<float>();
+    for (vec3 point : mPoints)
+    {
+        mBoundingBox.AddPoint(point);
+    }
+
+    mIsMeshDirty = true;
+}
+
 RenderObjectPass LineStrip::PreUpdate(std::chrono::milliseconds,
                                       RenderObjectNode& node)
 {

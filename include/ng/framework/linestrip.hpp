@@ -29,9 +29,11 @@ public:
 
     void AddPoint(vec3 point);
 
-    std::size_t GetPointCount() const
+    void RemovePoint(std::vector<vec3>::const_iterator which);
+
+    const std::vector<vec3>& GetPoints() const
     {
-        return mPoints.size();
+        return mPoints;
     }
 
     RenderObjectPass PreUpdate(std::chrono::milliseconds deltaTime,
