@@ -17,7 +17,7 @@
 #include <utility>
 #include <string>
 
-#if 0
+#if 1
 #define RenderDebugPrintf(...) DebugPrintf(__VA_ARGS__)
 #else
 #define RenderDebugPrintf(...)
@@ -125,8 +125,21 @@ public:
 
 void OpenGLRenderer::PushRenderingInstruction(const OpenGLInstruction& inst)
 {
-    std::lock_guard<std::recursive_mutex> lock(mRenderingThreadData->mCurrentWriteBufferMutex);
-    auto writeIndex = mRenderingThreadData->mCurrentWriteBufferIndex;
+    std::size_t writeIndex;
+    std::unique_lock<std::recursive_mutex> lock(mRenderingThreadData->mCurrentWriteBufferMutex, std::defer_lock);
+
+    // if we're in the rendering thread, it means that we're in the middle of rendering.
+    // which buffer is which can't be changing under our feet, so we don't need to acquire a lock to safely use it.
+    // in which case we can just push the instruction at the end of the queue it's currently reading.
+    if (std::this_thread::get_id() == mRenderingThread.get_id())
+    {
+        writeIndex = !mRenderingThreadData->mCurrentWriteBufferIndex;
+    }
+    else
+    {
+        lock.lock();
+        writeIndex = mRenderingThreadData->mCurrentWriteBufferIndex;
+    }
 
     if (!mRenderingThreadData->mInstructionBuffers[writeIndex].PushInstruction(inst))
     {
@@ -687,7 +700,7 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
                            threadData->mInstructionConsumerMutex[bufferToConsumeFrom],
                            threadData->mInstructionProducerMutex[bufferToConsumeFrom]);
 
-        SizedOpenGLInstruction<OpenGLInstruction::MaxParams> sizedInst(SizedOpenGLInstruction<OpenGLInstruction::MaxParams>::NoInitTag{});
+        SizedOpenGLInstruction<OpenGLInstruction::MaxParams> sizedInst(SizedOpenGLInstruction<OpenGLInstruction::MaxParams>::NoInitTag);
         OpenGLInstruction& inst = sizedInst.Instruction;
 
         renderProfiler.Start();
@@ -875,7 +888,7 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
         // wait for an instruction to be available
         threadData->mConsumerSemaphore.wait();
 
-        SizedOpenGLInstruction<OpenGLInstruction::MaxParams> sizedInst(SizedOpenGLInstruction<OpenGLInstruction::MaxParams>::NoInitTag{});
+        SizedOpenGLInstruction<OpenGLInstruction::MaxParams> sizedInst(SizedOpenGLInstruction<OpenGLInstruction::MaxParams>::NoInitTag);
         OpenGLInstruction& inst = sizedInst.Instruction;
 
         // pop a single instruction from the buffer

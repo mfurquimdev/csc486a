@@ -278,7 +278,8 @@ struct SizedOpenGLInstruction
 {
     static_assert(NParams <= OpenGLInstruction::MaxParams, "Limit of OpenGL instruction parameters should be respected.");
 
-    struct NoInitTag { };
+    struct NoInitTag_t { };
+    static constexpr NoInitTag_t NoInitTag{};
 
     union
     {
@@ -286,7 +287,7 @@ struct SizedOpenGLInstruction
         OpenGLInstruction Instruction;
     };
 
-    SizedOpenGLInstruction(NoInitTag){ }
+    SizedOpenGLInstruction(NoInitTag_t){ }
 
     SizedOpenGLInstruction(OpenGLOpCode code)
     {
