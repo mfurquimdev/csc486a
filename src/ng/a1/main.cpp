@@ -164,36 +164,35 @@ int main() try
                 {
                     // get the control point the selector is currently bound to
                     std::shared_ptr<ng::RenderObjectNode> selected = selectorCubeNode->GetParent().lock();
-
-                    // unhook the selector from who it was previously hooked to
                     if (selected)
                     {
+                        // unhook the selector from who it was previously hooked to
                         selected->AbandonChild(selectorCubeNode);
+                        selectorCubeNode->Hide();
+
+                        // get the parent of the node to remove
+                        std::shared_ptr<ng::RenderObjectNode> parentOfSelected = selected->GetParent().lock();
+                        if (parentOfSelected == nullptr)
+                        {
+                            throw std::logic_error("Selected node should have a parent that contains it.");
+                        }
+
+                        // get the index of the selected node in its parent's children
+                        std::vector<std::shared_ptr<ng::RenderObjectNode>> controlPointList = parentOfSelected->GetChildren();
+                        std::size_t indexToDelete = std::distance(controlPointList.begin(), std::find(controlPointList.begin(), controlPointList.end(), selected));
+
+                        // remove that index from the catmull rom spline
+                        catmullRomSpline.ControlPoints.erase(catmullRomSpline.ControlPoints.begin() + indexToDelete);
+
+                        // remove that index from the line strip
+                        lineStrip->RemovePoint(lineStrip->GetPoints().begin() + indexToDelete);
+
+                        // rebuild the catmull rom spline
+                        RebuildCatmullRomSpline(catmullRomSpline, *catmullRomStrip);
+
+                        // remove the deleted node from its parent
+                        parentOfSelected->AbandonChild(selected);
                     }
-                    selectorCubeNode->Hide();
-
-                    // get the parent of the node to remove
-                    std::shared_ptr<ng::RenderObjectNode> parentOfSelected = selected->GetParent().lock();
-                    if (parentOfSelected == nullptr)
-                    {
-                        throw std::logic_error("Selected node should have a parent that contains it.");
-                    }
-
-                    // get the index of the selected node in its parent's children
-                    std::vector<std::shared_ptr<ng::RenderObjectNode>> controlPointList = parentOfSelected->GetChildren();
-                    std::size_t indexToDelete = std::distance(controlPointList.begin(), std::find(controlPointList.begin(), controlPointList.end(), selected));
-
-                    // remove that index from the catmull rom spline
-                    catmullRomSpline.ControlPoints.erase(catmullRomSpline.ControlPoints.begin() + indexToDelete);
-
-                    // remove that index from the line strip
-                    lineStrip->RemovePoint(lineStrip->GetPoints().begin() + indexToDelete);
-
-                    // rebuild the catmull rom spline
-                    RebuildCatmullRomSpline(catmullRomSpline, *catmullRomStrip);
-
-                    // remove the deleted node from its parent
-                    parentOfSelected->AbandonChild(selected);
                 }
             }
             else if (e.Type == ng::WindowEventType::MouseButton)
