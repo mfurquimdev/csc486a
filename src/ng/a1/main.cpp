@@ -68,6 +68,9 @@ int main() try
     std::shared_ptr<ng::RenderObjectNode> lineStripNode = std::make_shared<ng::RenderObjectNode>(lineStrip);
     cameraNode->AdoptChild(lineStripNode);
 
+    std::shared_ptr<ng::RenderObjectNode> controlPointGroupNode = std::make_shared<ng::RenderObjectNode>();
+    cameraNode->AdoptChild(controlPointGroupNode);
+
     std::shared_ptr<ng::CubeMesh> selectorCube = std::make_shared<ng::CubeMesh>(renderer);
     std::shared_ptr<ng::RenderObjectNode> selectorCubeNode = std::make_shared<ng::RenderObjectNode>(selectorCube);
     selectorCubeNode->Hide();
@@ -125,49 +128,87 @@ int main() try
                                                           worldView, cameraNode->GetProjection(),
                                                           cameraNode->GetViewport());
 
-                    ng::mat4 viewWorld = cameraNode->GetLocalTransform();
-
-                    ng::Ray<float> clickRay(ng::vec3(viewWorld * ng::vec4(0,0,0,1)),
+                    ng::Ray<float> clickRay(ng::vec3(cameraNode->GetLocalTransform() * ng::vec4(0,0,0,1)),
                                             farUnProject - nearUnProject);
 
-                    // convert the grid's AABB into world space
-                    ng::AxisAlignedBoundingBox<float> gridAABB = gridNode->GetWorldBoundingBox();
+                    float closestControlPointT = std::numeric_limits<float>::infinity();
+                    std::shared_ptr<ng::RenderObjectNode> closestControlPoint;
 
-                    // Use the center of the AABB as the point on the plane
-                    ng::vec3 pointOnPlane = gridAABB.GetCenter();
-
-                    // convert the grid's normal vector into world space
-                    ng::vec3 gridNormal = gridNode->GetNormalMatrix() * gridMesh->GetNormal();
-
-                    // Create a plane from the grid's point and normal
-                    ng::Plane<float> gridPlane(gridNormal, pointOnPlane);
-
-                    // Check if ray and grid intersect
-                    float t;
-                    if (ng::RayPlaneIntersect(clickRay, gridPlane, std::numeric_limits<float>::epsilon(), std::numeric_limits<float>::infinity(), t))
+                    // see if a click was made on any of the control points
+                    for (std::shared_ptr<ng::RenderObjectNode> controlPoint : controlPointGroupNode->GetChildren())
                     {
-                        // collided with plane
+                        ng::AxisAlignedBoundingBox<float> bbox = controlPoint->GetWorldBoundingBox();
+                        ng::Sphere<float> sph(bbox.GetCenter(), std::max({
+                                                                             (bbox.Maximum.x - bbox.Minimum.x) / 2,
+                                                                             (bbox.Maximum.y - bbox.Minimum.y) / 2,
+                                                                             (bbox.Maximum.z - bbox.Minimum.z) / 2
+                                                                         }));
 
-                        ng::vec3 collisonPoint = clickRay.Origin + t * clickRay.Direction;
-                        ng::DebugPrintf("TODO: Spawn a control point at {%f %f %f}\n",
-                                        collisonPoint.x, collisonPoint.y, collisonPoint.z);
+                        float t;
+                        if (ng::RaySphereIntersect(clickRay, sph, std::numeric_limits<float>::epsilon(), std::numeric_limits<float>::infinity(), t))
+                        {
+                            if (t < closestControlPointT)
+                            {
+                                closestControlPoint = controlPoint;
+                                closestControlPointT = t;
+                            }
+                        }
+                    }
 
-                        std::shared_ptr<ng::UVSphere> sphere = std::make_shared<ng::UVSphere>(renderer);
-                        sphere->Init(10, 5, 0.3f);
-                        std::shared_ptr<ng::RenderObjectNode> sphereNode = std::make_shared<ng::RenderObjectNode>(sphere);
-                        sphereNode->SetLocalTransform(ng::Translate(collisonPoint));
-                        cameraNode->AdoptChild(sphereNode);
-
-                        lineStrip->AddPoint(collisonPoint);
+                    // handle collision with control point
+                    if (closestControlPoint != nullptr)
+                    {
+                        ng::AxisAlignedBoundingBox<float> bbox = closestControlPoint->GetWorldBoundingBox();
+                        ng::Sphere<float> sph(bbox.GetCenter(), std::max({
+                                                                             (bbox.Maximum.x - bbox.Minimum.x) / 2,
+                                                                             (bbox.Maximum.y - bbox.Minimum.y) / 2,
+                                                                             (bbox.Maximum.z - bbox.Minimum.z) / 2
+                                                                         }));
 
                         if (!selectorCubeNode->GetParent().expired())
                         {
                             selectorCubeNode->GetParent().lock()->AbandonChild(selectorCubeNode);
                         }
 
-                        selectorCube->Init(sphere->GetRadius() * 2);
+                        selectorCube->Init(sph.Radius * 2);
                         selectorCubeNode->Show();
-                        sphereNode->AdoptChild(selectorCubeNode);
+                        closestControlPoint->AdoptChild(selectorCubeNode);
+                    }
+                    else
+                    {
+                        // otherwise, collide with the plane.
+
+                        // Create a plane from the grid's normal and its center
+                        ng::Plane<float> gridPlane(gridNode->GetNormalMatrix() * gridMesh->GetNormal(),
+                                                   gridNode->GetWorldBoundingBox().GetCenter());
+
+                        // Check if ray and grid intersect
+                        float t;
+                        if (ng::RayPlaneIntersect(clickRay, gridPlane, std::numeric_limits<float>::epsilon(), std::numeric_limits<float>::infinity(), t))
+                        {
+                            // collided with plane
+
+                            ng::vec3 collisonPoint = clickRay.Origin + t * clickRay.Direction;
+                            ng::DebugPrintf("TODO: Spawn a control point at {%f %f %f}\n",
+                                            collisonPoint.x, collisonPoint.y, collisonPoint.z);
+
+                            std::shared_ptr<ng::UVSphere> sphere = std::make_shared<ng::UVSphere>(renderer);
+                            sphere->Init(10, 5, 0.3f);
+                            std::shared_ptr<ng::RenderObjectNode> sphereNode = std::make_shared<ng::RenderObjectNode>(sphere);
+                            sphereNode->SetLocalTransform(ng::Translate(collisonPoint));
+                            controlPointGroupNode->AdoptChild(sphereNode);
+
+                            lineStrip->AddPoint(collisonPoint);
+
+                            if (!selectorCubeNode->GetParent().expired())
+                            {
+                                selectorCubeNode->GetParent().lock()->AbandonChild(selectorCubeNode);
+                            }
+
+                            selectorCube->Init(sphere->GetRadius() * 2);
+                            selectorCubeNode->Show();
+                            sphereNode->AdoptChild(selectorCubeNode);
+                        }
                     }
                 }
             }

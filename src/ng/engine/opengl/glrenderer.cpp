@@ -17,7 +17,7 @@
 #include <utility>
 #include <string>
 
-#if 1
+#if 0
 #define RenderDebugPrintf(...) DebugPrintf(__VA_ARGS__)
 #else
 #define RenderDebugPrintf(...)
