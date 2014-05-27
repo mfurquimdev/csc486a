@@ -70,7 +70,7 @@ int main() try
 {
     // set up rendering
     std::shared_ptr<ng::IWindowManager> windowManager = ng::CreateWindowManager();
-    std::shared_ptr<ng::IWindow> window = windowManager->CreateWindow("test", 640, 480, 0, 0, ng::VideoFlags());
+    std::shared_ptr<ng::IWindow> window = windowManager->CreateWindow("Splines", 640, 480, 0, 0, ng::VideoFlags());
     std::shared_ptr<ng::IRenderer> renderer = ng::CreateRenderer(windowManager, window);
 
     static const char* vsrc = "#version 130\n"
@@ -109,7 +109,9 @@ int main() try
     std::shared_ptr<ng::CameraNode> cameraNode = std::make_shared<ng::CameraNode>(camera);
     cameraNode->SetPerspectiveProjection(70.0f, (float) window->GetWidth() / window->GetHeight(), 0.1f, 1000.0f);
     ng::vec3 eyePosition{ 10.0f, 10.0f, 10.0f };
-    cameraNode->SetLookAt(eyePosition, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
+    ng::vec3 eyeTarget{ 0.0f, 0.0f, 0.0f };
+    ng::vec3 eyeUpVector{ 0.0f, 1.0f, 0.0f };
+    cameraNode->SetLookAt(eyePosition, eyeTarget, eyeUpVector);
     cameraNode->SetViewport(0, 0, window->GetWidth(), window->GetHeight());
     roManager.SetCurrentCamera(cameraNode);
 
@@ -181,7 +183,7 @@ int main() try
 
                     eyePosition = ng::vec3(ng::Rotate(rotation, 0.0f, 1.0f, 0.0f) * ng::vec4(eyePosition, 0.0f));
 
-                    cameraNode->SetLookAt(eyePosition, { 0, 0, 0 }, { 0, 1, 0 });
+                    cameraNode->SetLookAt(eyePosition, eyeTarget, eyeUpVector);
                 }
                 else if (e.Motion.ButtonStates[int(ng::MouseButton::Left)])
                 {
@@ -384,7 +386,44 @@ int main() try
             }
             else if (e.Type == ng::WindowEventType::MouseScroll)
             {
-                ng::DebugPrintf("Scrolled %s\n", e.Scroll.Direction > 0 ? "up" : "down");
+                if (isSelectedNodeBeingDragged)
+                {
+                    std::shared_ptr<ng::RenderObjectNode> selected = selectorCubeNode->GetParent().lock();
+
+                    // calculate how much to go up or down
+                    float delta = 0.2f * (e.Scroll.Direction > 0 ? 1.0f : -1.0f);
+
+                    // move the node up or down
+                    selected->SetLocalTransform(ng::Translate(0.0f, delta, 0.0f) * selected->GetLocalTransform());
+
+                    // get the parent of the node to remove
+                    std::shared_ptr<ng::RenderObjectNode> parentOfSelected = selected->GetParent().lock();
+                    if (parentOfSelected == nullptr)
+                    {
+                        throw std::logic_error("Selected node should have a parent that contains it.");
+                    }
+
+                    // get the index of the selected node in its parent's children
+                    std::vector<std::shared_ptr<ng::RenderObjectNode>> controlPointList = parentOfSelected->GetChildren();
+                    std::size_t indexToMove = std::distance(controlPointList.begin(), std::find(controlPointList.begin(), controlPointList.end(), selected));
+
+                    // update spline control point
+                    catmullRomSpline.ControlPoints[indexToMove] = selected->GetWorldBoundingBox().GetCenter();
+
+                    // remove that index from the line strip
+                    lineStrip->SetPoint(lineStrip->GetPoints().begin() + indexToMove, selected->GetWorldBoundingBox().GetCenter());
+
+                    // rebuild the catmull rom spline
+                    RebuildCatmullRomSpline(catmullRomSpline, *catmullRomStrip);
+                }
+                else
+                {
+                    float zoomDelta = 0.4f;
+
+                    eyePosition = eyePosition + normalize(eyePosition - eyeTarget) * zoomDelta * (e.Scroll.Direction > 0 ? 1.0f : -1.0f);
+
+                    cameraNode->SetLookAt(eyePosition, eyeTarget, eyeUpVector);
+                }
             }
         }
 
