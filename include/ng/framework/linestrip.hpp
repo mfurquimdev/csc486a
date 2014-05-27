@@ -31,6 +31,8 @@ public:
 
     void RemovePoint(std::vector<vec3>::const_iterator which);
 
+    void SetPoint(std::vector<vec3>::const_iterator which, vec3 value);
+
     const std::vector<vec3>& GetPoints() const
     {
         return mPoints;

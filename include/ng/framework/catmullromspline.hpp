@@ -12,7 +12,7 @@ template<class T>
 class CatmullRomSpline
 {
 public:
-    std::vector<genType_base<T,3>> ControlPoints;
+    std::vector<vec<T,3>> ControlPoints;
 
     vec3 CalculatePoint(std::size_t segmentIndex, T t) const
     {

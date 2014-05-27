@@ -40,6 +40,12 @@ void LineStrip::RemovePoint(std::vector<vec3>::const_iterator which)
     mIsMeshDirty = true;
 }
 
+void LineStrip::SetPoint(std::vector<vec3>::const_iterator which, vec3 value)
+{
+    mPoints.at(which - mPoints.begin()) = value;
+    mIsMeshDirty = true;
+}
+
 RenderObjectPass LineStrip::PreUpdate(std::chrono::milliseconds,
                                       RenderObjectNode& node)
 {

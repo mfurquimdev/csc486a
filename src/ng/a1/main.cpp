@@ -143,6 +143,8 @@ int main() try
     float splineRiderT = 0.0f;
     float splineRiderTSpeed = 3.0f; // units per second
 
+    bool isSelectedNodeBeingDragged = false;
+
     // do an initial update to get things going
     roManager.Update(std::chrono::milliseconds(0));
 
@@ -181,10 +183,65 @@ int main() try
 
                     cameraNode->SetLookAt(eyePosition, { 0, 0, 0 }, { 0, 1, 0 });
                 }
+                else if (e.Motion.ButtonStates[int(ng::MouseButton::Left)])
+                {
+                    if (isSelectedNodeBeingDragged)
+                    {
+                        ng::Ray<float> clickRay = RayFromClick(*cameraNode, *window, ng::ivec2(e.Motion.X, e.Motion.Y));
+
+                        std::shared_ptr<ng::RenderObjectNode> selected = selectorCubeNode->GetParent().lock();
+
+                        // move the selected node by picking a point on its xz plane.
+                        ng::Plane<float> selectedNodePlane(gridNode->GetNormalMatrix() * gridMesh->GetNormal(),
+                                                           selected->GetWorldBoundingBox().GetCenter());
+
+                        // Check if ray and grid intersect
+                        float t;
+                        if (ng::RayPlaneIntersect(clickRay, selectedNodePlane, std::numeric_limits<float>::epsilon(), std::numeric_limits<float>::infinity(), t))
+                        {
+                            // collided with plane
+                            ng::vec3 collisonPoint = clickRay.Origin + t * clickRay.Direction;
+
+                            selected->SetLocalTransform(ng::Translate(collisonPoint));
+
+                            // get the parent of the node to remove
+                            std::shared_ptr<ng::RenderObjectNode> parentOfSelected = selected->GetParent().lock();
+                            if (parentOfSelected == nullptr)
+                            {
+                                throw std::logic_error("Selected node should have a parent that contains it.");
+                            }
+
+                            // get the index of the selected node in its parent's children
+                            std::vector<std::shared_ptr<ng::RenderObjectNode>> controlPointList = parentOfSelected->GetChildren();
+                            std::size_t indexToMove = std::distance(controlPointList.begin(), std::find(controlPointList.begin(), controlPointList.end(), selected));
+
+                            // update spline control point
+                            catmullRomSpline.ControlPoints[indexToMove] = collisonPoint;
+
+                            // remove that index from the line strip
+                            lineStrip->SetPoint(lineStrip->GetPoints().begin() + indexToMove, collisonPoint);
+
+                            // rebuild the catmull rom spline
+                            RebuildCatmullRomSpline(catmullRomSpline, *catmullRomStrip);
+                        }
+                    }
+                }
             }
             else if (e.Type == ng::WindowEventType::KeyPress)
             {
-                if (e.KeyPress.Scancode == ng::Scancode::Delete)
+                if (e.KeyPress.Scancode == ng::Scancode::Esc
+                        && !isSelectedNodeBeingDragged)
+                {
+                    std::shared_ptr<ng::RenderObjectNode> selected = selectorCubeNode->GetParent().lock();
+                    if (selected)
+                    {
+                        selected->AbandonChild(selectorCubeNode);
+                        selectorCubeNode->Hide();
+                    }
+                }
+
+                if (e.KeyPress.Scancode == ng::Scancode::Delete
+                        && !isSelectedNodeBeingDragged)
                 {
                     // get the control point the selector is currently bound to
                     std::shared_ptr<ng::RenderObjectNode> selected = selectorCubeNode->GetParent().lock();
@@ -224,9 +281,12 @@ int main() try
             }
             else if (e.Type == ng::WindowEventType::MouseButton)
             {
+                if (e.Button.State == ng::ButtonState::Released && e.Button.Button == ng::MouseButton::Left)
+                {
+                    isSelectedNodeBeingDragged = false;
+                }
                 if (e.Button.State == ng::ButtonState::Pressed && e.Button.Button == ng::MouseButton::Left)
                 {
-
                     ng::Ray<float> clickRay = RayFromClick(*cameraNode, *window, ng::ivec2(e.Button.X, e.Button.Y));
 
                     float closestControlPointT = std::numeric_limits<float>::infinity();
@@ -271,6 +331,8 @@ int main() try
                         selectorCube->Init(sph.Radius * 2);
                         selectorCubeNode->Show();
                         closestControlPoint->AdoptChild(selectorCubeNode);
+
+                        isSelectedNodeBeingDragged = true;
                     }
                     else
                     {

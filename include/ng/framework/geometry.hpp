@@ -13,12 +13,12 @@ struct Ray
 {
     // Ray equation: p = Origin + Direction * t
 
-    genType_base<T,3> Origin;
-    genType_base<T,3> Direction;
+    vec<T,3> Origin;
+    vec<T,3> Direction;
 
     Ray() = default;
 
-    Ray(genType_base<T,3> origin, genType_base<T,3> direction)
+    Ray(vec<T,3> origin, vec<T,3> direction)
         : Origin(origin), Direction(direction)
     { }
 };
@@ -27,17 +27,17 @@ template<class T>
 struct Plane
 {
     // Plane equation: Normal.x * x + Normal.y * y + Normal.z * z + d = 0
-    genType_base<T,3> Normal;
+    vec<T,3> Normal;
     T D = 0;
 
     Plane() = default;
 
-    Plane(genType_base<T,3> normal, T d)
+    Plane(vec<T,3> normal, T d)
         : Normal(normal)
         , D(d)
     { }
 
-    Plane(genType_base<T,3> normal, genType_base<T,3> pointOnPlane)
+    Plane(vec<T,3> normal, vec<T,3> pointOnPlane)
         : Normal(normal)
         , D(-(dot(normal, pointOnPlane)))
     { }
@@ -46,17 +46,17 @@ struct Plane
 template<class T>
 struct AxisAlignedBoundingBox
 {
-    genType_base<T,3> Minimum;
-    genType_base<T,3> Maximum;
+    vec<T,3> Minimum;
+    vec<T,3> Maximum;
 
     AxisAlignedBoundingBox() = default;
 
-    AxisAlignedBoundingBox(genType_base<T,3> minimum, genType_base<T,3> maximum)
+    AxisAlignedBoundingBox(vec<T,3> minimum, vec<T,3> maximum)
         : Minimum(minimum)
         , Maximum(maximum)
     { }
 
-    genType_base<T,3> GetCenter() const
+    vec<T,3> GetCenter() const
     {
         return {
             (Minimum.x + Maximum.x) / 2,
@@ -80,12 +80,12 @@ struct AxisAlignedBoundingBox
 template<class T>
 struct Sphere
 {
-    genType_base<T,3> Center;
+    vec<T,3> Center;
     T Radius = 0;
 
     Sphere() = default;
 
-    Sphere(genType_base<T,3> center, T radius)
+    Sphere(vec<T,3> center, T radius)
         : Center(center)
         , Radius(radius)
     { }
