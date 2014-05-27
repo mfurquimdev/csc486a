@@ -449,6 +449,15 @@ int main() try
                 splineRiderNode->Hide();
             }
 
+            if (selectorCubeNode->GetParent().expired())
+            {
+                lineStripNode->Hide();
+            }
+            else
+            {
+                lineStripNode->Show();
+            }
+
             lag -= fixedUpdateStep;
         }
 

@@ -1,7 +1,7 @@
 #ifndef NG_RENDEROBJECTNODE_HPP
 #define NG_RENDEROBJECTNODE_HPP
 
-#include "ng/framework/geometry.hpp"
+#include "ng/engine/geometry.hpp"
 
 #include <memory>
 #include <vector>

@@ -3,7 +3,7 @@
 
 #include "ng/framework/renderobject.hpp"
 
-#include "ng/framework/geometry.hpp"
+#include "ng/engine/geometry.hpp"
 #include "ng/engine/linearalgebra.hpp"
 
 #include <vector>
