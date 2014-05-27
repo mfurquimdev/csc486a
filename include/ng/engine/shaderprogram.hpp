@@ -10,7 +10,8 @@ public:
     virtual ~IShaderProgram() = default;
 
     virtual void Init(std::shared_ptr<const char> vertexShaderSource,
-                      std::shared_ptr<const char> fragmentShaderSource) = 0;
+                      std::shared_ptr<const char> fragmentShaderSource,
+                      bool validate) = 0;
 
     virtual std::pair<bool,std::string> GetStatus() const = 0;
 };

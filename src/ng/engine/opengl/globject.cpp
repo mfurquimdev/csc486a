@@ -63,7 +63,8 @@ OpenGLShaderProgram::OpenGLShaderProgram(std::shared_ptr<OpenGLRenderer> rendere
 
 void OpenGLShaderProgram::Init(
         std::shared_ptr<const char> vertexShaderSource,
-        std::shared_ptr<const char> fragmentShaderSource)
+        std::shared_ptr<const char> fragmentShaderSource,
+        bool validate)
 {
     mVertexShader = mRenderer->SendGenShader(GL_VERTEX_SHADER);
     mFragmentShader = mRenderer->SendGenShader(GL_FRAGMENT_SHADER);
@@ -72,6 +73,15 @@ void OpenGLShaderProgram::Init(
     mVertexShader = mRenderer->SendCompileShader(mVertexShader, vertexShaderSource);
     mFragmentShader = mRenderer->SendCompileShader(mFragmentShader, fragmentShaderSource);
     mProgram = mRenderer->SendLinkProgram(mProgram, mVertexShader, mFragmentShader);
+
+    if (validate)
+    {
+        std::pair<bool,std::string> status = GetStatus();
+        if (!status.first)
+        {
+            throw std::runtime_error(status.second);
+        }
+    }
 }
 
 std::pair<bool,std::string> OpenGLShaderProgram::GetStatus() const

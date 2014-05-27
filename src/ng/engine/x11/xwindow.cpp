@@ -20,8 +20,6 @@
 namespace ng
 {
 
-static std::mutex gX11Lock;
-
 int ngXErrorHandler(Display* dpy, XErrorEvent* error)
 {
     std::array<char,256> errorTextBuf;
@@ -53,11 +51,25 @@ struct ScopedErrorHandler
 };
 
 
+struct ngXPublicEntryScope
+{
+    static std::recursive_mutex gX11Lock;
+
+    std::lock_guard<std::recursive_mutex> mX11LockGuard;
+    ScopedErrorHandler mErrorHandler;
+
+    ngXPublicEntryScope()
+        : mX11LockGuard(gX11Lock)
+        , mErrorHandler(ngXErrorHandler)
+    { }
+};
+
+std::recursive_mutex ngXPublicEntryScope::gX11Lock;
+
 template<class T>
 static void ngXLockedDelete(T* ptr)
 {
-    std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
-    ScopedErrorHandler errorHandler(ngXErrorHandler);
+    ngXPublicEntryScope entryScope;
     delete ptr;
 }
 
@@ -121,6 +133,7 @@ public:
 
             // flush errors
             XSync(dpy, False);
+
             if (sFailedToBuildContext || !mHandle)
             {
                 // Couldn't create a GL 3.0 context, so fall back to 2.x context.
@@ -180,8 +193,7 @@ public:
 
     bool IsExtensionSupported(const char* extension) override
     {
-        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
-        ScopedErrorHandler errorHandler(ngXErrorHandler);
+        ngXPublicEntryScope entryScope;
         return IsExtensionSupported_NoLock(extension);
     }
 
@@ -192,8 +204,7 @@ public:
 
     void* GetProcAddress(const char *proc) override
     {
-        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
-        ScopedErrorHandler errorHandler(ngXErrorHandler);
+        ngXPublicEntryScope entryScope;
         return GetProcAddress_NoLock(proc);
     }
 };
@@ -319,16 +330,14 @@ public:
 
     void SwapBuffers() override
     {
-        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
-        ScopedErrorHandler scopedErrors(ngXErrorHandler);
+        ngXPublicEntryScope entryScope;
 
         glXSwapBuffers(mDisplay, mWindow.mHandle);
     }
 
     void GetSize(int* width, int* height) const override
     {
-        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
-        ScopedErrorHandler scopedErrors(ngXErrorHandler);
+        ngXPublicEntryScope entryScope;
 
         XWindowAttributes attributes;
         XGetWindowAttributes(mDisplay, mWindow.mHandle, &attributes);
@@ -509,9 +518,7 @@ public:
         // see // https://bugs.launchpad.net/ubuntu/+source/nvidia-graphics-drivers-319/+bug/1248642
         pthread_getconcurrency();
 
-        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
-
-        ScopedErrorHandler scopedErrors(ngXErrorHandler);
+        ngXPublicEntryScope entryScope;
 
         std::vector<int> attribVector = VideoFlagsToAttribList(flags);
         int* attribList = attribVector.data();
@@ -762,8 +769,7 @@ public:
 
     bool PollEvent(WindowEvent& we) override
     {
-        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
-        ScopedErrorHandler scopedErrors(ngXErrorHandler);
+        ngXPublicEntryScope entryScope;
 
         while (XPending(mDisplay.mHandle) > 0)
         {
@@ -893,8 +899,7 @@ public:
     std::shared_ptr<IGLContext> CreateContext(const VideoFlags& flags,
                                               std::shared_ptr<IGLContext> sharedWith) override
     {
-        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
-        ScopedErrorHandler scopedErrors(ngXErrorHandler);
+        ngXPublicEntryScope entryScope;
 
         std::vector<int> attribVector = VideoFlagsToAttribList(flags);
 
@@ -924,8 +929,7 @@ public:
     void SetCurrentContext(std::shared_ptr<IWindow> window,
                            std::shared_ptr<IGLContext> context) override
     {
-        std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
-        ScopedErrorHandler scopedErrors(ngXErrorHandler);
+        ngXPublicEntryScope entryScope;
 
         const ngXWindow& xwindow = static_cast<const ngXWindow&>(*window);
         const ngXGLContext& xcontext = static_cast<const ngXGLContext&>(*context);
@@ -942,8 +946,8 @@ std::shared_ptr<IWindowManager> CreateXWindowManager()
         throw std::runtime_error("XInitThreads() failed");
     }
 
-    std::lock_guard<std::mutex> scopedX11Lock(gX11Lock);
-    ScopedErrorHandler scopedErrors(ngXErrorHandler);
+    ngXPublicEntryScope entryScope;
+
     return std::shared_ptr<IWindowManager>(new ngXWindowManager(),
                                            ngXLockedDelete<ngXWindowManager>);
 }

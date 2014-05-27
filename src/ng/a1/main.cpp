@@ -73,18 +73,26 @@ int main() try
     std::shared_ptr<ng::IWindow> window = windowManager->CreateWindow("test", 640, 480, 0, 0, ng::VideoFlags());
     std::shared_ptr<ng::IRenderer> renderer = ng::CreateRenderer(windowManager, window);
 
-    static const char* vsrc = "#version 150\n"
+    static const char* vsrc = "#version 130\n"
                              "in vec4 iPosition; uniform mat4 uModelView; uniform mat4 uProjection;"
                              "void main() { gl_Position = uProjection * uModelView * iPosition; }";
 
-    static const char* fsrc = "#version 150\n"
+    static const char* fsrc = "#version 130\n"
                               "out vec4 oColor; uniform vec4 uTint;"
                               "void main() { oColor = uTint; }";
 
     std::shared_ptr<ng::IShaderProgram> program = renderer->CreateShaderProgram();
 
     program->Init(std::shared_ptr<const char>(vsrc, [](const char*){}),
-                  std::shared_ptr<const char>(fsrc, [](const char*){}));
+                  std::shared_ptr<const char>(fsrc, [](const char*){}),
+                  true);
+
+    auto status = program->GetStatus();
+    if (!status.first)
+    {
+        ng::DebugPrintf("Status error: %s\n", status.second.c_str());
+        return -1;
+    }
 
     ng::RenderState renderState;
 

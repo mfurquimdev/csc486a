@@ -138,7 +138,8 @@ public:
     OpenGLShaderProgram(std::shared_ptr<OpenGLRenderer> renderer);
 
     void Init(std::shared_ptr<const char> vertexShaderSource,
-              std::shared_ptr<const char> fragmentShaderSource) override;
+              std::shared_ptr<const char> fragmentShaderSource,
+              bool validate) override;
 
     std::pair<bool,std::string> GetStatus() const override;
 
