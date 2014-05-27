@@ -439,9 +439,11 @@ int main() try
 
             if (catmullRomSpline.ControlPoints.size() >= 4)
             {
+                int segment = int(splineRiderT);
+                splineRiderTSpeed = 2.0f / length(catmullRomSpline.CalculateDerivative(segment, splineRiderT - segment));
+
                 splineRiderNode->Show();
                 splineRiderT = std::fmod(splineRiderT + splineRiderTSpeed * stepInSeconds, catmullRomSpline.ControlPoints.size() - 3);
-                int segment = int(splineRiderT);
                 splineRiderNode->SetLocalTransform(ng::Translate(catmullRomSpline.CalculatePoint(segment, splineRiderT - segment)));
             }
             else
