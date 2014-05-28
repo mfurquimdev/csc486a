@@ -232,7 +232,8 @@ enum class WindowEventType
     MouseButton,
     MouseScroll,
     KeyPress,
-    KeyRelease
+    KeyRelease,
+    WindowStructure
 };
 
 constexpr const char* WindowEventTypeToString(WindowEventType et)
@@ -242,6 +243,8 @@ constexpr const char* WindowEventTypeToString(WindowEventType et)
          : et == WindowEventType::MouseButton ? "MouseButton"
          : et == WindowEventType::MouseScroll ? "MouseScroll"
          : et == WindowEventType::KeyPress ? "KeyPress"
+         : et == WindowEventType::KeyRelease ? "KeyRelease"
+         : et == WindowEventType::WindowStructure ? "WindowStructure"
          : throw std::logic_error("No such WindowEventType");
 }
 
@@ -283,6 +286,15 @@ struct KeyEvent
     // TODO: Add support for keycodes
 };
 
+struct WindowStructureEvent
+{
+    WindowEventType Type;
+    int X;
+    int Y;
+    int Width;
+    int Height;
+};
+
 struct WindowEvent
 {
     std::weak_ptr<IWindow> Source;
@@ -295,6 +307,7 @@ struct WindowEvent
         MouseScrollEvent Scroll;
         KeyEvent KeyPress;
         KeyEvent KeyRelease;
+        WindowStructureEvent WindowStructure;
     };
 };
 

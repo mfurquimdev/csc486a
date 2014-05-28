@@ -546,7 +546,9 @@ public:
         setWindowAttributes.colormap = colormap.mHandle;
         setWindowAttributes.background_pixmap = None;
         setWindowAttributes.border_pixel = 0;
-        setWindowAttributes.event_mask = StructureNotifyMask | PointerMotionMask | ButtonPressMask | ButtonReleaseMask | KeyPressMask | KeyReleaseMask;
+        setWindowAttributes.event_mask = StructureNotifyMask | PointerMotionMask |
+                                         ButtonPressMask | ButtonReleaseMask |
+                                         KeyPressMask | KeyReleaseMask;
 
         Window root = DefaultRootWindow(display);
         std::shared_ptr<ngXWindow> createdWindow(
@@ -876,6 +878,15 @@ public:
 #define KeyRelease KeyReleaseTmp
 #undef KeyReleaseTmp
 
+            }
+            else if (ev.type == ConfigureNotify)
+            {
+                source = ev.xconfigure.window;
+                we.WindowStructure.Type = WindowEventType::WindowStructure;
+                we.WindowStructure.X = ev.xconfigure.x;
+                we.WindowStructure.Y = ev.xconfigure.y;
+                we.WindowStructure.Width = ev.xconfigure.width;
+                we.WindowStructure.Height = ev.xconfigure.height;
             }
             else
             {

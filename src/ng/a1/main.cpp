@@ -18,7 +18,6 @@
 #include "ng/framework/cubemesh.hpp"
 #include "ng/framework/catmullromspline.hpp"
 #include "ng/engine/constants.hpp"
-#include "ng/framework/tween.hpp"
 
 #include <chrono>
 #include <vector>
@@ -451,6 +450,10 @@ int main() try
 
                     cameraNode->SetLookAt(eyePosition, eyeTarget, eyeUpVector);
                 }
+            }
+            else if (e.Type == ng::WindowEventType::WindowStructure)
+            {
+                cameraNode->SetViewport(0, 0, window->GetWidth(), window->GetHeight());
             }
         }
 
