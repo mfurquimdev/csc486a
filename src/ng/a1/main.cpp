@@ -150,6 +150,15 @@ int main() try
 
     bool isSelectedNodeBeingDragged = false;
 
+    enum class ControlMode
+    {
+        Parametric,
+        ConstantSpeed,
+        EaseInEaseOut
+    };
+
+    ControlMode currentControlMode = ControlMode::Parametric;
+
     // do an initial update to get things going
     roManager.Update(std::chrono::milliseconds(0));
 
@@ -290,6 +299,13 @@ int main() try
                             selectorCubeNode->Show();
                         }
                     }
+                }
+                else if (e.KeyPress.Scancode == ng::Scancode::Tab)
+                {
+                    currentControlMode = currentControlMode == ControlMode::Parametric ? ControlMode::ConstantSpeed
+                                       : currentControlMode == ControlMode::ConstantSpeed ? ControlMode::EaseInEaseOut
+                                       : currentControlMode == ControlMode::EaseInEaseOut ? ControlMode::Parametric
+                                       : throw std::logic_error("Unhandled control mode");
                 }
             }
             else if (e.Type == ng::WindowEventType::MouseButton)
@@ -451,11 +467,24 @@ int main() try
             if (catmullRomSpline.ControlPoints.size() >= 4)
             {
                 splineRiderNode->Show();
+
+                splineRiderTSpeed = 3.0f;
+
+                if (currentControlMode == ControlMode::ConstantSpeed)
+                {
+                    splineRiderTSpeed = 10.0f / ng::length(catmullRomSpline.CalculateVelocity(int(splineRiderT), splineRiderT - int(splineRiderT)));
+                }
+
                 splineRiderT = std::fmod(splineRiderT + splineRiderTSpeed * stepInSeconds, catmullRomSpline.ControlPoints.size() - 3);
 
                 int segment = int(splineRiderT);
                 float normalizedT = splineRiderT - segment;
-                float splineParamValue = - 2 * normalizedT * normalizedT * normalizedT + 3 * normalizedT * normalizedT;
+                float splineParamValue = normalizedT;
+
+                if (currentControlMode == ControlMode::EaseInEaseOut)
+                {
+                    splineParamValue = - 2 * normalizedT * normalizedT * normalizedT + 3 * normalizedT * normalizedT;
+                }
 
                 splineRiderNode->SetLocalTransform(ng::Translate(catmullRomSpline.CalculatePosition(segment, splineParamValue)));
             }
