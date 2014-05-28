@@ -18,6 +18,8 @@ public:
 
     virtual void GetSize(int* width, int* height) const = 0;
 
+    virtual void SetTitle(const char* title) = 0;
+
     int GetWidth() const
     {
         int w;

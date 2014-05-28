@@ -18,9 +18,12 @@
 #include "ng/framework/cubemesh.hpp"
 #include "ng/framework/catmullromspline.hpp"
 #include "ng/engine/constants.hpp"
+#include "ng/framework/tween.hpp"
 
 #include <chrono>
 #include <vector>
+#include <sstream>
+#include <string>
 
 ng::Ray<float> RayFromClick(const ng::CameraNode& cameraNode,
                             const ng::IWindow& window,
@@ -45,22 +48,20 @@ ng::Ray<float> RayFromClick(const ng::CameraNode& cameraNode,
     return clickRay;
 }
 
-void RebuildCatmullRomSpline(const ng::CatmullRomSpline<float>& spline,
+void RebuildCatmullRomSpline(int numDivisions, const ng::CatmullRomSpline<float>& spline,
                              ng::LineStrip& lineStrip)
 {
     lineStrip.Reset();
 
     if (spline.ControlPoints.size() >= 4)
     {
-        int numDivisions = 10;
-
         std::size_t numSegments = spline.ControlPoints.size() - 4 + 1;
 
         for (std::size_t segment = 0; segment < numSegments; segment++)
         {
             for (int division = 0; division <= numDivisions; division++)
             {
-                lineStrip.AddPoint(spline.CalculatePoint(segment, (float) division / numDivisions));
+                lineStrip.AddPoint(spline.CalculatePosition(segment, (float) division / numDivisions));
             }
         }
     }
@@ -145,6 +146,8 @@ int main() try
     float splineRiderT = 0.0f;
     float splineRiderTSpeed = 3.0f; // units per second
 
+    int numSplineDivisions = 10;
+
     bool isSelectedNodeBeingDragged = false;
 
     // do an initial update to get things going
@@ -224,7 +227,7 @@ int main() try
                             lineStrip->SetPoint(lineStrip->GetPoints().begin() + indexToMove, collisonPoint);
 
                             // rebuild the catmull rom spline
-                            RebuildCatmullRomSpline(catmullRomSpline, *catmullRomStrip);
+                            RebuildCatmullRomSpline(numSplineDivisions, catmullRomSpline, *catmullRomStrip);
                         }
                     }
                 }
@@ -271,13 +274,21 @@ int main() try
                         lineStrip->RemovePoint(lineStrip->GetPoints().begin() + indexToDelete);
 
                         // rebuild the catmull rom spline
-                        RebuildCatmullRomSpline(catmullRomSpline, *catmullRomStrip);
+                        RebuildCatmullRomSpline(numSplineDivisions, catmullRomSpline, *catmullRomStrip);
 
                         // remove the deleted node from its parent
                         parentOfSelected->AbandonChild(selected);
 
                         // reset the spline rider
-                        splineRiderT = 0.0f;
+                        // splineRiderT = 0.0f;
+
+                        // if there are other points, try to reselect a useful one
+                        if (catmullRomSpline.ControlPoints.size() > 0)
+                        {
+                            std::size_t indexToReselect = indexToDelete == 0 ? 0 : indexToDelete - 1;
+                            controlPointGroupNode->GetChildren().at(indexToReselect)->AdoptChild(selectorCubeNode);
+                            selectorCubeNode->Show();
+                        }
                     }
                 }
             }
@@ -379,7 +390,7 @@ int main() try
                             sphereNode->AdoptChild(selectorCubeNode);
 
                             // rebuild the catmull rom mesh
-                            RebuildCatmullRomSpline(catmullRomSpline, *catmullRomStrip);
+                            RebuildCatmullRomSpline(numSplineDivisions, catmullRomSpline, *catmullRomStrip);
                         }
                     }
                 }
@@ -414,7 +425,7 @@ int main() try
                     lineStrip->SetPoint(lineStrip->GetPoints().begin() + indexToMove, selected->GetWorldBoundingBox().GetCenter());
 
                     // rebuild the catmull rom spline
-                    RebuildCatmullRomSpline(catmullRomSpline, *catmullRomStrip);
+                    RebuildCatmullRomSpline(numSplineDivisions, catmullRomSpline, *catmullRomStrip);
                 }
                 else
                 {
@@ -439,12 +450,14 @@ int main() try
 
             if (catmullRomSpline.ControlPoints.size() >= 4)
             {
-                int segment = int(splineRiderT);
-                splineRiderTSpeed = 2.0f / length(catmullRomSpline.CalculateDerivative(segment, splineRiderT - segment));
-
                 splineRiderNode->Show();
                 splineRiderT = std::fmod(splineRiderT + splineRiderTSpeed * stepInSeconds, catmullRomSpline.ControlPoints.size() - 3);
-                splineRiderNode->SetLocalTransform(ng::Translate(catmullRomSpline.CalculatePoint(segment, splineRiderT - segment)));
+
+                int segment = int(splineRiderT);
+                float normalizedT = splineRiderT - segment;
+                float splineParamValue = - 2 * normalizedT * normalizedT * normalizedT + 3 * normalizedT * normalizedT;
+
+                splineRiderNode->SetLocalTransform(ng::Translate(catmullRomSpline.CalculatePosition(segment, splineParamValue)));
             }
             else
             {
@@ -461,6 +474,21 @@ int main() try
             }
 
             lag -= fixedUpdateStep;
+        }
+
+        float arcLength = 0.0f;
+        if (catmullRomSpline.ControlPoints.size() >= 4)
+        {
+            for (std::size_t segment = 0; segment < catmullRomSpline.ControlPoints.size() - 3; segment++)
+            {
+                arcLength += catmullRomSpline.GetArcLength(segment, 1.0f, numSplineDivisions);
+            }
+        }
+
+        {
+            std::stringstream ss;
+            ss << "Arc length: " << arcLength;
+            window->SetTitle(ss.str().c_str());
         }
 
         renderProfiler.Start();

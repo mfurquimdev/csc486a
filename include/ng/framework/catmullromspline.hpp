@@ -27,7 +27,7 @@ class CatmullRomSpline
 public:
     std::vector<vec<T,3>> ControlPoints;
 
-    vec3 CalculatePoint(std::size_t segmentIndex, InterpolationType t) const
+    vec<T,3> CalculatePosition(std::size_t segmentIndex, InterpolationType t) const
     {
         ValidateSegment(segmentIndex);
 
@@ -38,8 +38,7 @@ public:
                  ) / T(2);
     }
 
-    // returns derivative of spline with respect to t
-    vec3 CalculateDerivative(std::size_t segmentIndex, InterpolationType t) const
+    vec<T,3> CalculateVelocity(std::size_t segmentIndex, InterpolationType t) const
     {
         ValidateSegment(segmentIndex);
 
@@ -47,6 +46,38 @@ public:
                  T(2) * ( T(2) * ControlPoints[segmentIndex] - T(5) * ControlPoints[segmentIndex + 1] + T(4) * ControlPoints[segmentIndex + 2] - ControlPoints[segmentIndex + 3]) * t +
                  T(3) * ( - ControlPoints[segmentIndex] + T(3) * ControlPoints[segmentIndex + 1] - T(3) * ControlPoints[segmentIndex + 2] + ControlPoints[segmentIndex + 3]) * t * t
                  ) / T(2);
+    }
+
+    vec<T,3> CalculateAcceleration(std::size_t segmentIndex, InterpolationType t) const
+    {
+        ValidateSegment(segmentIndex);
+
+        return ( T(2) * ( T(2) * ControlPoints[segmentIndex] - T(5) * ControlPoints[segmentIndex + 1] + T(4) * ControlPoints[segmentIndex + 2] - ControlPoints[segmentIndex + 3]) +
+                 T(6) * ( - ControlPoints[segmentIndex] + T(3) * ControlPoints[segmentIndex + 1] - T(3) * ControlPoints[segmentIndex + 2] + ControlPoints[segmentIndex + 3]) * t
+                 ) / T(2);
+    }
+
+    T GetArcLength(std::size_t segmentIndex, InterpolationType finalT, int divisions) const
+    {
+        ValidateSegment(segmentIndex);
+
+        if (divisions <= 0)
+        {
+            throw std::logic_error("divisions should be >= 1");
+        }
+
+        vec<T,3> previousPoint = CalculatePosition(segmentIndex, T(0));
+        T arcLength = T(0);
+
+        for (int i = 1; i <= divisions; i++)
+        {
+            T tvalue = T(i) * T(finalT) / T(divisions);
+            vec<T,3> nextPoint = CalculatePosition(segmentIndex, tvalue);
+            arcLength += length(nextPoint - previousPoint);
+            previousPoint = nextPoint;
+        }
+
+        return arcLength;
     }
 };
 

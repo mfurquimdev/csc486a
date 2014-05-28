@@ -346,6 +346,13 @@ public:
         if (height) *height = attributes.height;
     }
 
+    void SetTitle(const char* title) override
+    {
+        ngXPublicEntryScope entryScope;
+
+        XStoreName(mDisplay, mWindow.mHandle, title);
+    }
+
     const VideoFlags& GetVideoFlags() const override
     {
         return mVideoFlags;
