@@ -74,12 +74,21 @@ int main() try
     std::shared_ptr<ng::IRenderer> renderer = ng::CreateRenderer(windowManager, window);
 
     static const char* vsrc = "#version 130\n"
-                             "in vec4 iPosition; uniform mat4 uModelView; uniform mat4 uProjection;"
-                             "void main() { gl_Position = uProjection * uModelView * iPosition; }";
+                              "uniform mat4 uModelView; uniform mat4 uProjection;"
+                              "in vec4 iPosition;"
+                              "out vec3 fViewPosition;"
+                              "void main() {"
+                              "    fViewPosition = vec3(uModelView * iPosition);"
+                              "    gl_Position = uProjection * uModelView * iPosition;"
+                              "}";
 
     static const char* fsrc = "#version 130\n"
-                              "out vec4 oColor; uniform vec4 uTint;"
-                              "void main() { oColor = uTint; }";
+                              "uniform vec4 uTint;"
+                              "in vec3 fViewPosition;"
+                              "out vec4 oColor;"
+                              "void main() {"
+                              "    oColor = uTint * pow(20.0f / length(fViewPosition),2);"
+                              "}";
 
     std::shared_ptr<ng::IShaderProgram> program = renderer->CreateShaderProgram();
 
@@ -116,9 +125,9 @@ int main() try
     roManager.SetCurrentCamera(cameraNode);
 
     std::shared_ptr<ng::GridMesh> gridMesh = std::make_shared<ng::GridMesh>(renderer);
-    gridMesh->Init(10, 10, ng::vec2(1.0f,1.0f));
+    gridMesh->Init(20, 20, ng::vec2(1.0f));
     std::shared_ptr<ng::RenderObjectNode> gridNode = std::make_shared<ng::RenderObjectNode>(gridMesh);
-    gridNode->SetLocalTransform(ng::Translate(-5.0f, 0.0f, -5.0f));
+    gridNode->SetLocalTransform(ng::Translate(-gridNode->GetLocalBoundingBox().GetCenter()));
     cameraNode->AdoptChild(gridNode);
 
     std::shared_ptr<ng::LineStrip> lineStrip = std::make_shared<ng::LineStrip>(renderer);

@@ -83,12 +83,9 @@ void UVSphere::Init(int numRings, int numSegments, float radius)
     mRadius = radius;
 }
 
-RenderObjectPass UVSphere::PreUpdate(std::chrono::milliseconds,
-                           RenderObjectNode& node)
+AxisAlignedBoundingBox<float> UVSphere::GetLocalBoundingBox() const
 {
-    node.SetLocalBoundingBox(AxisAlignedBoundingBox<float>(-vec3(mRadius), vec3(mRadius)));
-
-    return RenderObjectPass::Continue;
+    return AxisAlignedBoundingBox<float>(-vec3(mRadius), vec3(mRadius));
 }
 
 RenderObjectPass UVSphere::Draw(

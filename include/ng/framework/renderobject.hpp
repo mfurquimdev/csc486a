@@ -1,6 +1,8 @@
 #ifndef NG_RENDEROBJECT_HPP
 #define NG_RENDEROBJECT_HPP
 
+#include "ng/engine/geometry.hpp"
+
 #include <chrono>
 #include <map>
 #include <string>
@@ -25,8 +27,8 @@ class IRenderObject
 public:
     virtual ~IRenderObject() = default;
 
-    // return true if you want to "eat" the update, which means that children won't be updated.
-    // return false if you want the children to also be updated.
+    virtual AxisAlignedBoundingBox<float> GetLocalBoundingBox() const = 0;
+
     virtual RenderObjectPass PreUpdate(std::chrono::milliseconds deltaTime,
                                        RenderObjectNode& node) = 0;
 

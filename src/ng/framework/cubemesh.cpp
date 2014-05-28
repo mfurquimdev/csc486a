@@ -46,14 +46,11 @@ void CubeMesh::Init(float sideLength)
     mSideLength = sideLength;
 }
 
-RenderObjectPass CubeMesh::PreUpdate(std::chrono::milliseconds,
-                           RenderObjectNode& node)
+AxisAlignedBoundingBox<float> CubeMesh::GetLocalBoundingBox() const
 {
-    node.SetLocalBoundingBox(AxisAlignedBoundingBox<float>(
-                                 vec3(-mSideLength / 2),
-                                 vec3(mSideLength / 2)));
-
-    return RenderObjectPass::Continue;
+    return AxisAlignedBoundingBox<float>(
+                vec3(-mSideLength / 2),
+                vec3(mSideLength / 2));
 }
 
 RenderObjectPass CubeMesh::Draw(

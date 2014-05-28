@@ -30,8 +30,6 @@ class RenderObjectNode : public std::enable_shared_from_this<RenderObjectNode>
     mutable mat3 mNormalMatrix;
     mutable bool mIsNormalMatrixDirty = true;
 
-    AxisAlignedBoundingBox<float> mLocalBoundingBox;
-
     void SetDirtyRecursively() const;
 
 protected:
@@ -75,15 +73,7 @@ public:
 
     mat3 GetNormalMatrix() const;
 
-    AxisAlignedBoundingBox<float> GetLocalBoundingBox() const
-    {
-        return mLocalBoundingBox;
-    }
-
-    void SetLocalBoundingBox(AxisAlignedBoundingBox<float> localBoundingBox)
-    {
-        mLocalBoundingBox = localBoundingBox;
-    }
+    AxisAlignedBoundingBox<float> GetLocalBoundingBox() const;
 
     AxisAlignedBoundingBox<float> GetWorldBoundingBox() const;
 

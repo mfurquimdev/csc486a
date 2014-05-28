@@ -46,12 +46,9 @@ void LineStrip::SetPoint(std::vector<vec3>::const_iterator which, vec3 value)
     mIsMeshDirty = true;
 }
 
-RenderObjectPass LineStrip::PreUpdate(std::chrono::milliseconds,
-                                      RenderObjectNode& node)
+AxisAlignedBoundingBox<float> LineStrip::GetLocalBoundingBox() const
 {
-    node.SetLocalBoundingBox(mBoundingBox);
-
-    return RenderObjectPass::Continue;
+    return mBoundingBox;
 }
 
 RenderObjectPass LineStrip::Draw(

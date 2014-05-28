@@ -23,6 +23,11 @@ class Camera : public RenderObjectManagerCameraHelper, public IRenderObject
     int mTimesUpdated = 0;
 
 public:
+    AxisAlignedBoundingBox<float> GetLocalBoundingBox() const override
+    {
+        return AxisAlignedBoundingBox<float>();
+    }
+
     RenderObjectPass PreUpdate(std::chrono::milliseconds,
                                RenderObjectNode&) override
     {

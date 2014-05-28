@@ -78,14 +78,11 @@ void GridMesh::Init(int numColumns, int numRows, vec2 tileSize)
     mTileSize = tileSize;
 }
 
-RenderObjectPass GridMesh::PreUpdate(std::chrono::milliseconds,
-                                     RenderObjectNode& node)
+AxisAlignedBoundingBox<float> GridMesh::GetLocalBoundingBox() const
 {
-    node.SetLocalBoundingBox(AxisAlignedBoundingBox<float>(
-                                 vec3(0.0f),
-                                 vec3(mTileSize.x * mNumColumns, 0.0f, mTileSize.y * mNumRows)));
-
-    return RenderObjectPass::Continue;
+    return AxisAlignedBoundingBox<float>(
+                vec3(0.0f),
+                vec3(mTileSize.x * mNumColumns, 0.0f, mTileSize.y * mNumRows));
 }
 
 RenderObjectPass GridMesh::Draw(

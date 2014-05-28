@@ -35,8 +35,13 @@ public:
         return { 0.0f, 1.0f, 0.0f };
     }
 
+    AxisAlignedBoundingBox<float> GetLocalBoundingBox() const override;
+
     RenderObjectPass PreUpdate(std::chrono::milliseconds deltaTime,
-                               RenderObjectNode& node) override;
+                               RenderObjectNode& node) override
+    {
+        return RenderObjectPass::Continue;
+    }
 
     void PostUpdate(std::chrono::milliseconds,
                     RenderObjectNode&) override

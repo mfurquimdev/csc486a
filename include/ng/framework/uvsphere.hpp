@@ -27,8 +27,13 @@ public:
         return mRadius;
     }
 
-    RenderObjectPass PreUpdate(std::chrono::milliseconds deltaTime,
-                               RenderObjectNode& node) override;
+    AxisAlignedBoundingBox<float> GetLocalBoundingBox() const override;
+
+    RenderObjectPass PreUpdate(std::chrono::milliseconds,
+                               RenderObjectNode&) override
+    {
+        return RenderObjectPass::Continue;
+    }
 
     void PostUpdate(std::chrono::milliseconds,
                     RenderObjectNode&) override

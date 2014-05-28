@@ -1,5 +1,8 @@
 #include "ng/framework/renderobjectnode.hpp"
 
+#include "ng/framework/renderobject.hpp"
+#include "ng/engine/geometry.hpp"
+
 namespace ng
 {
 
@@ -55,6 +58,11 @@ mat3 RenderObjectNode::GetNormalMatrix() const
         mIsNormalMatrixDirty = false;
     }
     return mNormalMatrix;
+}
+
+AxisAlignedBoundingBox<float> RenderObjectNode::GetLocalBoundingBox() const
+{
+    return GetRenderObject() ? GetRenderObject()->GetLocalBoundingBox() : AxisAlignedBoundingBox<float>();
 }
 
 AxisAlignedBoundingBox<float> RenderObjectNode::GetWorldBoundingBox() const
