@@ -30,3 +30,8 @@ Camera Movement
 * Zoom the camera in and out by scrolling.
 
 * Rotate the camera by holding right click and moving the mouse left or right.
+
+Calculating Arc Length
+---------------------
+
+* The current arc length is always displayed in the title of the window.
