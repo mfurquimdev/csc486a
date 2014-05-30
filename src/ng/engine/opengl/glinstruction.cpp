@@ -1,7 +1,7 @@
 #include "ng/engine/opengl/glinstruction.hpp"
 
 #include "ng/engine/opengl/globject.hpp"
-#include "ng/engine/debug.hpp"
+#include "ng/engine/util/debug.hpp"
 
 #include <cstring>
 

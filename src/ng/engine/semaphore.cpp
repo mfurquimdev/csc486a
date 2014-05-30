@@ -1,4 +1,4 @@
-#include "ng/engine/semaphore.hpp"
+#include "ng/engine/util/semaphore.hpp"
 
 namespace ng
 {

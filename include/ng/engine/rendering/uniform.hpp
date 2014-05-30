@@ -1,7 +1,7 @@
 #ifndef NG_UNIFORM_HPP
 #define NG_UNIFORM_HPP
 
-#include "ng/engine/linearalgebra.hpp"
+#include "ng/engine/math/linearalgebra.hpp"
 
 #include <cstring>
 

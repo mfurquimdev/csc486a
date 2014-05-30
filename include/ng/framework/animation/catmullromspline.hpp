@@ -1,7 +1,7 @@
 #ifndef NG_CATMULLROMSPLINE_HPP
 #define NG_CATMULLROMSPLINE_HPP
 
-#include "ng/engine/linearalgebra.hpp"
+#include "ng/engine/math/linearalgebra.hpp"
 
 #include <vector>
 

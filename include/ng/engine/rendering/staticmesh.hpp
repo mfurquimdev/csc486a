@@ -1,10 +1,10 @@
 #ifndef NG_STATICMESH_HPP
 #define NG_STATICMESH_HPP
 
-#include "ng/engine/renderstate.hpp"
-#include "ng/engine/uniform.hpp"
-#include "ng/engine/vertexformat.hpp"
-#include "ng/engine/primitivetype.hpp"
+#include "ng/engine/rendering/renderstate.hpp"
+#include "ng/engine/rendering/uniform.hpp"
+#include "ng/engine/rendering/vertexformat.hpp"
+#include "ng/engine/rendering/primitivetype.hpp"
 
 #include <memory>
 #include <map>

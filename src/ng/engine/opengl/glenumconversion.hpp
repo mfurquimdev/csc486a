@@ -1,9 +1,9 @@
 #ifndef NG_GLENUMCONVERSION_HPP
 #define NG_GLENUMCONVERSION_HPP
 
-#include "ng/engine/vertexformat.hpp"
-#include "ng/engine/arithmetictype.hpp"
-#include "ng/engine/primitivetype.hpp"
+#include "ng/engine/rendering/vertexformat.hpp"
+#include "ng/engine/util/arithmetictype.hpp"
+#include "ng/engine/rendering/primitivetype.hpp"
 
 #include <GL/gl.h>
 

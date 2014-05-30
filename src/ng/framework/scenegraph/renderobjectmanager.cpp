@@ -1,13 +1,13 @@
-#include "ng/framework/renderobjectmanager.hpp"
+#include "ng/framework/scenegraph/scenegraph.hpp"
 
-#include "ng/engine/uniform.hpp"
+#include "ng/engine/rendering/uniform.hpp"
 
-#include "ng/framework/camera.hpp"
+#include "ng/framework/scenegraph/camera.hpp"
 
-#include "ng/framework/renderobject.hpp"
-#include "ng/framework/renderobjectnode.hpp"
+#include "ng/framework/scenegraph/renderobject.hpp"
+#include "ng/framework/scenegraph/renderobjectnode.hpp"
 
-#include "ng/engine/renderstate.hpp"
+#include "ng/engine/rendering/renderstate.hpp"
 
 #include <stack>
 #include <algorithm>
@@ -15,7 +15,7 @@
 namespace ng
 {
 
-void RenderObjectManager::SetCurrentCamera(std::shared_ptr<CameraNode> currentCamera)
+void SceneGraph::SetCurrentCamera(std::shared_ptr<CameraNode> currentCamera)
 {
     if (mCurrentCamera)
     {
@@ -54,7 +54,7 @@ static void UpdateDepthFirst(
     }
 }
 
-void RenderObjectManager::Update(std::chrono::milliseconds deltaTime)
+void SceneGraph::Update(std::chrono::milliseconds deltaTime)
 {
     UpdateDepthFirst(deltaTime, mCurrentCamera);
 }
@@ -106,7 +106,7 @@ static void DrawDepthFirst(
     }
 }
 
-void RenderObjectManager::Draw(
+void SceneGraph::Draw(
         const std::shared_ptr<IShaderProgram>& program,
         const RenderState& renderState) const
 {

@@ -1,4 +1,4 @@
-#include "ng/engine/renderer.hpp"
+#include "ng/engine/rendering/renderer.hpp"
 
 #include "ng/engine/opengl/glrenderer.hpp"
 

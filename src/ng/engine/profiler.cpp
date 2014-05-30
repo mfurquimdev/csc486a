@@ -1,4 +1,4 @@
-#include "ng/engine/profiler.hpp"
+#include "ng/engine/util/profiler.hpp"
 
 namespace ng
 {

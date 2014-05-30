@@ -1,7 +1,7 @@
 #ifndef NG_GLRENDERER_HPP
 #define NG_GLRENDERER_HPP
 
-#include "ng/engine/renderer.hpp"
+#include "ng/engine/rendering/renderer.hpp"
 #include "ng/engine/opengl/globject.hpp"
 
 #include <GL/gl.h>

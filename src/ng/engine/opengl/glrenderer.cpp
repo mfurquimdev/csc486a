@@ -1,17 +1,17 @@
 #include "ng/engine/opengl/glrenderer.hpp"
 
-#include "ng/engine/windowmanager.hpp"
-#include "ng/engine/window.hpp"
-#include "ng/engine/glcontext.hpp"
+#include "ng/engine/window/windowmanager.hpp"
+#include "ng/engine/window/window.hpp"
+#include "ng/engine/window/glcontext.hpp"
 
 #include "ng/engine/opengl/glinstruction.hpp"
 #include "ng/engine/opengl/globject.hpp"
 #include "ng/engine/opengl/glenumconversion.hpp"
 
-#include "ng/engine/profiler.hpp"
-#include "ng/engine/debug.hpp"
-#include "ng/engine/semaphore.hpp"
-#include "ng/engine/memory.hpp"
+#include "ng/engine/util/profiler.hpp"
+#include "ng/engine/util/debug.hpp"
+#include "ng/engine/util/semaphore.hpp"
+#include "ng/engine/util/memory.hpp"
 
 #include <cstring>
 #include <utility>

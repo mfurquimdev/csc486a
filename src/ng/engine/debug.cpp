@@ -1,4 +1,4 @@
-#include "ng/engine/debug.hpp"
+#include "ng/engine/util/debug.hpp"
 
 #include <cstdarg>
 #include <mutex>

@@ -1,23 +1,23 @@
-#include "ng/engine/window.hpp"
-#include "ng/engine/glcontext.hpp"
-#include "ng/engine/windowmanager.hpp"
-#include "ng/engine/windowevent.hpp"
-#include "ng/engine/renderer.hpp"
-#include "ng/engine/profiler.hpp"
-#include "ng/engine/debug.hpp"
-#include "ng/engine/staticmesh.hpp"
-#include "ng/engine/vertexformat.hpp"
-#include "ng/engine/shaderprogram.hpp"
+#include "ng/engine/window/window.hpp"
+#include "ng/engine/window/glcontext.hpp"
+#include "ng/engine/window/windowmanager.hpp"
+#include "ng/engine/window/windowevent.hpp"
+#include "ng/engine/rendering/renderer.hpp"
+#include "ng/engine/util/profiler.hpp"
+#include "ng/engine/util/debug.hpp"
+#include "ng/engine/rendering/staticmesh.hpp"
+#include "ng/engine/rendering/vertexformat.hpp"
+#include "ng/engine/rendering/shaderprogram.hpp"
 
-#include "ng/framework/renderobjectmanager.hpp"
-#include "ng/framework/renderobjectnode.hpp"
-#include "ng/framework/camera.hpp"
-#include "ng/framework/gridmesh.hpp"
-#include "ng/framework/uvsphere.hpp"
-#include "ng/framework/linestrip.hpp"
-#include "ng/framework/cubemesh.hpp"
-#include "ng/framework/catmullromspline.hpp"
-#include "ng/engine/constants.hpp"
+#include "ng/framework/scenegraph/scenegraph.hpp"
+#include "ng/framework/scenegraph/renderobjectnode.hpp"
+#include "ng/framework/scenegraph/camera.hpp"
+#include "ng/framework/scenegraph/gridmesh.hpp"
+#include "ng/framework/scenegraph/uvsphere.hpp"
+#include "ng/framework/scenegraph/linestrip.hpp"
+#include "ng/framework/scenegraph/cubemesh.hpp"
+#include "ng/framework/animation/catmullromspline.hpp"
+#include "ng/engine/math/constants.hpp"
 
 #include <chrono>
 #include <vector>
@@ -112,7 +112,7 @@ int main() try
     renderState.ActivatedParameters.set(ng::RenderState::Activate_PolygonMode);
 
     // prepare the scene
-    ng::RenderObjectManager roManager;
+    ng::SceneGraph roManager;
 
     std::shared_ptr<ng::Camera> camera = std::make_shared<ng::Camera>();
     std::shared_ptr<ng::CameraNode> cameraNode = std::make_shared<ng::CameraNode>(camera);

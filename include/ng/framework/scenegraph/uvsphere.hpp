@@ -1,24 +1,31 @@
-#ifndef NG_CUBEMESH_HPP
-#define NG_CUBEMESH_HPP
+#ifndef NG_UVSPHERE_HPP
+#define NG_UVSPHERE_HPP
 
-#include "ng/framework/renderobject.hpp"
+#include "ng/framework/scenegraph/renderobject.hpp"
 
 namespace ng
 {
 
-class IStaticMesh;
 class IRenderer;
+class IStaticMesh;
 
-class CubeMesh : public IRenderObject
+class UVSphere : public IRenderObject
 {
     std::shared_ptr<IStaticMesh> mMesh;
 
-    float mSideLength = 0.0f;
+    int mNumRings = 0;
+    int mNumSegments = 0;
+    float mRadius = 0.0f;
 
 public:
-    CubeMesh(std::shared_ptr<IRenderer> renderer);
+    UVSphere(std::shared_ptr<IRenderer> renderer);
 
-    void Init(float sideLength);
+    void Init(int numRings, int numSegments, float radius);
+
+    float GetRadius() const
+    {
+        return mRadius;
+    }
 
     AxisAlignedBoundingBox<float> GetLocalBoundingBox() const override;
 
@@ -40,4 +47,4 @@ public:
 
 } // end namespace ng
 
-#endif // NG_CUBEMESH_HPP
+#endif // NG_UVSPHERE_HPP

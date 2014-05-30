@@ -1,4 +1,4 @@
-#include "ng/engine/windowmanager.hpp"
+#include "ng/engine/window/windowmanager.hpp"
 
 #ifdef NG_USE_X11
 #include "ng/engine/x11/xwindow.hpp"

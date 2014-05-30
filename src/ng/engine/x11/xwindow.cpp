@@ -1,11 +1,11 @@
 #include "ng/engine/x11/xwindow.hpp"
 
-#include "ng/engine/window.hpp"
-#include "ng/engine/glcontext.hpp"
-#include "ng/engine/windowmanager.hpp"
-#include "ng/engine/windowevent.hpp"
+#include "ng/engine/window/window.hpp"
+#include "ng/engine/window/glcontext.hpp"
+#include "ng/engine/window/windowmanager.hpp"
+#include "ng/engine/window/windowevent.hpp"
 
-#include "ng/engine/debug.hpp"
+#include "ng/engine/util/debug.hpp"
 
 #include <X11/X.h>
 #include <X11/Xlib.h>

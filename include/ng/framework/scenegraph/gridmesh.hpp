@@ -1,10 +1,10 @@
 #ifndef NG_GRIDMESH_HPP
 #define NG_GRIDMESH_HPP
 
-#include "ng/framework/renderobject.hpp"
+#include "ng/framework/scenegraph/renderobject.hpp"
 
-#include "ng/engine/uniform.hpp"
-#include "ng/engine/linearalgebra.hpp"
+#include "ng/engine/rendering/uniform.hpp"
+#include "ng/engine/math/linearalgebra.hpp"
 
 #include <memory>
 #include <map>
@@ -37,8 +37,8 @@ public:
 
     AxisAlignedBoundingBox<float> GetLocalBoundingBox() const override;
 
-    RenderObjectPass PreUpdate(std::chrono::milliseconds deltaTime,
-                               RenderObjectNode& node) override
+    RenderObjectPass PreUpdate(std::chrono::milliseconds,
+                               RenderObjectNode&) override
     {
         return RenderObjectPass::Continue;
     }

@@ -1,7 +1,7 @@
 #ifndef NG_GEOMETRY_HPP
 #define NG_GEOMETRY_HPP
 
-#include "ng/engine/linearalgebra.hpp"
+#include "ng/engine/math/linearalgebra.hpp"
 
 #include <limits>
 

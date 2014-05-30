@@ -1,7 +1,7 @@
-#ifndef NG_RENDEROBJECTMANAGER_HPP
-#define NG_RENDEROBJECTMANAGER_HPP
+#ifndef NG_SCENEGRAPH_HPP
+#define NG_SCENEGRAPH_HPP
 
-#include "ng/engine/linearalgebra.hpp"
+#include "ng/engine/math/linearalgebra.hpp"
 
 #include <memory>
 #include <vector>
@@ -15,7 +15,7 @@ class IShaderProgram;
 class RenderState;
 class CameraNode;
 
-class RenderObjectManager
+class SceneGraph
 {
     std::shared_ptr<CameraNode> mCurrentCamera;
 
@@ -38,4 +38,4 @@ public:
 
 } // end namespace ng
 
-#endif // NG_RENDEROBJECTMANAGER_HPP
+#endif // NG_SCENEGRAPH_HPP

@@ -1,10 +1,10 @@
 #ifndef NG_LINESTRIP_HPP
 #define NG_LINESTRIP_HPP
 
-#include "ng/framework/renderobject.hpp"
+#include "ng/framework/scenegraph/renderobject.hpp"
 
-#include "ng/engine/geometry.hpp"
-#include "ng/engine/linearalgebra.hpp"
+#include "ng/engine/math/geometry.hpp"
+#include "ng/engine/math/linearalgebra.hpp"
 
 #include <vector>
 

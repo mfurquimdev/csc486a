@@ -1,7 +1,7 @@
 #ifndef NG_VERTEXFORMAT_HPP
 #define NG_VERTEXFORMAT_HPP
 
-#include "ng/engine/arithmetictype.hpp"
+#include "ng/engine/util/arithmetictype.hpp"
 
 #include <cstddef>
 #include <map>

@@ -1,10 +1,10 @@
 #ifndef NG_GLOBJECT_HPP
 #define NG_GLOBJECT_HPP
 
-#include "ng/engine/staticmesh.hpp"
-#include "ng/engine/shaderprogram.hpp"
+#include "ng/engine/rendering/staticmesh.hpp"
+#include "ng/engine/rendering/shaderprogram.hpp"
 
-#include "ng/engine/vertexformat.hpp"
+#include "ng/engine/rendering/vertexformat.hpp"
 
 #include <GL/gl.h>
 

@@ -1,7 +1,7 @@
 #ifndef NG_RENDERSTATE_HPP
 #define NG_RENDERSTATE_HPP
 
-#include "ng/engine/linearalgebra.hpp"
+#include "ng/engine/math/linearalgebra.hpp"
 
 #include <bitset>
 

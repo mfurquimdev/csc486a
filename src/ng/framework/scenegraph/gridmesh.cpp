@@ -1,9 +1,9 @@
-#include "ng/framework/gridmesh.hpp"
+#include "ng/framework/scenegraph/gridmesh.hpp"
 
-#include "ng/engine/renderer.hpp"
-#include "ng/engine/staticmesh.hpp"
+#include "ng/engine/rendering/renderer.hpp"
+#include "ng/engine/rendering/staticmesh.hpp"
 
-#include "ng/framework/renderobjectnode.hpp"
+#include "ng/framework/scenegraph/renderobjectnode.hpp"
 
 #include <vector>
 

@@ -1,7 +1,7 @@
 #ifndef NG_RENDEROBJECT_HPP
 #define NG_RENDEROBJECT_HPP
 
-#include "ng/engine/geometry.hpp"
+#include "ng/engine/math/geometry.hpp"
 
 #include <chrono>
 #include <map>

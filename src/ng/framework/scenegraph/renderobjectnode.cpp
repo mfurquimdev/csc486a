@@ -1,7 +1,7 @@
-#include "ng/framework/renderobjectnode.hpp"
+#include "ng/framework/scenegraph/renderobjectnode.hpp"
 
-#include "ng/framework/renderobject.hpp"
-#include "ng/engine/geometry.hpp"
+#include "ng/framework/scenegraph/renderobject.hpp"
+#include "ng/engine/math/geometry.hpp"
 
 namespace ng
 {

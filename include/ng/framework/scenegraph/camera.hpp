@@ -1,10 +1,10 @@
 #ifndef NG_CAMERA_HPP
 #define NG_CAMERA_HPP
 
-#include "ng/framework/renderobjectnode.hpp"
-#include "ng/framework/renderobject.hpp"
+#include "ng/framework/scenegraph/renderobjectnode.hpp"
+#include "ng/framework/scenegraph/renderobject.hpp"
 
-#include "ng/engine/linearalgebra.hpp"
+#include "ng/engine/math/linearalgebra.hpp"
 
 namespace ng
 {
@@ -15,7 +15,7 @@ protected:
     bool mIsCurrentCamera;
 
 public:
-    friend class RenderObjectManager;
+    friend class SceneGraph;
 };
 
 class Camera : public RenderObjectManagerCameraHelper, public IRenderObject
