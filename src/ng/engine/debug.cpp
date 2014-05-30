@@ -2,6 +2,7 @@
 
 #include <cstdarg>
 #include <mutex>
+#include <cstdio>
 
 namespace ng
 {

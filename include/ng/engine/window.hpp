@@ -7,7 +7,7 @@ namespace ng
 {
 
 class IGLContext;
-class VideoFlags;
+struct VideoFlags;
 
 class IWindow
 {

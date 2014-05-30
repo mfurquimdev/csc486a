@@ -6,6 +6,7 @@
 #include <type_traits>
 #include <limits>
 #include <stdexcept>
+#include <algorithm>
 
 namespace ng
 {
