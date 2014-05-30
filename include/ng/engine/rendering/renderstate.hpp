@@ -15,8 +15,9 @@ enum class PolygonMode
     Fill
 };
 
-struct RenderState
+class RenderState
 {
+public:
     enum ActiveParamMask
     {
         Activate_DepthTestEnabled,

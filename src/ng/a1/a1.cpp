@@ -1,3 +1,4 @@
+#include "ng/engine/app.hpp"
 #include "ng/engine/window/window.hpp"
 #include "ng/engine/window/glcontext.hpp"
 #include "ng/engine/window/windowmanager.hpp"
@@ -66,97 +67,46 @@ void RebuildCatmullRomSpline(int numDivisions, const ng::CatmullRomSpline<float>
     }
 }
 
-int main() try
+class A1 : public ng::IApp
 {
-    // set up rendering
-    std::shared_ptr<ng::IWindowManager> windowManager = ng::CreateWindowManager();
-    std::shared_ptr<ng::IWindow> window = windowManager->CreateWindow("Splines", 640, 480, 0, 0, ng::VideoFlags());
-    std::shared_ptr<ng::IRenderer> renderer = ng::CreateRenderer(windowManager, window);
-
-    static const char* vsrc = "#version 130\n"
-                              "uniform mat4 uModelView; uniform mat4 uProjection;"
-                              "in vec4 iPosition;"
-                              "out vec3 fViewPosition;"
-                              "void main() {"
-                              "    fViewPosition = vec3(uModelView * iPosition);"
-                              "    gl_Position = uProjection * uModelView * iPosition;"
-                              "}";
-
-    static const char* fsrc = "#version 130\n"
-                              "uniform vec4 uTint;"
-                              "in vec3 fViewPosition;"
-                              "out vec4 oColor;"
-                              "void main() {"
-                              "    oColor = uTint * pow(20.0f / length(fViewPosition),2);"
-                              "}";
-
-    std::shared_ptr<ng::IShaderProgram> program = renderer->CreateShaderProgram();
-
-    program->Init(std::shared_ptr<const char>(vsrc, [](const char*){}),
-                  std::shared_ptr<const char>(fsrc, [](const char*){}),
-                  true);
-
-    auto status = program->GetStatus();
-    if (!status.first)
-    {
-        ng::DebugPrintf("Status error: %s\n", status.second.c_str());
-        return -1;
-    }
-
+public:
+    std::shared_ptr<ng::IWindowManager> windowManager;
+    std::shared_ptr<ng::IWindow> window;
+    std::shared_ptr<ng::IRenderer> renderer;
+    std::shared_ptr<ng::IShaderProgram> program;
     ng::RenderState renderState;
-
-    renderState.DepthTestEnabled = true;
-    renderState.ActivatedParameters.set(ng::RenderState::Activate_DepthTestEnabled);
-
-    renderState.PolygonMode = ng::PolygonMode::Line;
-    renderState.ActivatedParameters.set(ng::RenderState::Activate_PolygonMode);
-
-    // prepare the scene
     ng::SceneGraph roManager;
 
-    std::shared_ptr<ng::Camera> camera = std::make_shared<ng::Camera>();
-    std::shared_ptr<ng::CameraNode> cameraNode = std::make_shared<ng::CameraNode>(camera);
-    cameraNode->SetPerspectiveProjection(70.0f, (float) window->GetWidth() / window->GetHeight(), 0.1f, 1000.0f);
-    ng::vec3 eyePosition{ 10.0f, 10.0f, 10.0f };
-    ng::vec3 eyeTarget{ 0.0f, 0.0f, 0.0f };
-    ng::vec3 eyeUpVector{ 0.0f, 1.0f, 0.0f };
-    cameraNode->SetLookAt(eyePosition, eyeTarget, eyeUpVector);
-    cameraNode->SetViewport(0, 0, window->GetWidth(), window->GetHeight());
-    roManager.SetCurrentCamera(cameraNode);
+    std::shared_ptr<ng::Camera> camera;
+    std::shared_ptr<ng::CameraNode> cameraNode;
+    ng::vec3 eyePosition;
+    ng::vec3 eyeTarget;
+    ng::vec3 eyeUpVector;
 
-    std::shared_ptr<ng::GridMesh> gridMesh = std::make_shared<ng::GridMesh>(renderer);
-    gridMesh->Init(20, 20, ng::vec2(1.0f));
-    std::shared_ptr<ng::RenderObjectNode> gridNode = std::make_shared<ng::RenderObjectNode>(gridMesh);
-    gridNode->SetLocalTransform(ng::Translate(-gridNode->GetLocalBoundingBox().GetCenter()));
-    cameraNode->AdoptChild(gridNode);
+    std::shared_ptr<ng::GridMesh> gridMesh;
+    std::shared_ptr<ng::RenderObjectNode> gridNode;
 
-    std::shared_ptr<ng::LineStrip> lineStrip = std::make_shared<ng::LineStrip>(renderer);
-    std::shared_ptr<ng::RenderObjectNode> lineStripNode = std::make_shared<ng::RenderObjectNode>(lineStrip);
-    cameraNode->AdoptChild(lineStripNode);
+    std::shared_ptr<ng::LineStrip> lineStrip;
+    std::shared_ptr<ng::RenderObjectNode> lineStripNode;
 
     ng::CatmullRomSpline<float> catmullRomSpline;
-    std::shared_ptr<ng::LineStrip> catmullRomStrip = std::make_shared<ng::LineStrip>(renderer);
-    std::shared_ptr<ng::RenderObjectNode> catmullStripNode = std::make_shared<ng::RenderObjectNode>(catmullRomStrip);
-    cameraNode->AdoptChild(catmullStripNode);
+    std::shared_ptr<ng::LineStrip> catmullRomStrip;
+    std::shared_ptr<ng::RenderObjectNode> catmullStripNode;
 
-    std::shared_ptr<ng::RenderObjectNode> controlPointGroupNode = std::make_shared<ng::RenderObjectNode>();
-    cameraNode->AdoptChild(controlPointGroupNode);
+    std::shared_ptr<ng::RenderObjectNode> controlPointGroupNode;
 
-    std::shared_ptr<ng::CubeMesh> selectorCube = std::make_shared<ng::CubeMesh>(renderer);
-    std::shared_ptr<ng::RenderObjectNode> selectorCubeNode = std::make_shared<ng::RenderObjectNode>(selectorCube);
-    selectorCubeNode->Hide();
+    std::shared_ptr<ng::CubeMesh> selectorCube;
+    std::shared_ptr<ng::RenderObjectNode> selectorCubeNode;
 
-    std::shared_ptr<ng::UVSphere> splineRider = std::make_shared<ng::UVSphere>(renderer);
-    splineRider->Init(5, 3, 0.6f);
-    std::shared_ptr<ng::RenderObjectNode> splineRiderNode = std::make_shared<ng::RenderObjectNode>(splineRider);
-    cameraNode->AdoptChild(splineRiderNode);
-    splineRiderNode->Hide();
-    float splineRiderT = 0.0f;
-    float splineRiderTSpeed = 3.0f; // units per second
+    std::shared_ptr<ng::UVSphere> splineRider;
+    std::shared_ptr<ng::RenderObjectNode> splineRiderNode;
 
-    int numSplineDivisions = 10;
+    float splineRiderT;
+    float splineRiderTSpeed;
 
-    bool isSelectedNodeBeingDragged = false;
+    int numSplineDivisions;
+
+    bool isSelectedNodeBeingDragged;
 
     enum class ControlMode
     {
@@ -165,20 +115,107 @@ int main() try
         EaseInEaseOut
     };
 
-    ControlMode currentControlMode = ControlMode::Parametric;
+    ControlMode currentControlMode;
 
-    // do an initial update to get things going
-    roManager.Update(std::chrono::milliseconds(0));
-
-    // initialize time stuff
     std::chrono::time_point<std::chrono::high_resolution_clock> now, then;
-    then = std::chrono::high_resolution_clock::now();
-    std::chrono::milliseconds lag(0);
-    const std::chrono::milliseconds fixedUpdateStep(1000/60);
+    std::chrono::milliseconds lag;
+    std::chrono::milliseconds fixedUpdateStep;
 
     ng::Profiler renderProfiler;
 
-    while (true)
+    void Init() override
+    {
+        // set up rendering
+        windowManager = ng::CreateWindowManager();
+        window = windowManager->CreateWindow("Splines", 640, 480, 0, 0, ng::VideoFlags());
+        renderer = ng::CreateRenderer(windowManager, window);
+
+        static const char* vsrc = "#version 130\n"
+                                  "uniform mat4 uModelView; uniform mat4 uProjection;"
+                                  "in vec4 iPosition;"
+                                  "out vec3 fViewPosition;"
+                                  "void main() {"
+                                  "    fViewPosition = vec3(uModelView * iPosition);"
+                                  "    gl_Position = uProjection * uModelView * iPosition;"
+                                  "}";
+
+        static const char* fsrc = "#version 130\n"
+                                  "uniform vec4 uTint;"
+                                  "in vec3 fViewPosition;"
+                                  "out vec4 oColor;"
+                                  "void main() {"
+                                  "    oColor = uTint * pow(20.0f / length(fViewPosition),2);"
+                                  "}";
+
+        program = renderer->CreateShaderProgram();
+
+        program->Init(std::shared_ptr<const char>(vsrc, [](const char*){}),
+                      std::shared_ptr<const char>(fsrc, [](const char*){}),
+                      true);
+
+
+        renderState.DepthTestEnabled = true;
+        renderState.ActivatedParameters.set(ng::RenderState::Activate_DepthTestEnabled);
+
+        renderState.PolygonMode = ng::PolygonMode::Line;
+        renderState.ActivatedParameters.set(ng::RenderState::Activate_PolygonMode);
+
+        // prepare the scene
+
+        camera = std::make_shared<ng::Camera>();
+        cameraNode = std::make_shared<ng::CameraNode>(camera);
+        cameraNode->SetPerspectiveProjection(70.0f, (float) window->GetWidth() / window->GetHeight(), 0.1f, 1000.0f);
+        eyePosition = { 10.0f, 10.0f, 10.0f };
+        eyeTarget = { 0.0f, 0.0f, 0.0f };
+        eyeUpVector = { 0.0f, 1.0f, 0.0f };
+        cameraNode->SetLookAt(eyePosition, eyeTarget, eyeUpVector);
+        cameraNode->SetViewport(0, 0, window->GetWidth(), window->GetHeight());
+        roManager.SetCurrentCamera(cameraNode);
+
+        gridMesh = std::make_shared<ng::GridMesh>(renderer);
+        gridMesh->Init(20, 20, ng::vec2(1.0f));
+        gridNode = std::make_shared<ng::RenderObjectNode>(gridMesh);
+        gridNode->SetLocalTransform(ng::Translate(-gridNode->GetLocalBoundingBox().GetCenter()));
+        cameraNode->AdoptChild(gridNode);
+
+        lineStrip = std::make_shared<ng::LineStrip>(renderer);
+        lineStripNode = std::make_shared<ng::RenderObjectNode>(lineStrip);
+        cameraNode->AdoptChild(lineStripNode);
+
+        catmullRomStrip = std::make_shared<ng::LineStrip>(renderer);
+        catmullStripNode = std::make_shared<ng::RenderObjectNode>(catmullRomStrip);
+        cameraNode->AdoptChild(catmullStripNode);
+
+        controlPointGroupNode = std::make_shared<ng::RenderObjectNode>();
+        cameraNode->AdoptChild(controlPointGroupNode);
+
+        selectorCube = std::make_shared<ng::CubeMesh>(renderer);
+        selectorCubeNode = std::make_shared<ng::RenderObjectNode>(selectorCube);
+        selectorCubeNode->Hide();
+
+        splineRider = std::make_shared<ng::UVSphere>(renderer);
+        splineRider->Init(5, 3, 0.6f);
+        splineRiderNode = std::make_shared<ng::RenderObjectNode>(splineRider);
+        cameraNode->AdoptChild(splineRiderNode);
+        splineRiderNode->Hide();
+        splineRiderT = 0.0f;
+        splineRiderTSpeed = 3.0f; // units per second
+
+        numSplineDivisions = 10;
+        isSelectedNodeBeingDragged = false;
+
+        currentControlMode = ControlMode::Parametric;
+
+        // do an initial update to get things going
+        roManager.Update(std::chrono::milliseconds(0));
+
+        // initialize time stuff
+        then = std::chrono::high_resolution_clock::now();
+        lag = std::chrono::milliseconds(0);
+        fixedUpdateStep = std::chrono::milliseconds(1000/60);
+    }
+
+    ng::AppStepAction Step() override
     {
         now = std::chrono::high_resolution_clock::now();
         std::chrono::milliseconds dt = std::chrono::duration_cast<std::chrono::milliseconds>(now - then);
@@ -192,7 +229,7 @@ int main() try
             {
                 ng::DebugPrintf("Time spent rendering clientside: %lfms\n", renderProfiler.GetTotalTimeMS());
                 ng::DebugPrintf("Average clientside rendering time per frame: %lfms\n", renderProfiler.GetAverageTimeMS());
-                return 0;
+                return ng::AppStepAction::Quit;
             }
             else if (e.Type == ng::WindowEventType::MouseMotion)
             {
@@ -541,13 +578,15 @@ int main() try
         renderer->SwapBuffers();
 
         renderProfiler.Stop();
+
+        return ng::AppStepAction::Continue;
     }
-}
-catch (const std::exception& e)
+};
+
+namespace ng
 {
-    ng::DebugPrintf("Caught fatal exception: %s\n", e.what());
-}
-catch (...)
-{
-    ng::DebugPrintf("Caught fatal unknown exception.");
-}
+    std::unique_ptr<ng::IApp> CreateApp()
+    {
+        return std::unique_ptr<ng::IApp>(new A1());
+    }
+} // end namespace ng

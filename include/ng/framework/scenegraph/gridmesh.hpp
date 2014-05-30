@@ -15,7 +15,7 @@ namespace ng
 class IRenderer;
 class IStaticMesh;
 class IShaderProgram;
-struct RenderState;
+class RenderState;
 
 class GridMesh : public IRenderObject
 {

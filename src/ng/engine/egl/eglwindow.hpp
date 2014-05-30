@@ -1,10 +1,7 @@
 #ifndef NG_EGLWINDOW_HPP
 #define NG_EGLWINDOW_HPP
 
-#include <EGL/eglplatform.h>
-
-namespace ng
-{
+#include <EGL/egl.h>
 
 #include <memory>
 

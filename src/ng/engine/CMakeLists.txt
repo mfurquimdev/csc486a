@@ -10,16 +10,8 @@ find_package(Threads REQUIRED)
 
 find_package(OpenGL)
 
-if(NOT OPENGL_FOUND)
-    message("WARNING: OpenGL not found")
-endif()
-
 if(NG_USE_X11)
     find_package(X11)
-
-    if(NOT X11_FOUND)
-        message("WARNING: X11 not found")
-    endif()
 endif()
 
 if(NG_USE_EMSCRIPTEN)

@@ -1,9 +1,6 @@
 #ifndef NG_EMSCRIPTENWINDOW_HPP
 #define NG_EMSCRIPTENWINDOW_HPP
 
-namespace ng
-{
-
 #include <memory>
 
 namespace ng

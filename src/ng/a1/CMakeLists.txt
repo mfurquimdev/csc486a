@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 2.6)
 
 project(a1 CXX)
 
-set(SOURCES
-    main.cpp)
+file(GLOB_RECURSE SOURCES
+    **.cpp)
 
 include_directories(${NG_INCLUDE_DIR} ${NG_SRC_DIR})
 

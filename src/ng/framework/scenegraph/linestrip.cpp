@@ -63,10 +63,12 @@ RenderObjectPass LineStrip::Draw(
             });
 
         std::unique_ptr<vec3[]> vertexBuffer(new vec3[mPoints.size()]);
-        std::copy(mPoints.begin(), mPoints.end(), &vertexBuffer[0]);
+        std::shared_ptr<std::vector<vec3>> pVertexBuffer(new std::vector<vec3>(mPoints.size()));
+        std::copy(mPoints.begin(), mPoints.end(), pVertexBuffer->data());
 
         mMesh->Init(vertexFormat, {
-                        { VertexAttributeName::Position, { std::move(vertexBuffer), mPoints.size() * sizeof(vec3) } }
+                        { VertexAttributeName::Position, { std::shared_ptr<const void>(pVertexBuffer->data(), [pVertexBuffer](const void*){}),
+                                                           mPoints.size() * sizeof(vec3) } }
                     }, nullptr, 0, mPoints.size());
 
         mIsMeshDirty = false;

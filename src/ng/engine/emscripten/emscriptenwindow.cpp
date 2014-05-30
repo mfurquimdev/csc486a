@@ -27,6 +27,7 @@ public:
     bool PollEvent(WindowEvent& we) override
     {
         // TODO: Somehow grab events from javascript
+        return false;
     }
 
     std::shared_ptr<IGLContext> CreateContext(const VideoFlags& flags,

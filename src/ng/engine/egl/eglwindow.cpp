@@ -1,5 +1,7 @@
 #include "ng/engine/egl/eglwindow.hpp"
 
+#include "ng/engine/window/glcontext.hpp"
+#include "ng/engine/window/window.hpp"
 #include "ng/engine/window/windowmanager.hpp"
 
 #include <EGL/egl.h>
@@ -92,10 +94,10 @@ public:
 
     void SwapBuffers() override
     {
-        eglSwapBuffers(mDisplay->mDisplay, mSurface);
+        eglSwapBuffers(mDisplay, mSurface);
     }
 
-    void GetSize(int* width, int* height) const override
+    void GetSize(int*, int*) const override
     {
         throw std::logic_error("EGL does not support GetSize()");
     }
@@ -171,13 +173,13 @@ public:
 
     void* GetProcAddress(const char* proc) override
     {
-        return eglGetProcAddress(proc);
+        return (void*) eglGetProcAddress(proc);
     }
 };
 
 class ngEWindowManager : public IWindowManager
 {
-    EGLDisplay mDisplay;
+    ngEGLDisplay mDisplay;
     EGLNativeWindowType mNativeWindow;
 
 public:
@@ -202,10 +204,10 @@ public:
         };
     }
 
-    static EGLConfig GetBestEGLConfig(EGLDisplay* display, const EGLint* attribList)
+    static EGLConfig GetBestEGLConfig(EGLDisplay display, const EGLint* attribList)
     {
         EGLint numConfigs;
-        if (eglGetConfigs(mDisplay.mHandle, NULL, 0, &numConfigs) == EGL_FALSE)
+        if (eglGetConfigs(display, NULL, 0, &numConfigs) == EGL_FALSE)
         {
             CheckEGLErrors();
         }
@@ -213,7 +215,7 @@ public:
         std::vector<EGLConfig> configs(numConfigs);
 
         EGLint numChosenConfigs;
-        if (eglChooseConfig(mDisplay.mHandle, attribList, configs.data(), configs.size(), &numChosenConfigs) == EGL_FALSE)
+        if (eglChooseConfig(display, attribList, configs.data(), configs.size(), &numChosenConfigs) == EGL_FALSE)
         {
             CheckEGLErrors();
         }
@@ -225,8 +227,8 @@ public:
             EGLint sampleBuffers;
             EGLint numSamples;
 
-            EGLBoolean sampleBufferStatus = eglGetConfigAttrib(mDisplay.mHandle, configs[i], EGL_SAMPLE_BUFFERS, &sampleBuffers);
-            EGLBoolean numSamplesStatus = eglGetConfigAttrib(mDisplay.mHandle, configs[i], GLX_SAMPLES, &numSamples);
+            EGLBoolean sampleBufferStatus = eglGetConfigAttrib(display, configs[i], EGL_SAMPLE_BUFFERS, &sampleBuffers);
+            EGLBoolean numSamplesStatus = eglGetConfigAttrib(display, configs[i], EGL_SAMPLES, &numSamples);
 
             if (sampleBufferStatus == EGL_FALSE || numSamplesStatus == EGL_FALSE)
             {
@@ -256,12 +258,12 @@ public:
         std::vector<EGLint> attribVector = VideoFlagsToAttribList(flags);
         EGLint* attribList = attribVector.data();
 
-        EGLConfig bestConfig = GetBestEGLConfig(mDisplay.mHandle, attribList);
+        EGLConfig bestConfig = GetBestEGLConfig(mDisplay.mDisplay, attribList);
 
-        return std::make_shared<ngEWindow>(flags, mDisplay.mHandle, bestConfig, mNativeWindow, NULL);
+        return std::make_shared<ngEWindow>(flags, mDisplay.mDisplay, bestConfig, mNativeWindow, nullptr);
     }
 
-    bool PollEvent(WindowEvent& we) override
+    bool PollEvent(WindowEvent&) override
     {
         throw std::logic_error("EWindowManager does not support PollEvent()");
     }
@@ -277,13 +279,13 @@ public:
         }
 
         std::vector<EGLint> configAttribVector = VideoFlagsToAttribList(flags);
-        EGLint* configAttribList = attribVector.data();
+        EGLint* configAttribList = configAttribVector.data();
 
-        EGLConfig bestConfig = GetBestEGLConfig(mDisplay.mHandle, configAttribList);
+        EGLConfig bestConfig = GetBestEGLConfig(mDisplay.mDisplay, configAttribList);
 
         const int contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2 };
 
-        return std::make_shared<ngEGLContext>(new ngEGLContext(mDisplay.mHandle, bestConfig, shareContext, contextAttribs));
+        return std::make_shared<ngEGLContext>(mDisplay.mDisplay, bestConfig, shareContext, contextAttribs);
     }
 
     void SetCurrentContext(std::shared_ptr<IWindow> window,
@@ -292,7 +294,7 @@ public:
         const ngEWindow& ewindow = static_cast<const ngEWindow&>(*window);
         const ngEGLContext& econtext = static_cast<const ngEGLContext&>(*context);
 
-        eglMakeCurrent(mDisplay.mHandle, ewindow.mSurface, ewindow.mSurface, econtext.mContext);
+        eglMakeCurrent(mDisplay.mDisplay, ewindow.mSurface, ewindow.mSurface, econtext.mContext);
     }
 };
 

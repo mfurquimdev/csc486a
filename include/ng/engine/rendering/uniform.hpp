@@ -57,8 +57,9 @@ struct ToUniformType<mat4>
     static const UniformType enum_value = UniformType::Mat4;
 };
 
-struct UniformValue
+class UniformValue
 {
+public:
     UniformType Type;
 
     union

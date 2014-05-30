@@ -22,7 +22,7 @@ void CubeMesh::Init(float sideLength)
 
     // http://codedot.livejournal.com/109158.html
     constexpr std::size_t numVertices = 14;
-    std::unique_ptr<vec3[]> vertexBuffer(new vec3[numVertices] {
+    std::shared_ptr<std::vector<vec3>> pVertexBuffer(new std::vector<vec3> {
         {   sideLength / 2, - sideLength / 2, - sideLength / 2 }, // A
         {   sideLength / 2, - sideLength / 2,   sideLength / 2 }, // B
         { - sideLength / 2, - sideLength / 2, - sideLength / 2 }, // C
@@ -40,7 +40,8 @@ void CubeMesh::Init(float sideLength)
     });
 
     mMesh->Init(cubeFormat, {
-                    { VertexAttributeName::Position, { std::move(vertexBuffer), numVertices * sizeof(vec3) } }
+                    { VertexAttributeName::Position, { std::shared_ptr<const void>(pVertexBuffer->data(), [pVertexBuffer](const void*){}),
+                                                       numVertices * sizeof(vec3) } }
                 }, nullptr, 0, numVertices);
 
     mSideLength = sideLength;
