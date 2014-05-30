@@ -11,7 +11,8 @@ namespace ng
 
 class IWindowManager;
 
-std::shared_ptr<IWindowManager> CreateEmscriptenWindowManager();
+// must pass in a WindowManager created by CreateEWindowManager()
+std::shared_ptr<IWindowManager> CreateEmscriptenWindowManager(std::shared_ptr<IWindowManager> eWindowManager);
 
 } // end namespace ng
 

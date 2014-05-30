@@ -1,6 +1,8 @@
 #ifndef NG_EGLWINDOW_HPP
 #define NG_EGLWINDOW_HPP
 
+#include <EGL/eglplatform.h>
+
 namespace ng
 {
 
@@ -11,7 +13,7 @@ namespace ng
 
 class IWindowManager;
 
-std::shared_ptr<IWindowManager> CreateEWindowManager();
+std::shared_ptr<IWindowManager> CreateEWindowManager(EGLNativeWindowType nativeWindow);
 
 } // end namespace ng
 

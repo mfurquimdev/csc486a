@@ -28,7 +28,7 @@ public:
 
     virtual std::shared_ptr<IWindow> CreateWindow(const char* title,
                                                   int width, int height,
-                                                  int, int y,
+                                                  int x, int y,
                                                   const VideoFlags& flags) = 0;
 
     virtual bool PollEvent(WindowEvent& we) = 0;

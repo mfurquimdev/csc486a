@@ -73,21 +73,21 @@ static void ngXLockedDelete(T* ptr)
     delete ptr;
 }
 
-class ngXGLContext : public IGLContext
+class ngGLXContext : public IGLContext
 {
 public:
     Display* mDisplay;
     GLXContext mHandle;
 
-    ngXGLContext(Display* dpy, GLXFBConfig config, GLXContext shareList)
+    ngGLXContext(Display* dpy, GLXFBConfig config, GLXContext shareList)
         : mDisplay(dpy)
     {
         using glXCreateContextAttribsARBProc = GLXContext(*)(Display*, GLXFBConfig, GLXContext, Bool, const int*);
 
         glXCreateContextAttribsARBProc glXCreateContextAttribsARB = 0;
-        glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc) GetProcAddress_NoLock("glXCreateContextAttribsARB");
+        glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc) GetProcAddress("glXCreateContextAttribsARB");
 
-        if (!IsExtensionSupported_NoLock("GLX_ARB_create_context") ||
+        if (!IsExtensionSupported("GLX_ARB_create_context") ||
             !glXCreateContextAttribsARB)
         {
             // glXCreateContextAttribsARB() not found
@@ -152,13 +152,15 @@ public:
         }
     }
 
-    ~ngXGLContext()
+    ~ngGLXContext()
     {
         glXDestroyContext(mDisplay, mHandle);
     }
 
-    bool IsExtensionSupported_NoLock(const char* extension)
+    bool IsExtensionSupported(const char* extension) override
     {
+        ngXPublicEntryScope entryScope;
+
         const char *extList = glXQueryExtensionsString(mDisplay, DefaultScreen(mDisplay));
 
         const char *start;
@@ -191,21 +193,10 @@ public:
         return false;
     }
 
-    bool IsExtensionSupported(const char* extension) override
-    {
-        ngXPublicEntryScope entryScope;
-        return IsExtensionSupported_NoLock(extension);
-    }
-
-    void* GetProcAddress_NoLock(const char *proc)
-    {
-        return (void*) glXGetProcAddressARB((const GLubyte*) proc);
-    }
-
     void* GetProcAddress(const char *proc) override
     {
         ngXPublicEntryScope entryScope;
-        return GetProcAddress_NoLock(proc);
+        return (void*) glXGetProcAddressARB((const GLubyte*) proc);
     }
 };
 
@@ -417,7 +408,6 @@ class ngXWindowManager : public IWindowManager
     };
 
     std::vector<WindowRecord> mWindows;
-    std::vector<std::weak_ptr<ngXGLContext>> mContexts;
 
     int mLastMouseX = -1;
     int mLastMouseY = -1;
@@ -511,6 +501,11 @@ public:
                     bestNumSamples = samples;
                 }
             }
+        }
+
+        if (bestFBCIndex == -1)
+        {
+            throw std::runtime_error("No best framebuffer configuration");
         }
 
         return fbc[bestFBCIndex];
@@ -919,27 +914,18 @@ public:
     {
         ngXPublicEntryScope entryScope;
 
-        std::vector<int> attribVector = VideoFlagsToAttribList(flags);
 
         GLXContext shareList = 0;
         if (sharedWith)
         {
-            const ngXGLContext& toShareWith = static_cast<const ngXGLContext&>(*sharedWith);
+            const ngGLXContext& toShareWith = static_cast<const ngGLXContext&>(*sharedWith);
             shareList = toShareWith.mHandle;
         }
 
+        std::vector<int> attribVector = VideoFlagsToAttribList(flags);
         GLXFBConfig bestFBC = GetBestFBConfig(mDisplay.mHandle, attribVector.data());
-        std::shared_ptr<ngXGLContext> context(new ngXGLContext(mDisplay.mHandle, bestFBC, shareList),
-                                              ngXLockedDelete<ngXGLContext>);
-
-        // take the opportunity to GC the contexts
-        mContexts.erase(std::remove_if(mContexts.begin(), mContexts.end(),
-                                      [](const std::weak_ptr<ngXGLContext>& pContext)
-        {
-            return pContext.expired();
-        }), mContexts.end());
-
-        mContexts.push_back(context);
+        std::shared_ptr<ngGLXContext> context(new ngGLXContext(mDisplay.mHandle, bestFBC, shareList),
+                                              ngXLockedDelete<ngGLXContext>);
 
         return context;
     }
@@ -950,7 +936,7 @@ public:
         ngXPublicEntryScope entryScope;
 
         const ngXWindow& xwindow = static_cast<const ngXWindow&>(*window);
-        const ngXGLContext& xcontext = static_cast<const ngXGLContext&>(*context);
+        const ngGLXContext& xcontext = static_cast<const ngGLXContext&>(*context);
 
         glXMakeCurrent(mDisplay.mHandle, xwindow.mWindow.mHandle, xcontext.mHandle);
     }
