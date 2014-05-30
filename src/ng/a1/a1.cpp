@@ -585,8 +585,10 @@ public:
 
 namespace ng
 {
-    std::unique_ptr<ng::IApp> CreateApp()
-    {
-        return std::unique_ptr<ng::IApp>(new A1());
-    }
+
+std::unique_ptr<ng::IApp> CreateApp()
+{
+    return std::unique_ptr<ng::IApp>(new A1());
+}
+
 } // end namespace ng
