@@ -117,16 +117,16 @@ std::pair<bool,std::string> OpenGLShaderProgram::GetStatus() const
     return status;
 }
 
-std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> OpenGLShaderProgram::GetFutureHandle() const
+OpenGLSharedFuture<std::shared_ptr<OpenGLShaderProgramHandle>> OpenGLShaderProgram::GetFutureHandle() const
 {
     return mProgram;
 }
 
 VertexArray::VertexArray(
     VertexFormat format,
-    std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArrayHandle,
-    std::map<VertexAttributeName, std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> attributeBuffers,
-    std::shared_future<std::shared_ptr<OpenGLBufferHandle>> indexBuffer,
+    OpenGLSharedFuture<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArrayHandle,
+    std::map<VertexAttributeName, OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>>> attributeBuffers,
+    OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>> indexBuffer,
     std::size_t vertexCount)
     : Format(std::move(format))
     , VertexArrayHandle(std::move(vertexArrayHandle))
@@ -157,19 +157,19 @@ void OpenGLStaticMesh::Init(
     }
 
     // upload vertexData
-    std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> vertexBuffers;
+    std::map<VertexAttributeName,OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>>> vertexBuffers;
     for (const auto& attrib : attributeDataAndSize)
     {
         const std::pair<std::shared_ptr<const void>,std::ptrdiff_t>& dataAndSize = attrib.second;
 
-        std::shared_future<std::shared_ptr<OpenGLBufferHandle>> buf = mRenderer->SendGenBuffer();
+        OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>> buf = mRenderer->SendGenBuffer();
         buf = mRenderer->SendBufferData(OpenGLRenderer::ResourceInstructionHandler, buf,
                                         GL_ARRAY_BUFFER, dataAndSize.second, dataAndSize.first, GL_STATIC_DRAW);
 
         vertexBuffers.emplace(attrib.first, std::move(buf));
     }
 
-    std::shared_future<std::shared_ptr<OpenGLBufferHandle>> indexBuffer;
+    OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>> indexBuffer;
 
     // upload indexData
     if (format.IsIndexed)
@@ -179,7 +179,7 @@ void OpenGLStaticMesh::Init(
                                   GL_ELEMENT_ARRAY_BUFFER, indexDataSize, indexData, GL_STATIC_DRAW);
     }
 
-    std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vao = mRenderer->SendGenVertexArray();
+    OpenGLSharedFuture<std::shared_ptr<OpenGLVertexArrayHandle>> vao = mRenderer->SendGenVertexArray();
     vao = mRenderer->SendSetVertexArrayLayout(vao, format, vertexBuffers, indexBuffer);
 
     mVertexArray = VertexArray(std::move(format), std::move(vao),

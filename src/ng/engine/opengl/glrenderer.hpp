@@ -22,6 +22,12 @@ class ResourceOpenGLThreadData;
 struct OpenGLInstruction;
 class VertexArray;
 
+enum class RenderingMode
+{
+    Synchronous,
+    Asynchronous
+};
+
 class OpenGLRenderer: public IRenderer, public std::enable_shared_from_this<OpenGLRenderer>
 {
 public:
@@ -32,6 +38,8 @@ public:
     };
 
 private:
+    RenderingMode mRenderingMode;
+
     std::shared_ptr<IWindow> mWindow;
     std::shared_ptr<IGLContext> mRenderingContext;
     std::shared_ptr<IGLContext> mResourceContext;
@@ -57,7 +65,8 @@ private:
 public:
     OpenGLRenderer(
             std::shared_ptr<IWindowManager> windowManager,
-            std::shared_ptr<IWindow> window);
+            std::shared_ptr<IWindow> window,
+            RenderingMode renderingMode);
 
     ~OpenGLRenderer();
 
@@ -65,52 +74,52 @@ public:
 
     void SendSwapBuffers();
 
-    std::future<std::shared_ptr<OpenGLBufferHandle>> SendGenBuffer();
+    OpenGLFuture<std::shared_ptr<OpenGLBufferHandle>> SendGenBuffer();
 
     void SendDeleteBuffer(GLuint buffer);
 
-    std::future<std::shared_ptr<OpenGLBufferHandle>> SendBufferData(
+    OpenGLFuture<std::shared_ptr<OpenGLBufferHandle>> SendBufferData(
             OpenGLInstructionHandler instructionHandler,
-            std::shared_future<std::shared_ptr<OpenGLBufferHandle>> bufferHandle,
+            OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>> bufferHandle,
             GLenum target,
             GLsizeiptr size,
             std::shared_ptr<const void> dataHandle,
             GLenum usage);
 
-    std::future<std::shared_ptr<OpenGLVertexArrayHandle>> SendGenVertexArray();
+    OpenGLFuture<std::shared_ptr<OpenGLVertexArrayHandle>> SendGenVertexArray();
 
     void SendDeleteVertexArray(GLuint vertexArray);
 
-    std::future<std::shared_ptr<OpenGLVertexArrayHandle>> SendSetVertexArrayLayout(
-            std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArrayHandle,
+    OpenGLFuture<std::shared_ptr<OpenGLVertexArrayHandle>> SendSetVertexArrayLayout(
+            OpenGLSharedFuture<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArrayHandle,
             VertexFormat format,
-            std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> attributeBuffers,
-            std::shared_future<std::shared_ptr<OpenGLBufferHandle>> indexBuffer);
+            std::map<VertexAttributeName,OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>>> attributeBuffers,
+            OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>> indexBuffer);
 
-    std::future<std::shared_ptr<OpenGLShaderHandle>> SendGenShader(GLenum shaderType);
+    OpenGLFuture<std::shared_ptr<OpenGLShaderHandle>> SendGenShader(GLenum shaderType);
 
     void SendDeleteShader(GLuint shader);
 
-    std::future<std::shared_ptr<OpenGLShaderHandle>> SendCompileShader(
-            std::shared_future<std::shared_ptr<OpenGLShaderHandle>> shaderHandle,
+    OpenGLFuture<std::shared_ptr<OpenGLShaderHandle>> SendCompileShader(
+            OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>> shaderHandle,
             std::shared_ptr<const char> shaderSource);
 
-    std::future<std::pair<bool,std::string>> SendGetShaderStatus(std::shared_future<std::shared_ptr<OpenGLShaderHandle>> shader);
+    OpenGLFuture<std::pair<bool,std::string>> SendGetShaderStatus(OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>> shader);
 
-    std::future<std::shared_ptr<OpenGLShaderProgramHandle>> SendGenShaderProgram();
+    OpenGLFuture<std::shared_ptr<OpenGLShaderProgramHandle>> SendGenShaderProgram();
 
     void SendDeleteShaderProgram(GLuint program);
 
-    std::future<std::shared_ptr<OpenGLShaderProgramHandle>> SendLinkProgram(
-            std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> programHandle,
-            std::shared_future<std::shared_ptr<OpenGLShaderHandle>> vertexShaderHandle,
-            std::shared_future<std::shared_ptr<OpenGLShaderHandle>> fragmentShaderHandle);
+    OpenGLFuture<std::shared_ptr<OpenGLShaderProgramHandle>> SendLinkProgram(
+            OpenGLSharedFuture<std::shared_ptr<OpenGLShaderProgramHandle>> programHandle,
+            OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>> vertexShaderHandle,
+            OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>> fragmentShaderHandle);
 
-    std::future<std::pair<bool,std::string>> SendGetProgramStatus(std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> program);
+    OpenGLFuture<std::pair<bool,std::string>> SendGetProgramStatus(OpenGLSharedFuture<std::shared_ptr<OpenGLShaderProgramHandle>> program);
 
     void SendDrawVertexArray(
-            std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArray,
-            std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> program,
+            OpenGLSharedFuture<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArray,
+            OpenGLSharedFuture<std::shared_ptr<OpenGLShaderProgramHandle>> program,
             std::map<std::string, UniformValue> uniforms,
             RenderState renderState,
             GLenum mode,

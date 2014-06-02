@@ -1,4 +1,5 @@
 #include "ng/engine/app.hpp"
+#include "ng/engine/util/debug.hpp"
 
 #ifdef NG_USE_EMSCRIPTEN
 #include <emscripten.h>
@@ -7,7 +8,7 @@
 static std::unique_ptr<ng::IApp> gApp;
 ng::AppStepAction gAppAction;
 
-static void step()
+static void step() try
 {
     if (gApp)
     {
@@ -18,8 +19,12 @@ static void step()
         gAppAction = ng::AppStepAction::Quit;
     }
 }
+catch (const std::exception& e)
+{
+    ng::DebugPrintf("Caught top level App Step error:\n%s\n", e.what());
+}
 
-int main()
+int main() try
 {
     gApp = ng::CreateApp();
     gApp->Init();
@@ -36,4 +41,8 @@ int main()
         }
     }
 #endif
+}
+catch (const std::exception& e)
+{
+    ng::DebugPrintf("Caught top level App Init error:\n%s\n", e.what());
 }

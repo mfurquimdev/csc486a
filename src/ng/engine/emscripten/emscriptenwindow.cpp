@@ -4,8 +4,42 @@
 
 #include "ng/engine/egl/eglwindow.hpp"
 
+#include "ng/engine/window/window.hpp"
+
 namespace ng
 {
+
+class EmscriptenWindow : public IWindow
+{
+public:
+    std::shared_ptr<IWindow> mEWindow;
+
+    EmscriptenWindow(std::shared_ptr<IWindow> eWindow)
+        : mEWindow(eWindow)
+    { }
+
+    void SwapBuffers() override
+    {
+        mEWindow->SwapBuffers();
+    }
+
+    void GetSize(int* width, int* height) const override
+    {
+        // fudged for now
+        if (width) *width = 640;
+        if (height) *height = 480;
+    }
+
+    void SetTitle(const char* title) override
+    {
+        // do nothing for now
+    }
+
+    const VideoFlags& GetVideoFlags() const override
+    {
+        return mEWindow->GetVideoFlags();
+    }
+};
 
 class EmscriptenWindowManager : public IWindowManager
 {
@@ -21,7 +55,8 @@ public:
                                           int x, int y,
                                           const VideoFlags& flags) override
     {
-        return mEWindowManager->CreateWindow(title, width, height, x, y, flags);
+        return std::make_shared<EmscriptenWindow>(
+                    mEWindowManager->CreateWindow(title, width, height, x, y, flags));
     }
 
     bool PollEvent(WindowEvent& we) override
@@ -39,10 +74,10 @@ public:
     void SetCurrentContext(std::shared_ptr<IWindow> window,
                            std::shared_ptr<IGLContext> context) override
     {
-        mEWindowManager->SetCurrentContext(window, context);
+        const std::shared_ptr<IWindow>& eWindow = static_cast<const EmscriptenWindow&>(*window).mEWindow;
+        mEWindowManager->SetCurrentContext(eWindow, context);
     }
 };
-
 
 std::shared_ptr<IWindowManager> CreateEmscriptenWindowManager(std::shared_ptr<IWindowManager> eWindowManager)
 {

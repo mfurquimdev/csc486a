@@ -4,19 +4,11 @@ project(engine CXX)
 
 option(NG_USE_X11 "Use X11 for window creation" ON)
 option(NG_USE_EGL "Use EGL for OpenGL context creation" OFF)
-option(NG_USE_EMSCRIPTEN "Hook up the main loop as a web browser callback for Emscripten" OFF)
-
-find_package(Threads REQUIRED)
-
-find_package(OpenGL)
-
-if(NG_USE_X11)
-    find_package(X11)
-endif()
+option(NG_USE_EMSCRIPTEN "Build with the quirks necessary to run the app in Emscripten" OFF)
 
 if(NG_USE_EMSCRIPTEN)
     if(NOT NG_USE_EGL)
-        message("WARNING: Trying to compile for Emscripten without EGL. Self-correcting this mistake.")
+        message("Enabling EGL since we're compiling for Emscripten")
         set(NG_USE_EGL ON)
     endif()
 endif()
@@ -38,11 +30,21 @@ file(GLOB_RECURSE OPENGL_SOURCES
 
 set(SOURCES ${COMMON_SOURCES})
 
-set(LIBS ${OPENGL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+set(LIBS "")
+
+find_package(OpenGL)
+set(LIBS ${LIBS} ${OPENGL_LIBRARIES})
+
+# emscripten does not support pthreads. :/
+if(NOT NG_USE_EMSCRIPTEN)
+    find_package(Threads REQUIRED)
+    set(LIBS ${LIBS} ${CMAKE_THREAD_LIBS_INIT})
+endif()
 
 set(SOURCES ${SOURCES} ${OPENGL_SOURCES})
 
 if(NG_USE_X11)
+    find_package(X11)
     set(SOURCES ${SOURCES} ${X11_SOURCES})
     set(LIBS ${LIBS} ${X11_LIBRARIES})
     add_definitions(-DNG_USE_X11)
@@ -51,15 +53,15 @@ else()
 endif()
 
 if(NG_USE_EGL)
-    add_definitions(-DNG_USE_EGL)
     set(SOURCES ${SOURCES} ${EGL_SOURCES})
+    add_definitions(-DNG_USE_EGL)
 else()
     set(UNUSED_SOURCES ${UNUSED_SOURCES} ${EGL_SOURCES})
 endif()
 
 if(NG_USE_EMSCRIPTEN)
-    add_definitions(-DNG_USE_EMSCRIPTEN)
     set(SOURCES ${SOURCES} ${EMSCRIPTEN_SOURCES})
+    add_definitions(-DNG_USE_EMSCRIPTEN)
 else()
     set(UNUSED_SOURCES ${UNUSED_SOURCES} ${EMSCRIPTEN_SOURCES})
 endif()

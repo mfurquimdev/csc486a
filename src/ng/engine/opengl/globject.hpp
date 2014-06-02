@@ -6,6 +6,8 @@
 
 #include "ng/engine/rendering/vertexformat.hpp"
 
+#include "ng/engine/util/synchronousfuture.hpp"
+
 #include <GL/gl.h>
 
 #include <memory>
@@ -14,6 +16,23 @@
 
 namespace ng
 {
+
+// hack job to make emscripten work, since it doesn't like std promise/future
+#ifdef NG_USE_EMSCRIPTEN
+template<class T>
+using OpenGLFuture = synchronous_future<T>;
+template<class T>
+using OpenGLSharedFuture = synchronous_shared_future<T>;
+template<class T>
+using OpenGLPromise = synchronous_promise<T>;
+#else
+template<class T>
+using OpenGLFuture = std::future<T>;
+template<class T>
+using OpenGLSharedFuture = std::shared_future<T>;
+template<class T>
+using OpenGLPromise = std::promise<T>;
+#endif
 
 class OpenGLRenderer;
 
@@ -130,9 +149,9 @@ class OpenGLShaderProgram : public IShaderProgram
 {
     std::shared_ptr<OpenGLRenderer> mRenderer;
 
-    std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> mProgram;
-    std::shared_future<std::shared_ptr<OpenGLShaderHandle>> mVertexShader;
-    std::shared_future<std::shared_ptr<OpenGLShaderHandle>> mFragmentShader;
+    OpenGLSharedFuture<std::shared_ptr<OpenGLShaderProgramHandle>> mProgram;
+    OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>> mVertexShader;
+    OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>> mFragmentShader;
 
 public:
     OpenGLShaderProgram(std::shared_ptr<OpenGLRenderer> renderer);
@@ -143,7 +162,7 @@ public:
 
     std::pair<bool,std::string> GetStatus() const override;
 
-    std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>> GetFutureHandle() const;
+    OpenGLSharedFuture<std::shared_ptr<OpenGLShaderProgramHandle>> GetFutureHandle() const;
 };
 
 class VertexArray
@@ -151,10 +170,10 @@ class VertexArray
 public:
     VertexFormat Format;
 
-    std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> VertexArrayHandle;
+    OpenGLSharedFuture<std::shared_ptr<OpenGLVertexArrayHandle>> VertexArrayHandle;
 
-    std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> AttributeBuffers;
-    std::shared_future<std::shared_ptr<OpenGLBufferHandle>> IndexBuffer;
+    std::map<VertexAttributeName,OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>>> AttributeBuffers;
+    OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>> IndexBuffer;
 
     std::size_t VertexCount = 0;
 
@@ -162,9 +181,9 @@ public:
 
     VertexArray(
         VertexFormat format,
-        std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArrayHandle,
-        std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> attributeBuffers,
-        std::shared_future<std::shared_ptr<OpenGLBufferHandle>> indexBuffer,
+        OpenGLSharedFuture<std::shared_ptr<OpenGLVertexArrayHandle>> vertexArrayHandle,
+        std::map<VertexAttributeName,OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>>> attributeBuffers,
+        OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>> indexBuffer,
         std::size_t vertexCount);
 };
 

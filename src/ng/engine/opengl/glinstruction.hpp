@@ -104,7 +104,7 @@ enum class OpenGLOpCode : OpenGLInstruction::OpCodeType
     //         * acts as glClear.
     GenBuffer,
     // params:
-    //         0) std::promise<std::shared_ptr<OpenGLBufferHandle>>* bufferPromise
+    //         0) OpenGLPromise<std::shared_ptr<OpenGLBufferHandle>>* bufferPromise
     // notes:
     //         * the promised OpenGLBufferHandle will be created by glGenBuffers.
     //         * will release ownership of bufferPromise (ie. delete bufferPromise.)
@@ -116,8 +116,8 @@ enum class OpenGLOpCode : OpenGLInstruction::OpCodeType
     //         * buffer will be deleted with glDeleteBuffers.
     BufferData,
     // params:
-    //         0) std::promise<std::shared_ptr<OpenGLBufferHandle>>* bufferDataPromise
-    //         1) std::shared_future<std::shared_ptr<OpenGLBufferHandle>>* bufferHandle
+    //         0) OpenGLPromise<std::shared_ptr<OpenGLBufferHandle>>* bufferDataPromise
+    //         1) OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>>* bufferHandle
     //         2) GLenum target
     //         3) GLsizeiptr size
     //         4) std::shared_ptr<const void>* dataHandle
@@ -131,7 +131,7 @@ enum class OpenGLOpCode : OpenGLInstruction::OpCodeType
     //         * will release ownership of the bufferDataPromise (ie. delete bufferDataPromise.)
     GenVertexArray,
     // params:
-    //         0) std::promise<std::shared_ptr<OpenGLVertexArrayHandle>>* vertexArrayPromise
+    //         0) OpenGLPromise<std::shared_ptr<OpenGLVertexArrayHandle>>* vertexArrayPromise
     // notes:
     //         * warning: vertex array objects cannot be shared between GL contexts.
     //         * the promised OpenGLVertexArrayHandle will be created by glGenVertexArrays.
@@ -145,11 +145,11 @@ enum class OpenGLOpCode : OpenGLInstruction::OpCodeType
     //         * vao will be deleted with glDeleteVertexArrays.
     SetVertexArrayLayout,
     // params:
-    //         0) std::promise<std::shared_ptr<OpenGLVertexArrayHandle>>* vertexArrayLayoutPromise
-    //         1) std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>* vertexArrayHandle
+    //         0) OpenGLPromise<std::shared_ptr<OpenGLVertexArrayHandle>>* vertexArrayLayoutPromise
+    //         1) OpenGLSharedFuture<std::shared_ptr<OpenGLVertexArrayHandle>>* vertexArrayHandle
     //         2) VertexFormat* format
-    //         3) std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>>* attributeBuffers
-    //         4) std::shared_future<std::shared_ptr<OpenGLBufferHandle>>* indexBuffer
+    //         3) std::map<VertexAttributeName,OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>>>* attributeBuffers
+    //         4) OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>>* indexBuffer
     // notes:
     //         * warning: vertex array objects cannot be shared between GL contexts.
     //         * will setup the layout of the promised vertex array.
@@ -159,7 +159,7 @@ enum class OpenGLOpCode : OpenGLInstruction::OpCodeType
     //         * will release ownership of vertexArrayPromise (ie. delete vertexArrayPromise)
     GenShader,
     // params:
-    //         0) std::promise<std::shared_ptr<OpenGLShaderHandle>>* shaderPromise
+    //         0) OpenGLPromise<std::shared_ptr<OpenGLShaderHandle>>* shaderPromise
     //         1) GLenum shaderType
     // notes:
     //         * the promised OpenGLShaderHandle will be created by glCreateShader(shaderType).
@@ -172,8 +172,8 @@ enum class OpenGLOpCode : OpenGLInstruction::OpCodeType
     //         * shader will be deleted with glDeleteShader.
     CompileShader,
     // params:
-    //         0) std::promise<std::shared_ptr<OpenGLShaderHandle>>* compiledShaderPromise
-    //         1) std::shared_future<std::shared_ptr<OpenGLShaderHandle>>* shaderHandle
+    //         0) OpenGLPromise<std::shared_ptr<OpenGLShaderHandle>>* compiledShaderPromise
+    //         1) OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>>* shaderHandle
     //         2) std::shared_ptr<const char>* sourceHandle
     // notes:
     //         * will fulfill the promise of a compiled shader.
@@ -183,15 +183,15 @@ enum class OpenGLOpCode : OpenGLInstruction::OpCodeType
     //         * will release ownership of the compiledShaderPromise (ie. delete compiledShaderPromise.)
     ShaderStatus,
     // params:
-    //         0) std::promise<std::pair<bool,std::string>>* statusPromise
-    //         1) std::shared_future<std::shared_ptr<OpenGLShaderHandle>>* shaderHandle
+    //         0) OpenGLPromise<std::pair<bool,std::string>>* statusPromise
+    //         1) OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>>* shaderHandle
     // notes:
     //         * gets the status of the shader and stores it in the promise.
     //         * will release ownership of the shaderHandle (ie. delete shaderHandle.)
     //         * will release ownership of the statusPromise (ie. delete statusPromise.)
     GenShaderProgram,
     // params:
-    //         0) std::promise<std::shared_ptr<OpenGLShaderProgramHandle>>* shaderProgramPromise
+    //         0) OpenGLPromise<std::shared_ptr<OpenGLShaderProgramHandle>>* shaderProgramPromise
     // notes:
     //         * the promised OpenGLShaderProgramHandle will be created by glCreateProgram.
     //         * will release ownership of the shaderProgramPromise (ie. delete shaderProgramPromise.)
@@ -203,10 +203,10 @@ enum class OpenGLOpCode : OpenGLInstruction::OpCodeType
     //         * program will be deleted with glDeleteProgram.
     LinkShaderProgram,
     // params:
-    //         0) std::promise<std::shared_ptr<OpenGLShaderProgramHandle>>* linkedProgramPromise
-    //         1) std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>* shaderProgramHandle
-    //         2) std::shared_future<std::shared_ptr<OpenGLShaderHandle>>* vertexShaderHandle
-    //         3) std::shared_future<std::shared_ptr<OpenGLShaderHandle>>* fragmentShaderHandle
+    //         0) OpenGLPromise<std::shared_ptr<OpenGLShaderProgramHandle>>* linkedProgramPromise
+    //         1) OpenGLSharedFuture<std::shared_ptr<OpenGLShaderProgramHandle>>* shaderProgramHandle
+    //         2) OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>>* vertexShaderHandle
+    //         3) OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>>* fragmentShaderHandle
     // notes:
     //         * will fulfill the promise of a linked program.
     //         * will attach and link the vertex and fragment shaders to the program.
@@ -216,15 +216,15 @@ enum class OpenGLOpCode : OpenGLInstruction::OpCodeType
     //         * will release ownership of linkedProgramPromise (ie. delete linkedProgramPromise)
     ShaderProgramStatus,
     // params:
-    //         0) std::promise<std::pair<bool,std::string>>* statusPromise
-    //         1) std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>* shaderProgramHandle
+    //         0) OpenGLPromise<std::pair<bool,std::string>>* statusPromise
+    //         1) OpenGLSharedFuture<std::shared_ptr<OpenGLShaderProgramHandle>>* shaderProgramHandle
     // notes:
     //         * gets the status of the shader and stores it in the promise.
     //         * will release ownership of the shaderProgramHandle (ie. delete shaderProgramHandle.)
     //         * will release ownership of the statusPromise (ie. delete statusPromise.)
     DrawVertexArray,
-    //         0) std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>* vertexArrayHandle
-    //         1) std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>* programHandle
+    //         0) OpenGLSharedFuture<std::shared_ptr<OpenGLVertexArrayHandle>>* vertexArrayHandle
+    //         1) OpenGLSharedFuture<std::shared_ptr<OpenGLShaderProgramHandle>>* programHandle
     //         2) std::map<std::string,UniformValue>* uniforms
     //         3) RenderState* renderState
     //         4) GLenum mode
@@ -299,17 +299,17 @@ struct SizedOpenGLInstruction
 template<class HandleType, OpenGLOpCode OpCode>
 struct GenResourceOpCodeParams
 {
-    std::unique_ptr<std::promise<std::shared_ptr<HandleType>>> Promise;
+    std::unique_ptr<OpenGLPromise<std::shared_ptr<HandleType>>> Promise;
 
     bool AutoCleanup;
 
-    GenResourceOpCodeParams(std::unique_ptr<std::promise<std::shared_ptr<HandleType>>> promise, bool autoCleanup)
+    GenResourceOpCodeParams(std::unique_ptr<OpenGLPromise<std::shared_ptr<HandleType>>> promise, bool autoCleanup)
         : Promise(std::move(promise))
         , AutoCleanup(autoCleanup)
     { }
 
     GenResourceOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup)
-        : Promise(reinterpret_cast<std::promise<std::shared_ptr<HandleType>>*>(inst.Params[0]))
+        : Promise(reinterpret_cast<OpenGLPromise<std::shared_ptr<HandleType>>*>(inst.Params[0]))
         , AutoCleanup(autoCleanup)
     { }
 
@@ -332,13 +332,13 @@ struct GenResourceOpCodeParams
 template<class HandleType, OpenGLOpCode OpCode>
 struct StatusOpCodeParams
 {
-    std::unique_ptr<std::promise<std::pair<bool,std::string>>> Promise;
-    std::unique_ptr<std::shared_future<std::shared_ptr<HandleType>>> Handle;
+    std::unique_ptr<OpenGLPromise<std::pair<bool,std::string>>> Promise;
+    std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<HandleType>>> Handle;
 
     bool AutoCleanup;
 
-    StatusOpCodeParams(std::unique_ptr<std::promise<std::pair<bool,std::string>>> promise,
-                       std::unique_ptr<std::shared_future<std::shared_ptr<HandleType>>> handle,
+    StatusOpCodeParams(std::unique_ptr<OpenGLPromise<std::pair<bool,std::string>>> promise,
+                       std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<HandleType>>> handle,
                        bool autoCleanup)
         : Promise(std::move(promise))
         , Handle(std::move(handle))
@@ -346,8 +346,8 @@ struct StatusOpCodeParams
     { }
 
     StatusOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup)
-        : Promise(reinterpret_cast<std::promise<std::pair<bool,std::string>>*>(inst.Params[0]))
-        , Handle(reinterpret_cast<std::shared_future<std::shared_ptr<HandleType>>*>(inst.Params[1]))
+        : Promise(reinterpret_cast<OpenGLPromise<std::pair<bool,std::string>>*>(inst.Params[0]))
+        , Handle(reinterpret_cast<OpenGLSharedFuture<std::shared_ptr<HandleType>>*>(inst.Params[1]))
         , AutoCleanup(autoCleanup)
     { }
 
@@ -405,8 +405,8 @@ using DeleteBufferOpCodeParams = DeleteResourceOpCodeParams<OpenGLOpCode::Delete
 
 struct BufferDataOpCodeParams
 {
-    std::unique_ptr<std::promise<std::shared_ptr<OpenGLBufferHandle>>> BufferDataPromise;
-    std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> BufferHandle;
+    std::unique_ptr<OpenGLPromise<std::shared_ptr<OpenGLBufferHandle>>> BufferDataPromise;
+    std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>>> BufferHandle;
     GLenum Target;
     GLsizeiptr Size;
     std::unique_ptr<std::shared_ptr<const void>> DataHandle;
@@ -415,8 +415,8 @@ struct BufferDataOpCodeParams
     bool AutoCleanup;
 
     BufferDataOpCodeParams(
-            std::unique_ptr<std::promise<std::shared_ptr<OpenGLBufferHandle>>> bufferDataPromise,
-            std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> bufferHandle,
+            std::unique_ptr<OpenGLPromise<std::shared_ptr<OpenGLBufferHandle>>> bufferDataPromise,
+            std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>>> bufferHandle,
             GLenum target,
             GLsizeiptr size,
             std::unique_ptr<std::shared_ptr<const void>> dataHandle,
@@ -435,20 +435,20 @@ using DeleteVertexArrayOpCodeParams = DeleteResourceOpCodeParams<OpenGLOpCode::D
 
 struct SetVertexArrayLayoutOpCodeParams
 {
-    std::unique_ptr<std::promise<std::shared_ptr<OpenGLVertexArrayHandle>>> VertexArrayPromise;
-    std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>> VertexArrayHandle;
+    std::unique_ptr<OpenGLPromise<std::shared_ptr<OpenGLVertexArrayHandle>>> VertexArrayPromise;
+    std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLVertexArrayHandle>>> VertexArrayHandle;
     std::unique_ptr<VertexFormat> Format;
-    std::unique_ptr<std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>>> AttributeBuffers;
-    std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> IndexBuffer;
+    std::unique_ptr<std::map<VertexAttributeName,OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>>>> AttributeBuffers;
+    std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>>> IndexBuffer;
 
     bool AutoCleanup;
 
     SetVertexArrayLayoutOpCodeParams(
-            std::unique_ptr<std::promise<std::shared_ptr<OpenGLVertexArrayHandle>>>  vertexArrayPromise,
-            std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>> vertexArrayHandle,
+            std::unique_ptr<OpenGLPromise<std::shared_ptr<OpenGLVertexArrayHandle>>>  vertexArrayPromise,
+            std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLVertexArrayHandle>>> vertexArrayHandle,
             std::unique_ptr<VertexFormat> format,
-            std::unique_ptr<std::map<VertexAttributeName,std::shared_future<std::shared_ptr<OpenGLBufferHandle>>>> attributeBuffers,
-            std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLBufferHandle>>> indexBuffer,
+            std::unique_ptr<std::map<VertexAttributeName,OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>>>> attributeBuffers,
+            std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>>> indexBuffer,
             bool autoCleanup);
 
     SetVertexArrayLayoutOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup);
@@ -460,13 +460,13 @@ struct SetVertexArrayLayoutOpCodeParams
 
 struct GenShaderOpCodeParams
 {
-    std::unique_ptr<std::promise<std::shared_ptr<OpenGLShaderHandle>>> ShaderPromise;
+    std::unique_ptr<OpenGLPromise<std::shared_ptr<OpenGLShaderHandle>>> ShaderPromise;
     GLenum ShaderType;
 
     bool AutoCleanup;
 
     GenShaderOpCodeParams(
-            std::unique_ptr<std::promise<std::shared_ptr<OpenGLShaderHandle>>> shaderPromise,
+            std::unique_ptr<OpenGLPromise<std::shared_ptr<OpenGLShaderHandle>>> shaderPromise,
             GLenum shaderType, bool autoCleanup);
 
     GenShaderOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup);
@@ -480,15 +480,15 @@ using DeleteShaderOpCodeParams = DeleteResourceOpCodeParams<OpenGLOpCode::Delete
 
 struct CompileShaderOpCodeParams
 {
-    std::unique_ptr<std::promise<std::shared_ptr<OpenGLShaderHandle>>> CompiledShaderPromise;
-    std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>> ShaderHandle;
+    std::unique_ptr<OpenGLPromise<std::shared_ptr<OpenGLShaderHandle>>> CompiledShaderPromise;
+    std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>>> ShaderHandle;
     std::unique_ptr<std::shared_ptr<const char>> SourceHandle;
 
     bool AutoCleanup;
 
     CompileShaderOpCodeParams(
-            std::unique_ptr<std::promise<std::shared_ptr<OpenGLShaderHandle>>> compiledShaderPromise,
-            std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>> shaderHandle,
+            std::unique_ptr<OpenGLPromise<std::shared_ptr<OpenGLShaderHandle>>> compiledShaderPromise,
+            std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>>> shaderHandle,
             std::unique_ptr<std::shared_ptr<const char>> sourceHandle,
             bool autoCleanup);
 
@@ -506,18 +506,18 @@ using DeleteShaderProgramOpCodeParams = DeleteResourceOpCodeParams<OpenGLOpCode:
 
 struct LinkShaderProgramOpCodeParams
 {
-    std::unique_ptr<std::promise<std::shared_ptr<OpenGLShaderProgramHandle>>> LinkedProgramPromise;
-    std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>> ShaderProgramHandle;
-    std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>> VertexShaderHandle;
-    std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>> FragmentShaderHandle;
+    std::unique_ptr<OpenGLPromise<std::shared_ptr<OpenGLShaderProgramHandle>>> LinkedProgramPromise;
+    std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLShaderProgramHandle>>> ShaderProgramHandle;
+    std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>>> VertexShaderHandle;
+    std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>>> FragmentShaderHandle;
 
     bool AutoCleanup;
 
     LinkShaderProgramOpCodeParams(
-            std::unique_ptr<std::promise<std::shared_ptr<OpenGLShaderProgramHandle>>> linkedProgramPromise,
-            std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>> shaderProgramHandle,
-            std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>> vertexShaderHandle,
-            std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderHandle>>> fragmentShaderHandle,
+            std::unique_ptr<OpenGLPromise<std::shared_ptr<OpenGLShaderProgramHandle>>> linkedProgramPromise,
+            std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLShaderProgramHandle>>> shaderProgramHandle,
+            std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>>> vertexShaderHandle,
+            std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLShaderHandle>>> fragmentShaderHandle,
             bool autoCleanup);
 
     LinkShaderProgramOpCodeParams(const OpenGLInstruction& inst, bool autoCleanup);
@@ -531,8 +531,8 @@ using ShaderProgramStatusOpCodeParams = StatusOpCodeParams<OpenGLShaderProgramHa
 
 struct DrawVertexArrayOpCodeParams
 {
-    std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>> VertexArrayHandle;
-    std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>> ProgramHandle;
+    std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLVertexArrayHandle>>> VertexArrayHandle;
+    std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLShaderProgramHandle>>> ProgramHandle;
     std::unique_ptr<std::map<std::string,UniformValue>> Uniforms;
     std::unique_ptr<RenderState> State;
     GLenum Mode;
@@ -544,8 +544,8 @@ struct DrawVertexArrayOpCodeParams
     bool AutoCleanup;
 
     DrawVertexArrayOpCodeParams(
-            std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLVertexArrayHandle>>> vertexArrayHandle,
-            std::unique_ptr<std::shared_future<std::shared_ptr<OpenGLShaderProgramHandle>>> programHandle,
+            std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLVertexArrayHandle>>> vertexArrayHandle,
+            std::unique_ptr<OpenGLSharedFuture<std::shared_ptr<OpenGLShaderProgramHandle>>> programHandle,
             std::unique_ptr<std::map<std::string,UniformValue>> uniforms,
             std::unique_ptr<RenderState> state,
             GLenum mode,

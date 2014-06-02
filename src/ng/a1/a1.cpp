@@ -130,29 +130,28 @@ public:
         window = windowManager->CreateWindow("Splines", 640, 480, 0, 0, ng::VideoFlags());
         renderer = ng::CreateRenderer(windowManager, window);
 
-        static const char* vsrc = "#version 130\n"
-                                  "uniform mat4 uModelView; uniform mat4 uProjection;"
-                                  "in vec4 iPosition;"
-                                  "out vec3 fViewPosition;"
-                                  "void main() {"
-                                  "    fViewPosition = vec3(uModelView * iPosition);"
-                                  "    gl_Position = uProjection * uModelView * iPosition;"
-                                  "}";
+        static const char* vsrc = "#version 100\n"
+                                  "uniform highp mat4 uModelView;\n"
+                                  "uniform highp mat4 uProjection;\n"
+                                  "attribute highp vec4 iPosition;\n"
+                                  "varying highp vec3 fViewPosition;\n"
+                                  "void main() {\n"
+                                  "    fViewPosition = vec3(uModelView * iPosition);\n"
+                                  "    gl_Position = uProjection * uModelView * iPosition;\n"
+                                  "}\n";
 
-        static const char* fsrc = "#version 130\n"
-                                  "uniform vec4 uTint;"
-                                  "in vec3 fViewPosition;"
-                                  "out vec4 oColor;"
-                                  "void main() {"
-                                  "    oColor = uTint * pow(20.0f / length(fViewPosition),2);"
-                                  "}";
+        static const char* fsrc = "#version 100\n"
+                                  "uniform lowp vec4 uTint;\n"
+                                  "varying highp vec3 fViewPosition;\n"
+                                  "void main() {\n"
+                                  "    gl_FragColor = uTint * pow(20.0 / length(fViewPosition), 2.0);\n"
+                                  "}\n";
 
         program = renderer->CreateShaderProgram();
 
         program->Init(std::shared_ptr<const char>(vsrc, [](const char*){}),
                       std::shared_ptr<const char>(fsrc, [](const char*){}),
                       true);
-
 
         renderState.DepthTestEnabled = true;
         renderState.ActivatedParameters.set(ng::RenderState::Activate_DepthTestEnabled);
