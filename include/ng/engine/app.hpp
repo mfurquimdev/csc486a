@@ -15,6 +15,8 @@ enum class AppStepAction
 class IApp
 {
 public:
+    virtual ~IApp() = default;
+
     virtual void Init() = 0;
     virtual AppStepAction Step() = 0;
 };

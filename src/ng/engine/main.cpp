@@ -5,7 +5,7 @@
 #include <emscripten.h>
 #endif
 
-static std::unique_ptr<ng::IApp> gApp;
+std::unique_ptr<ng::IApp> gApp;
 ng::AppStepAction gAppAction;
 
 static void step() try
@@ -13,6 +13,10 @@ static void step() try
     if (gApp)
     {
         gAppAction = gApp->Step();
+        if (gAppAction == ng::AppStepAction::Quit)
+        {
+            gApp.reset();
+        }
     }
     else
     {
@@ -27,7 +31,10 @@ catch (const std::exception& e)
 int main() try
 {
     gApp = ng::CreateApp();
-    gApp->Init();
+    if (gApp)
+    {
+        gApp->Init();
+    }
 
 #ifdef NG_USE_EMSCRIPTEN
     emscripten_set_main_loop(step, 60, 1);
