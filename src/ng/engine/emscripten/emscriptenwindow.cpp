@@ -6,6 +6,8 @@
 
 #include "ng/engine/window/window.hpp"
 
+#include <emscripten.h>
+
 namespace ng
 {
 
@@ -25,9 +27,7 @@ public:
 
     void GetSize(int* width, int* height) const override
     {
-        // fudged for now
-        if (width) *width = 640;
-        if (height) *height = 480;
+        emscripten_get_canvas_size(width, height, nullptr);
     }
 
     void SetTitle(const char* title) override
@@ -55,8 +55,11 @@ public:
                                           int x, int y,
                                           const VideoFlags& flags) override
     {
-        return std::make_shared<EmscriptenWindow>(
+
+        std::shared_ptr<IWindow> win = std::make_shared<EmscriptenWindow>(
                     mEWindowManager->CreateWindow(title, width, height, x, y, flags));
+        emscripten_set_canvas_size(width, height);
+        return win;
     }
 
     bool PollEvent(WindowEvent& we) override
