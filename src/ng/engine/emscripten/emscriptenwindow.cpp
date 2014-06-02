@@ -10,6 +10,7 @@
 #include <emscripten.h>
 
 #include <queue>
+#include <array>
 
 namespace ng
 {
@@ -53,8 +54,10 @@ extern "C" {
 void EMSCRIPTEN_KEEPALIVE OnEmKeyDown(int keyCode, int location);
 void EMSCRIPTEN_KEEPALIVE OnEmKeyUp(int keyCode, int location);
 
-void EMSCRIPTEN_KEEPALIVE OnEmMouseButtonDown(int button);
-void EMSCRIPTEN_KEEPALIVE OnEmMouseButtonUp(int button);
+void EMSCRIPTEN_KEEPALIVE OnEmMouseButtonDown(int button, int x, int y);
+void EMSCRIPTEN_KEEPALIVE OnEmMouseButtonUp(int button, int x, int y);
+
+void EMSCRIPTEN_KEEPALIVE OnEmMouseMotion(int x, int y);
 
 } // end extern "C"
 
@@ -66,6 +69,11 @@ class EmscriptenWindowManager : public IWindowManager
 
     int mWidth = 0;
     int mHeight = 0;
+
+    int mLastX = -1;
+    int mLastY = -1;
+
+    std::array<bool,int(MouseButton::NumButtons)> mButtonStates;
 
     std::queue<WindowEvent> mEventQueue;
 
@@ -80,13 +88,33 @@ public:
 
         gEmWindowManager = this;
 
+        std::fill(mButtonStates.begin(), mButtonStates.end(), false);
+
         // inline javascript to set up the event callbacks
         EM_ASM(
             OnEmKeyDown = Module.cwrap('OnEmKeyDown', 'void', ['number', 'number']);
             OnEmKeyUp = Module.cwrap('OnEmKeyUp', 'void', ['number', 'number']);
 
-            OnEmMouseButtonDown = Module.cwrap('OnEmMouseButtonDown', 'void', ['number']);
-            OnEmMouseButtonUp = Module.cwrap('OnEmMouseButtonUp', 'void', ['number']);
+            OnEmMouseButtonDown = Module.cwrap('OnEmMouseButtonDown', 'void', ['number','number','number']);
+            OnEmMouseButtonUp = Module.cwrap('OnEmMouseButtonUp', 'void', ['number','number','number']);
+
+            OnEmMouseMotion = Module.cwrap('OnEmMouseMotion', 'void', ['number', 'number']);
+
+            // copy and pasted from emscripten library_browser.js
+            function calculateMouseEvent (event) {
+                var rect = Module["canvas"].getBoundingClientRect();
+                var cw = Module["canvas"].width;
+                var ch = Module["canvas"].height;
+                var scrollX = ((typeof window.scrollX !== 'undefined') ? window.scrollX : window.pageXOffset);
+                var scrollY = ((typeof window.scrollY !== 'undefined') ? window.scrollY : window.pageYOffset);
+                var x = event.pageX - (scrollX + rect.left);
+                var y = event.pageY - (scrollY + rect.top);
+                var incanvas = x >= 0 && x <= rect.width &&
+                               y >= 0 && y <= rect.height;
+                x = x * (cw / rect.width);
+                y = y * (ch / rect.height);
+                return [x, y, incanvas];
+            }
 
             function receiveEvent(event) {
                 switch (event.type) {
@@ -99,19 +127,31 @@ public:
                     OnEmKeyUp(event.keyCode, event.location);
                     break;
                 case 'mousedown':
-                    OnEmMouseButtonDown(event.button);
+                    cursor = calculateMouseEvent(event);
+                    if (cursor[2]) {
+                        OnEmMouseButtonDown(event.button, cursor[0], cursor[1]);
+                    }
                     break;
                 case 'mouseup':
-                    OnEmMouseButtonUp(event.button);
+                    cursor = calculateMouseEvent(event);
+                    if (cursor[2]) {
+                        OnEmMouseButtonUp(event.button, cursor[0], cursor[1]);
+                    }
+                    break;
+                case 'mousemove':
+                    cursor = calculateMouseEvent(event);
+                    if (cursor[2]) {
+                        OnEmMouseMotion(cursor[0], cursor[1]);
+                    }
                     break;
                 default:
                     break;
                 }
             }
-            document.addEventListener('keydown', receiveEvent);
-            document.addEventListener('keyup', receiveEvent);
-            document.addEventListener('mousedown', receiveEvent);
-            document.addEventListener('mouseup', receiveEvent);
+
+            ['keydown', 'keyup', 'mousedown', 'mouseup', 'mousemove'].forEach(function (event) {
+                document.addEventListener(event, receiveEvent, true);
+            });
         );
     }
 
@@ -219,25 +259,42 @@ public:
     void OnKeyEvent(int keyCode, int location, KeyState state)
     {
         WindowEvent e;
-        e.KeyPress.Type = WindowEventType::KeyPress;
+        e.KeyPress.Type = state == KeyState::Pressed ? WindowEventType::KeyPress : WindowEventType::KeyRelease;
         e.KeyPress.State = state;
         e.KeyPress.Scancode = MapJSKeycodeToScancode(keyCode, location);
         mEventQueue.push(e);
     }
 
-    void OnMouseButtonEvent(int button, KeyState state)
+    void OnMouseButtonEvent(int button, int x, int y, KeyState state)
     {
         WindowEvent e;
         e.Button.Type = WindowEventType::MouseButton;
         e.Button.Button = MouseButton(button);
         e.Button.State = state;
 
-        // hack
-        e.Button.X = e.Button.Y = 0;
+        e.Button.X = x;
+        e.Button.Y = y;
 
-        // hack
-        std::fill(e.Button.ButtonStates, e.Button.ButtonStates + int(MouseButton::NumButtons), false);
-        e.Button.ButtonStates[button] = true;
+        mButtonStates[int(e.Button.Button)] = state == KeyState::Pressed;
+        std::copy(mButtonStates.begin(), mButtonStates.end(), e.Button.ButtonStates);
+
+        mEventQueue.push(e);
+    }
+
+    void OnMouseMotionEvent(int x, int y)
+    {
+        WindowEvent e;
+        e.Motion.Type = WindowEventType::MouseMotion;
+        e.Motion.OldX = mLastX == -1 ? x : mLastX;
+        e.Motion.OldY = mLastY == -1 ? y : mLastY;
+        e.Motion.X = x;
+        e.Motion.Y = y;
+        mLastX = x;
+        mLastY = y;
+
+        std::copy(mButtonStates.begin(), mButtonStates.end(), e.Motion.ButtonStates);
+
+        mEventQueue.push(e);
     }
 
     bool PollEvent(WindowEvent& we) override
@@ -297,14 +354,19 @@ void EMSCRIPTEN_KEEPALIVE OnEmKeyUp(int keyCode, int location)
     gEmWindowManager->OnKeyEvent(keyCode, location, KeyState::Released);
 }
 
-void EMSCRIPTEN_KEEPALIVE OnEmMouseButtonDown(int button)
+void EMSCRIPTEN_KEEPALIVE OnEmMouseButtonDown(int button, int x, int y)
 {
-    gEmWindowManager->OnMouseButtonEvent(button, KeyState::Pressed);
+    gEmWindowManager->OnMouseButtonEvent(button, x, y, KeyState::Pressed);
 }
 
-void EMSCRIPTEN_KEEPALIVE OnEmMouseButtonUp(int button)
+void EMSCRIPTEN_KEEPALIVE OnEmMouseButtonUp(int button, int x, int y)
 {
-    gEmWindowManager->OnMouseButtonEvent(button, KeyState::Released);
+    gEmWindowManager->OnMouseButtonEvent(button, x, y, KeyState::Released);
+}
+
+void EMSCRIPTEN_KEEPALIVE OnEmMouseMotion(int x, int y)
+{
+    gEmWindowManager->OnMouseMotionEvent(x, y);
 }
 
 } // end extern "C"

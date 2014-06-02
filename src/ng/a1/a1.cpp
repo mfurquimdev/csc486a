@@ -545,7 +545,8 @@ public:
                     splineParamValue = - 2 * normalizedT * normalizedT * normalizedT + 3 * normalizedT * normalizedT;
                 }
 
-                splineRiderNode->SetLocalTransform(ng::Translate(catmullRomSpline.CalculatePosition(segment, splineParamValue)));
+                ng::vec3 riderPos = catmullRomSpline.CalculatePosition(segment, splineParamValue);
+                splineRiderNode->SetLocalTransform(ng::Translate(riderPos));
             }
             else
             {
