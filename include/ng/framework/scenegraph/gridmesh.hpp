@@ -35,6 +35,21 @@ public:
         return { 0.0f, 1.0f, 0.0f };
     }
 
+    int GetNumColumns() const
+    {
+        return mNumColumns;
+    }
+
+    int GetNumRows() const
+    {
+        return mNumRows;
+    }
+
+    vec2 GetTileSize() const
+    {
+        return mTileSize;
+    }
+
     AxisAlignedBoundingBox<float> GetLocalBoundingBox() const override;
 
     RenderObjectPass PreUpdate(std::chrono::milliseconds,
