@@ -5,6 +5,8 @@ This is a 3D spline editor for the first assignment of csc486a.
 
 It was programmed using Xlib and OpenGL, therefore it currently only works on platforms which support the X11 window manager.
 
+I recently also added support for this project to be compiled with Emscripten, so it is available on the web here (Chrome recommended): http://nguillemot.github.io/a1.html
+
 This application makes use of a multi-threaded multi-contexted renderer written using C++11. The renderer has two threads: The rendering thread, and the resource thread. The rendering thread is double-buffered and the buffers are swapped at the end of each frame of rendering. The resource thread uses a semaphore to try to load resources (such as shaders of buffers) as soon as OpenGL makes it possible (this allows streaming 3D worlds without pausing gameplay).
 
 Most of the challenges of the assignments were solved using the scene graph in one way or another. For example, the selector is centered on the currently selected node by making itself a child of the node that was clicked on.
