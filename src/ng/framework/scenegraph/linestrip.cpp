@@ -56,30 +56,34 @@ RenderObjectPass LineStrip::Draw(
         const std::map<std::string, UniformValue>& uniforms,
         const RenderState& renderState)
 {
-    if (mIsMeshDirty)
+    if (mPoints.size() != 0)
     {
-        VertexFormat vertexFormat({
-                { VertexAttributeName::Position, VertexAttribute(3, ArithmeticType::Float, false, 0, 0) }
-            });
+        if (mIsMeshDirty)
+        {
+            VertexFormat vertexFormat({
+                    { VertexAttributeName::Position, VertexAttribute(3, ArithmeticType::Float, false, 0, 0) }
+                });
 
-        std::unique_ptr<vec3[]> vertexBuffer(new vec3[mPoints.size()]);
-        std::shared_ptr<std::vector<vec3>> pVertexBuffer(new std::vector<vec3>(mPoints.size()));
-        std::copy(mPoints.begin(), mPoints.end(), pVertexBuffer->data());
+            std::unique_ptr<vec3[]> vertexBuffer(new vec3[mPoints.size()]);
+            std::shared_ptr<std::vector<vec3>> pVertexBuffer(new std::vector<vec3>(mPoints.size()));
+            std::copy(mPoints.begin(), mPoints.end(), pVertexBuffer->data());
 
-        mMesh->Init(vertexFormat, {
-                        { VertexAttributeName::Position, { std::shared_ptr<const void>(pVertexBuffer->data(), [pVertexBuffer](const void*){}),
-                                                           mPoints.size() * sizeof(vec3) } }
-                    }, nullptr, 0, mPoints.size());
+            mMesh->Init(vertexFormat, {
+                            { VertexAttributeName::Position, { std::shared_ptr<const void>(pVertexBuffer->data(), [pVertexBuffer](const void*){}),
+                                                               mPoints.size() * sizeof(vec3) } }
+                        }, nullptr, 0, mPoints.size());
 
-        mIsMeshDirty = false;
+            mIsMeshDirty = false;
+        }
+
+        auto extraUniforms = uniforms;
+        extraUniforms.emplace("uTint", vec4(1,1,1,1));
+
+        mMesh->Draw(program, extraUniforms, renderState,
+                    PrimitiveType::LineStrip, 0, mMesh->GetVertexCount());
     }
 
-    auto extraUniforms = uniforms;
-    extraUniforms.emplace("uTint", vec4(1,1,1,1));
-
-    mMesh->Draw(program, extraUniforms, renderState,
-                PrimitiveType::LineStrip, 0, mMesh->GetVertexCount());
-
-    return RenderObjectPass::Continue;}
+    return RenderObjectPass::Continue;
+}
 
 } // end namespace ng

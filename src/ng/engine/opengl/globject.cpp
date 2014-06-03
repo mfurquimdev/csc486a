@@ -34,9 +34,11 @@ void VertexArrayPolicy::Release(OpenGLRenderer& renderer, GLuint handle)
     }
 }
 
-void VertexArrayPolicy::AddDependents(std::vector<std::shared_ptr<OpenGLBufferHandle>> dependents)
+void VertexArrayPolicy::AddDependents(std::vector<std::shared_ptr<OpenGLBufferHandle>> arrayBuffers,
+                                      std::shared_ptr<OpenGLBufferHandle> elementArrayBuffer)
 {
-    mDependentBuffers = std::move(dependents);
+    mArrayBuffers = std::move(arrayBuffers);
+    mElementArrayBuffer = std::move(elementArrayBuffer);
 }
 
 void ShaderProgramPolicy::Release(OpenGLRenderer& renderer, GLuint handle)

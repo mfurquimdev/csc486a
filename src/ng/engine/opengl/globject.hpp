@@ -37,7 +37,7 @@ using OpenGLPromise = std::promise<T>;
 class OpenGLRenderer;
 
 template<class ObjectPolicy>
-class OpenGLObject : private ObjectPolicy
+class OpenGLObject : public ObjectPolicy
 {
     OpenGLRenderer* mRenderer;
     GLuint mHandle = 0;
@@ -122,11 +122,18 @@ namespace openglobjectpolicies
 {
     class VertexArrayPolicy
     {
-        std::vector<std::shared_ptr<OpenGLBufferHandle>> mDependentBuffers;
+        std::vector<std::shared_ptr<OpenGLBufferHandle>> mArrayBuffers;
+        std::shared_ptr<OpenGLBufferHandle> mElementArrayBuffer;
 
     public:
         void Release(OpenGLRenderer& renderer, GLuint handle);
-        void AddDependents(std::vector<std::shared_ptr<OpenGLBufferHandle>> dependents);
+        void AddDependents(std::vector<std::shared_ptr<OpenGLBufferHandle>> arrayBuffers,
+                           std::shared_ptr<OpenGLBufferHandle> elementArrayBuffer);
+
+        const std::shared_ptr<OpenGLBufferHandle>& GetElementArrayBuffer() const
+        {
+            return mElementArrayBuffer;
+        }
     };
 
     class ShaderProgramPolicy

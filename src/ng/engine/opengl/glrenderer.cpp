@@ -717,7 +717,8 @@ std::shared_ptr<IShaderProgram> OpenGLRenderer::CreateShaderProgram()
 // for instructions that act the same way for both threads.
 static InstructionHandlerResponse HandleCommonInstruction(CommonOpenGLThreadData& threadData, const OpenGLInstruction& inst)
 {
-    switch (static_cast<OpenGLOpCode>(inst.OpCode))
+    OpenGLOpCode code = static_cast<OpenGLOpCode>(inst.OpCode);
+    switch (code)
     {
     case OpenGLOpCode::Clear: {
         ClearOpCodeParams params(inst);
@@ -727,6 +728,7 @@ static InstructionHandlerResponse HandleCommonInstruction(CommonOpenGLThreadData
         BufferDataOpCodeParams params(inst, true);
 
         glBindBuffer(params.Target, params.BufferHandle->get()->GetHandle());
+        FlushOpenGLErrors("glBindBuffer", code);
 
         if (glMapBuffer != nullptr)
         {
@@ -745,6 +747,7 @@ static InstructionHandlerResponse HandleCommonInstruction(CommonOpenGLThreadData
         {
             // glMapBuffer not supported, gotta do it the dumb way
             glBufferData(params.Target, params.Size, params.DataHandle->get(), params.Usage);
+            FlushOpenGLErrors("glBufferData", code);
         }
 
         params.BufferDataPromise->set_value(params.BufferHandle->get());
@@ -774,6 +777,7 @@ InstructionHandlerResponse HandleRenderingInstruction(RenderingOpenGLThreadData&
         GenVertexArrayOpCodeParams params(inst, true);
         GLuint handle;
         glGenVertexArrays(1, &handle);
+        FlushOpenGLErrors("glGenVertexArrays", code);
         params.Promise->set_value(std::make_shared<OpenGLVertexArrayHandle>(threadData.mRenderer, handle));
     } break;
     case OpenGLOpCode::DeleteVertexArray: {
@@ -803,13 +807,14 @@ InstructionHandlerResponse HandleRenderingInstruction(RenderingOpenGLThreadData&
             dependentBuffers.push_back(attribBufferPair.second.get());
         }
 
+        std::shared_ptr<OpenGLBufferHandle> ebo;
         if (params.IndexBuffer && params.IndexBuffer->valid())
         {
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, params.IndexBuffer->get()->GetHandle());
-            dependentBuffers.push_back(params.IndexBuffer->get());
+            ebo = params.IndexBuffer->get();
         }
 
-        params.VertexArrayHandle->get()->AddDependents(dependentBuffers);
+        params.VertexArrayHandle->get()->AddDependents(dependentBuffers, ebo);
 
         params.VertexArrayPromise->set_value(params.VertexArrayHandle->get());
     } break;
@@ -925,18 +930,15 @@ InstructionHandlerResponse HandleRenderingInstruction(RenderingOpenGLThreadData&
         // perform the draw
         if (params.IsIndexed)
         {
+            std::shared_ptr<OpenGLBufferHandle> ebo = params.VertexArrayHandle->get()->GetElementArrayBuffer();
+            if (ebo)
+            {
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo->GetHandle());
+            }
+
             glDrawElements(params.Mode, params.VertexCount,
                            ToGLArithmeticType(params.IndexType),
                            reinterpret_cast<void*>(params.FirstVertexIndex * SizeOfArithmeticType(params.IndexType)));
-
-            if (FlushOpenGLErrors("glDrawElements", code) > 0)
-            {
-                DebugPrintf("glDrawElements(%s, %d, %s, %d)\n",
-                            PrimitiveTypeToString(ToNGPrimitiveType(params.Mode)),
-                            params.VertexCount,
-                            ArithmeticTypeToString(params.IndexType),
-                            params.FirstVertexIndex * SizeOfArithmeticType(params.IndexType));
-            }
         }
         else
         {
