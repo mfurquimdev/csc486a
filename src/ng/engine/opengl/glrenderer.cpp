@@ -359,6 +359,8 @@ void OpenGLRenderer::SwapRenderingInstructionQueues()
         {
             HandleRenderingInstruction(*mRenderingThreadData, inst);
         }
+
+        mRenderingThreadData->mInstructionBuffers[finishedWriteIndex].Reset();
     }
 
     // switch the current buffer that is being written to
