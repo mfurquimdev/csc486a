@@ -32,6 +32,19 @@
 namespace ng
 {
 
+static int FlushOpenGLErrors(const char* lastOp, OpenGLOpCode code)
+{
+    int numErrors = 0;
+#ifndef NDEBUG
+    GLenum err;
+    while ((err = glGetError()) != GL_NO_ERROR)
+    {
+      ng::DebugPrintf("%s while processing %s (%s)\n", OpenGLErrorCodeToString(err), OpenGLOpCodeToString(code), lastOp);
+      numErrors++;
+    }
+#endif
+    return numErrors;
+}
 
 static void* LoadProcOrDie(IGLContext& context, const char* procName)
 {
@@ -253,8 +266,8 @@ enum class InstructionHandlerResponse
 
 static void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData);
 static void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData);
-static InstructionHandlerResponse HandleRenderingThreadInstruction(RenderingOpenGLThreadData& threadData, const OpenGLInstruction& inst);
-static InstructionHandlerResponse HandleResourceThreadInstruction(ResourceOpenGLThreadData& threadData, const OpenGLInstruction& inst);
+static InstructionHandlerResponse HandleRenderingInstruction(RenderingOpenGLThreadData& threadData, const OpenGLInstruction& inst);
+static InstructionHandlerResponse HandleResourceInstruction(ResourceOpenGLThreadData& threadData, const OpenGLInstruction& inst);
 
 void OpenGLRenderer::PushRenderingInstruction(const OpenGLInstruction& inst)
 {
@@ -299,7 +312,7 @@ void OpenGLRenderer::PushResourceInstruction(const OpenGLInstruction& inst)
     }
     else
     {
-        HandleResourceThreadInstruction(*mResourceThreadData, inst);
+        HandleResourceInstruction(*mResourceThreadData, inst);
     }
 }
 
@@ -344,7 +357,7 @@ void OpenGLRenderer::SwapRenderingInstructionQueues()
 
         while (mRenderingThreadData->mInstructionBuffers[finishedWriteIndex].PopInstruction(inst))
         {
-            HandleRenderingThreadInstruction(*mRenderingThreadData, inst);
+            HandleRenderingInstruction(*mRenderingThreadData, inst);
         }
     }
 
@@ -747,7 +760,7 @@ static InstructionHandlerResponse HandleCommonInstruction(CommonOpenGLThreadData
     return InstructionHandlerResponse::Continue;
 }
 
-InstructionHandlerResponse HandleRenderingThreadInstruction(RenderingOpenGLThreadData& threadData, const OpenGLInstruction& inst)
+InstructionHandlerResponse HandleRenderingInstruction(RenderingOpenGLThreadData& threadData, const OpenGLInstruction& inst)
 {
     const OpenGLOpCode code = static_cast<OpenGLOpCode>(inst.OpCode);
 
@@ -804,9 +817,12 @@ InstructionHandlerResponse HandleRenderingThreadInstruction(RenderingOpenGLThrea
         // enable the program
         GLuint programHandle = params.ProgramHandle->get()->GetHandle();
         glUseProgram(programHandle);
+        FlushOpenGLErrors("glUseProgram", code);
 
         // enable the vertex array
-        glBindVertexArray(params.VertexArrayHandle->get()->GetHandle());
+        GLuint vaoHandle = params.VertexArrayHandle->get()->GetHandle();
+        glBindVertexArray(vaoHandle);
+        FlushOpenGLErrors("glBindVertexArray", code);
 
         // bind all uniforms
         for (const std::pair<std::string,UniformValue>& uniform : *params.Uniforms)
@@ -840,7 +856,10 @@ InstructionHandlerResponse HandleRenderingThreadInstruction(RenderingOpenGLThrea
                 glUniformMatrix4fv(location, 1, GL_FALSE, &value.AsMat4[0][0]);
                 break;
             }
+
+            FlushOpenGLErrors("glGetUniformLocation/glUniformnNfv", code);
         }
+
 
         // set up rendering state
         const RenderState& state = *params.State;
@@ -855,7 +874,11 @@ InstructionHandlerResponse HandleRenderingThreadInstruction(RenderingOpenGLThrea
             {
                 glDisable(GL_DEPTH_TEST);
             }
+
+            FlushOpenGLErrors("glEnable/Disable(GL_DEPTH_TEST)", code);
         }
+
+
 
 #ifndef NG_USE_EMSCRIPTEN
         if (state.ActivatedParameters.test(RenderState::Activate_PolygonMode))
@@ -872,24 +895,29 @@ InstructionHandlerResponse HandleRenderingThreadInstruction(RenderingOpenGLThrea
                 glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
                 break;
             }
+
+            FlushOpenGLErrors("glPolygonMode", code);
         }
 #endif
 
         if (state.ActivatedParameters.test(RenderState::Activate_LineWidth))
         {
             glLineWidth(state.LineWidth);
+            FlushOpenGLErrors("glLineWidth", code);
         }
 
 #ifndef NG_USE_EMSCRIPTEN
         if (state.ActivatedParameters.test(RenderState::Activate_PointSize))
         {
             glPointSize(state.PointSize);
+            FlushOpenGLErrors("glPointSize", code);
         }
 #endif
 
         if (state.ActivatedParameters.test(RenderState::Activate_Viewport))
         {
             glViewport(state.Viewport[0], state.Viewport[1], state.Viewport[2], state.Viewport[3]);
+            FlushOpenGLErrors("glViewport", code);
         }
 
         // perform the draw
@@ -898,10 +926,20 @@ InstructionHandlerResponse HandleRenderingThreadInstruction(RenderingOpenGLThrea
             glDrawElements(params.Mode, params.VertexCount,
                            ToGLArithmeticType(params.IndexType),
                            reinterpret_cast<void*>(params.FirstVertexIndex * SizeOfArithmeticType(params.IndexType)));
+
+            if (FlushOpenGLErrors("glDrawElements", code) > 0)
+            {
+                DebugPrintf("glDrawElements(%s, %d, %s, %d)\n",
+                            PrimitiveTypeToString(ToNGPrimitiveType(params.Mode)),
+                            params.VertexCount,
+                            ArithmeticTypeToString(params.IndexType),
+                            params.FirstVertexIndex * SizeOfArithmeticType(params.IndexType));
+            }
         }
         else
         {
             glDrawArrays(params.Mode, params.FirstVertexIndex, params.VertexCount);
+            FlushOpenGLErrors("glDrawArrays", code);
         }
     } break;
     default: {
@@ -909,10 +947,12 @@ InstructionHandlerResponse HandleRenderingThreadInstruction(RenderingOpenGLThrea
     } break;
     }
 
+    FlushOpenGLErrors("HandleRenderingInstruction", code);
+
     return InstructionHandlerResponse::Continue;
 }
 
-InstructionHandlerResponse HandleResourceThreadInstruction(ResourceOpenGLThreadData& threadData, const OpenGLInstruction& inst)
+InstructionHandlerResponse HandleResourceInstruction(ResourceOpenGLThreadData& threadData, const OpenGLInstruction& inst)
 {
     const OpenGLOpCode code = static_cast<OpenGLOpCode>(inst.OpCode);
 
@@ -1031,6 +1071,8 @@ InstructionHandlerResponse HandleResourceThreadInstruction(ResourceOpenGLThreadD
     } break;
     }
 
+    FlushOpenGLErrors("HandleResourceInstruction", code);
+
     return InstructionHandlerResponse::Continue;
 }
 
@@ -1088,7 +1130,7 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
 
         while (instructionBuffer.PopInstruction(inst) && response != InstructionHandlerResponse::Quit)
         {
-            response = HandleRenderingThreadInstruction(*threadData, inst);
+            response = HandleRenderingInstruction(*threadData, inst);
         }
 
         renderProfiler.Stop();
@@ -1128,7 +1170,7 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
 
         resourceProfiler.Start();
 
-        InstructionHandlerResponse response = HandleResourceThreadInstruction(*threadData, inst);
+        InstructionHandlerResponse response = HandleResourceInstruction(*threadData, inst);
 
         resourceProfiler.Stop();
 

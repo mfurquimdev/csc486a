@@ -36,6 +36,21 @@ constexpr std::size_t SizeOfArithmeticType(ArithmeticType at)
          : throw std::logic_error("No such ArithmeticType");
 }
 
+constexpr const char* ArithmeticTypeToString(ArithmeticType at)
+{
+    return at == ArithmeticType::Int8 ? "Int8"
+         : at == ArithmeticType::Int16 ? "Int16"
+         : at == ArithmeticType::Int32 ? "Int32"
+         : at == ArithmeticType::Int64 ? "Int64"
+         : at == ArithmeticType::UInt8 ? "UInt8"
+         : at == ArithmeticType::UInt16 ? "UInt16"
+         : at == ArithmeticType::UInt32 ? "UInt32"
+         : at == ArithmeticType::UInt64 ? "UInt64"
+         : at == ArithmeticType::Float ? "Float"
+         : at == ArithmeticType::Double ? "Double"
+         : throw std::logic_error("No such ArithmeticType");
+}
+
 } // end namespace ng
 
 #endif // NG_ARITHMETICTYPE_HPP

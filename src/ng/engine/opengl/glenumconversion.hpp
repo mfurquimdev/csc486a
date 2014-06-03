@@ -24,6 +24,18 @@ constexpr GLenum ToGLPrimitiveType(PrimitiveType pt)
          : throw std::logic_error("No GL equivalent to this PrimitiveType");
 }
 
+constexpr PrimitiveType ToNGPrimitiveType(GLenum pt)
+{
+    return pt == GL_POINTS ? PrimitiveType::Points
+         : pt == GL_LINE_STRIP ? PrimitiveType::LineStrip
+         : pt == GL_LINE_LOOP ? PrimitiveType::LineLoop
+         : pt == GL_LINES ? PrimitiveType::Lines
+         : pt == GL_TRIANGLE_STRIP ? PrimitiveType::TriangleStrip
+         : pt == GL_TRIANGLE_FAN ? PrimitiveType::TriangleFan
+         : pt == GL_TRIANGLES ? PrimitiveType::Triangles
+         : throw std::logic_error("No PrimitiveType equivalent to this GLenum primitive");
+}
+
 constexpr GLenum ToGLArithmeticType(ArithmeticType at)
 {
     return at == ArithmeticType::Int8 ? GL_BYTE
@@ -44,6 +56,18 @@ constexpr GLuint ToGLAttributeIndex(VertexAttributeName va)
          : va == VertexAttributeName::Texcoord1 ? 2
          : va == VertexAttributeName::Normal ? 3
          : throw std::logic_error("No define GL attribute index for this VertexAttributeName");
+}
+
+constexpr const char* OpenGLErrorCodeToString(GLenum e)
+{
+    return e == GL_NO_ERROR ? "GL_NO_ERROR"
+         : e == GL_INVALID_ENUM ? "GL_INVALID_ENUM"
+         : e == GL_INVALID_VALUE ? "GL_INVALID_VALUE"
+         : e == GL_INVALID_OPERATION ? "GL_INVALID_OPERATION"
+         : e == GL_STACK_OVERFLOW ? "GL_STACK_OVERFLOW"
+         : e == GL_STACK_UNDERFLOW ? "GL_STACK_UNDERFLOW"
+         : e == GL_OUT_OF_MEMORY ? "GL_OUT_OF_MEMORY"
+         : throw std::logic_error("No such GL error code");
 }
 
 } // end namespace ng

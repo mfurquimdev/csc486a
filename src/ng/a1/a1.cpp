@@ -202,7 +202,7 @@ public:
         gridNode->AdoptChild(selectorPlaneNode);
 
         splineRider = std::make_shared<ng::UVSphere>(renderer);
-        splineRider->Init(5, 3, 0.6f);
+        splineRider->Init(3, 3, 0.6f);
         splineRiderNode = std::make_shared<ng::RenderObjectNode>(splineRider);
         cameraNode->AdoptChild(splineRiderNode);
         splineRiderNode->Hide();
