@@ -37,7 +37,7 @@ int main() try
     }
 
 #ifdef NG_USE_EMSCRIPTEN
-    emscripten_set_main_loop(step, 60, 1);
+    emscripten_set_main_loop(step, 0, 1);
 #else
     while (true)
     {
