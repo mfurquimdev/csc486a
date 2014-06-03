@@ -159,7 +159,7 @@ public:
         renderState.DepthTestEnabled = true;
         renderState.ActivatedParameters.set(ng::RenderState::Activate_DepthTestEnabled);
 
-        renderState.PolygonMode = ng::PolygonMode::Line;
+        renderState.PolygonMode = ng::PolygonMode::Fill;
         renderState.ActivatedParameters.set(ng::RenderState::Activate_PolygonMode);
 
         // prepare the scene

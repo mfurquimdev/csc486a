@@ -34,7 +34,7 @@ void UVSphere::Init(int numRings, int numSegments, float radius)
     {
         float theta = radiansPerSegment * segment;
 
-        for (int ring = 0; ring < numRings; ring++)
+        for (int ring = 0; ring <= numRings; ring++)
         {
             float phi = radiansPerRing * ring;
 
@@ -49,17 +49,16 @@ void UVSphere::Init(int numRings, int numSegments, float radius)
     // add all the indices
     for (int segment = 0; segment < numSegments; segment++)
     {
-        for (int ring = 0; ring < numRings; ring++)
+        for (int ring = 0; ring < numRings + 1; ring++)
         {
-            sphereIndices.push_back(segment * numRings + ring);
-            sphereIndices.push_back((segment + 1) * numRings + ring);
+            sphereIndices.push_back(segment * (numRings + 1) + ring);
+            sphereIndices.push_back((segment + 1) * (numRings + 1) + ring);
         }
 
         // every segment except the last one needs degenerate triangles to tie them together
         if (segment < numSegments - 1)
         {
             sphereIndices.push_back((segment + 2) * numRings - 1);
-            sphereIndices.push_back((segment + 1) * numRings);
         }
     }
 
