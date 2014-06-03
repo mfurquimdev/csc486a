@@ -65,16 +65,6 @@ void UVSphere::Init(int numRings, int numSegments, float radius)
     std::size_t indexBufferSize = sphereIndices.size() * sizeof(std::uint32_t);
     std::size_t indexCount = sphereIndices.size();
 
-    DebugPrintf("Creating UVSphere with %d elements\n", indexCount);
-    DebugPrintf("Vertices:\n");
-    for (size_t i = 0; i < sphereVertices.size(); i++) {
-        auto v = sphereVertices[i];
-        DebugPrintf("%d: {%f,%f,%f}\n", i, v.x, v.y, v.z);
-    }
-    DebugPrintf("\nIndices:\n");
-    for (auto i : sphereIndices) DebugPrintf("%d ", i);
-    DebugPrintf("\n");
-
     auto pSphereIndices = std::make_shared<std::vector<std::uint32_t>>(std::move(sphereIndices));
     std::shared_ptr<const void> indexBuffer(pSphereIndices->data(), [pSphereIndices](const void*){});
 
