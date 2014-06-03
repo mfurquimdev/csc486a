@@ -816,7 +816,7 @@ public:
                     mMouseButtonMask[int(we.Button.Button)] = true;
                     std::memcpy(we.Button.ButtonStates, mMouseButtonMask, sizeof(mMouseButtonMask));
                 }
-                else if (MapXScrollButton(ev.xbutton.button, we.Scroll.Direction))
+                else if (MapXScrollButton(ev.xbutton.button, we.Scroll.Delta))
                 {
                     source = ev.xbutton.window;
                     we.Scroll.Type = WindowEventType::MouseScroll;

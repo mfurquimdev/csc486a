@@ -98,9 +98,6 @@ public:
     std::shared_ptr<ng::CubeMesh> selectorCube;
     std::shared_ptr<ng::RenderObjectNode> selectorCubeNode;
 
-    std::shared_ptr<ng::GridMesh> selectorPlane;
-    std::shared_ptr<ng::RenderObjectNode> selectorPlaneNode;
-
     std::shared_ptr<ng::UVSphere> splineRider;
     std::shared_ptr<ng::RenderObjectNode> splineRiderNode;
 
@@ -178,6 +175,7 @@ public:
         gridMesh->Init(20, 20, ng::vec2(1.0f));
         gridNode = std::make_shared<ng::RenderObjectNode>(gridMesh);
         gridNode->SetLocalTransform(ng::Translate(-gridNode->GetLocalBoundingBox().GetCenter()));
+        gridNode->Hide();
         cameraNode->AdoptChild(gridNode);
 
         lineStrip = std::make_shared<ng::LineStrip>(renderer);
@@ -194,12 +192,6 @@ public:
         selectorCube = std::make_shared<ng::CubeMesh>(renderer);
         selectorCubeNode = std::make_shared<ng::RenderObjectNode>(selectorCube);
         selectorCubeNode->Hide();
-
-        selectorPlane = std::make_shared<ng::GridMesh>(renderer);
-        selectorPlane->Init(gridMesh->GetNumColumns() / 2, gridMesh->GetNumRows() / 2, gridMesh->GetTileSize() * 2.0f);
-        selectorPlaneNode = std::make_shared<ng::RenderObjectNode>(selectorPlane);
-        selectorPlaneNode->Hide();
-        gridNode->AdoptChild(selectorPlaneNode);
 
         splineRider = std::make_shared<ng::UVSphere>(renderer);
         splineRider->Init(3, 3, 0.6f);
@@ -362,7 +354,6 @@ public:
             {
                 if (e.Button.State == ng::ButtonState::Released && e.Button.Button == ng::MouseButton::Left)
                 {
-                    selectorPlaneNode->Hide();
                     isSelectedNodeBeingDragged = false;
                 }
                 if (e.Button.State == ng::ButtonState::Pressed && e.Button.Button == ng::MouseButton::Left)
@@ -413,8 +404,6 @@ public:
                         closestControlPoint->AdoptChild(selectorCubeNode);
 
                         isSelectedNodeBeingDragged = true;
-                        selectorPlaneNode->Show();
-                        selectorPlaneNode->SetLocalTransform(ng::Translate(0.0f, bbox.GetCenter().y, 0.0f));
                     }
                     else
                     {
@@ -436,7 +425,7 @@ public:
                             std::shared_ptr<ng::UVSphere> sphere = std::make_shared<ng::UVSphere>(renderer);
                             sphere->Init(10, 5, 0.3f);
                             std::shared_ptr<ng::RenderObjectNode> sphereNode = std::make_shared<ng::RenderObjectNode>(sphere);
-                            sphereNode->SetLocalTransform(ng::Translate(collisonPoint));
+                            sphereNode->SetLocalTransform(ng::Translate(collisonPoint + ng::vec3(0.0f, 0.3f, 0.0f)));
 
                             // add it to the node that hosts all control points
                             controlPointGroupNode->AdoptChild(sphereNode);
@@ -471,7 +460,7 @@ public:
                     std::shared_ptr<ng::RenderObjectNode> selected = selectorCubeNode->GetParent().lock();
 
                     // calculate how much to go up or down
-                    float delta = 0.2f * (e.Scroll.Direction > 0 ? 1.0f : -1.0f);
+                    float delta = 0.2f * e.Scroll.Delta;
 
                     // move the node up or down
                     selected->SetLocalTransform(ng::Translate(0.0f, delta, 0.0f) * selected->GetLocalTransform());
@@ -495,14 +484,12 @@ public:
 
                     // rebuild the catmull rom spline
                     RebuildCatmullRomSpline(numSplineDivisions, catmullRomSpline, *catmullRomStrip);
-
-                    selectorPlaneNode->SetLocalTransform(ng::Translate(0.0f, selected->GetWorldBoundingBox().GetCenter().y, 0.0f));
                 }
                 else
                 {
                     float zoomDelta = 0.4f;
 
-                    eyePosition = eyePosition + normalize(eyePosition - eyeTarget) * zoomDelta * (e.Scroll.Direction > 0 ? 1.0f : -1.0f);
+                    eyePosition = eyePosition + normalize(eyePosition - eyeTarget) * zoomDelta * float(e.Scroll.Delta);
 
                     cameraNode->SetLookAt(eyePosition, eyeTarget, eyeUpVector);
                 }

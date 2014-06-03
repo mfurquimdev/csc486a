@@ -275,7 +275,7 @@ struct MouseButtonEvent
 struct MouseScrollEvent
 {
     WindowEventType Type;
-    int Direction;
+    int Delta;
 };
 
 struct KeyEvent

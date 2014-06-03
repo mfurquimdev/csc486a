@@ -59,6 +59,8 @@ void EMSCRIPTEN_KEEPALIVE OnEmMouseButtonUp(int button, int x, int y);
 
 void EMSCRIPTEN_KEEPALIVE OnEmMouseMotion(int x, int y);
 
+void EMSCRIPTEN_KEEPALIVE OnEmMouseScroll(int delta);
+
 } // end extern "C"
 
 class EmscriptenWindowManager : public IWindowManager
@@ -99,6 +101,8 @@ public:
             OnEmMouseButtonUp = Module.cwrap('OnEmMouseButtonUp', 'void', ['number','number','number']);
 
             OnEmMouseMotion = Module.cwrap('OnEmMouseMotion', 'void', ['number', 'number']);
+
+            OnEmMouseScroll = Module.cwrap('OnEmMouseScroll', 'void', ['number']);
 
             // copy and pasted from emscripten library_browser.js
             function calculateMouseEvent (event) {
@@ -144,12 +148,16 @@ public:
                         OnEmMouseMotion(cursor[0], cursor[1]);
                     }
                     break;
+                case 'mousewheel': case 'DOMMouseScroll':
+                    var delta = Math.max(-1, Math.min(1, (event.wheelDelta || -event.detail)));
+                    OnEmMouseScroll(delta);
+                    break;
                 default:
                     break;
                 }
             }
 
-            ['keydown', 'keyup', 'mousedown', 'mouseup', 'mousemove'].forEach(function (event) {
+            ['keydown', 'keyup', 'mousedown', 'mouseup', 'mousemove', 'mousewheel', 'DOMMouseScroll'].forEach(function (event) {
                 document.addEventListener(event, receiveEvent, true);
             });
         );
@@ -297,6 +305,14 @@ public:
         mEventQueue.push(e);
     }
 
+    void OnMouseScrollEvent(int delta)
+    {
+        WindowEvent e;
+        e.Scroll.Type = WindowEventType::MouseScroll;
+        e.Scroll.Delta = delta;
+        mEventQueue.push(e);
+    }
+
     bool PollEvent(WindowEvent& we) override
     {
         WindowEvent e;
@@ -367,6 +383,11 @@ void EMSCRIPTEN_KEEPALIVE OnEmMouseButtonUp(int button, int x, int y)
 void EMSCRIPTEN_KEEPALIVE OnEmMouseMotion(int x, int y)
 {
     gEmWindowManager->OnMouseMotionEvent(x, y);
+}
+
+void EMSCRIPTEN_KEEPALIVE OnEmMouseScroll(int delta)
+{
+    gEmWindowManager->OnMouseScrollEvent(delta);
 }
 
 } // end extern "C"
