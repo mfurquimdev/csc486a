@@ -1,0 +1,45 @@
+\documentclass{article}
+
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{fancyhdr}
+\usepackage{tabularx}
+\usepackage{listings}
+\usepackage{parskip}
+\usepackage{enumitem}
+\usepackage{hhline}
+\usepackage{algorithm2e}
+\usepackage{geometry}
+\usepackage{mathtools}
+\usepackage{multicol}
+\usepackage{array}
+
+\pagestyle{fancy}
+
+\lhead{Nicolas Guillemot}
+\rhead{CSC 486a Assignment 4 Proposal}
+
+\begin{document}
+
+\title{Topic Proposal for Assignment 4}
+\date{June 6, 2014}
+\author{Nicolas Guillemot}
+\maketitle
+
+\section*{Topic}
+
+I want to learn more about skeletal animation. Therefore, I will try to implement the md5 skeletal animation format. Md5 is an industry-standard format used by many games, so it would be good for me to become familiar with it. I've also been designing a rendering engine while doing homework for this class, and this would be a useful addition to it.
+
+\section*{The Work}
+
+There are many resources on the web that explain the details of the md5 skeletal animation format spec. Implementing it requires four steps:
+
+\begin{itemize}
+    \item Parse the .md5 model file.
+    \item Interpolate the joints at every frame.
+    \item Interpolate the orientation of the quaternions at every frame.
+    \item Pass the bone information to the GPU to render the mesh.
+\end{itemize}
+
+\end{document}
