@@ -19,12 +19,13 @@ void IsoSurface::Polygonize(std::function<float(vec3)> fieldFunction,
 {
     // add seeds to visit stack
     std::stack<ivec3> toVisit;
-    for (const vec3 seed : seedVoxels)
+    for (ivec3 seed : seedVoxels)
     {
         toVisit.push(seed);
     }
 
-    std::map<ivec3, std::uint8_t> voxelSigns([](ivec3 a, ivec3 b){
+    std::map<ivec3, std::uint8_t,std::function<bool(ivec3,ivec3)>> voxelSignMap(
+    [](ivec3 a, ivec3 b){
         return a.x < b.x || a.y < b.y || a.z < b.z;
     });
 
@@ -35,8 +36,8 @@ void IsoSurface::Polygonize(std::function<float(vec3)> fieldFunction,
         ivec3 vertexToVisit = toVisit.top();
         toVisit.pop();
 
-        auto it = fieldValues.lower_bound(vertexToVisit);
-        if (it != fieldValues.end() || *it == vertexToVisit)
+        auto it = voxelSignMap.lower_bound(vertexToVisit);
+        if (it != voxelSignMap.end() || it->first == vertexToVisit)
         {
             // already visited
             continue;
@@ -81,7 +82,7 @@ void IsoSurface::Polygonize(std::function<float(vec3)> fieldFunction,
             (fieldFunction(maxExtent - vec3(voxelSize,0,0))         < isoValue) << 6 |
             (fieldFunction(maxExtent)                               < isoValue) << 7 ;
 
-        voxelSigns.emplace_hint(it, voxelSigns);
+        voxelSignMap.emplace_hint(it, vertexToVisit, voxelSigns);
 
         // add polygons
 
