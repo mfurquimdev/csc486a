@@ -21,7 +21,8 @@ public:
     virtual AppStepAction Step() = 0;
 };
 
-extern std::unique_ptr<IApp> CreateApp();
+// define this in your application to provide the engine with an entry point.
+extern std::shared_ptr<IApp> CreateApp();
 
 } // end namespace ng
 

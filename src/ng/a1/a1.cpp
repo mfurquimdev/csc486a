@@ -156,9 +156,6 @@ public:
         renderState.DepthTestEnabled = true;
         renderState.ActivatedParameters.set(ng::RenderState::Activate_DepthTestEnabled);
 
-        renderState.PolygonMode = ng::PolygonMode::Fill;
-        renderState.ActivatedParameters.set(ng::RenderState::Activate_PolygonMode);
-
         // prepare the scene
 
         camera = std::make_shared<ng::Camera>();
@@ -584,9 +581,9 @@ public:
 namespace ng
 {
 
-std::unique_ptr<ng::IApp> CreateApp()
+std::shared_ptr<ng::IApp> CreateApp()
 {
-    return std::unique_ptr<ng::IApp>(new A1());
+    return std::shared_ptr<ng::IApp>(new A1());
 }
 
 } // end namespace ng

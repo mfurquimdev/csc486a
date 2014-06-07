@@ -5,8 +5,8 @@
 #include <emscripten.h>
 #endif
 
-std::unique_ptr<ng::IApp> gApp;
-ng::AppStepAction gAppAction;
+static std::shared_ptr<ng::IApp> gApp;
+static ng::AppStepAction gAppAction;
 
 static void step() try
 {
