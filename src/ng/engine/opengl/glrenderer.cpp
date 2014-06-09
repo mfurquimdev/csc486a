@@ -12,6 +12,7 @@
 #include "ng/engine/util/debug.hpp"
 #include "ng/engine/util/semaphore.hpp"
 #include "ng/engine/util/memory.hpp"
+#include "ng/engine/util/scopeguard.hpp"
 
 #include <cstring>
 #include <utility>
@@ -1098,32 +1099,17 @@ void OpenGLRenderingThreadEntry(RenderingOpenGLThreadData* threadData)
 
         // be ready to start reading from what's being written as soon as it's ready,
         // and release it back to the producer after.
-        struct ConsumptionScope
-        {
-            OpenGLInstructionLinearBuffer& mInstructionBuffer;
-            std::mutex& mConsumerMutex;
-            std::mutex& mProducerMutex;
 
-            ConsumptionScope(OpenGLInstructionLinearBuffer& instructionBuffer,
-                             std::mutex& consumerMutex, std::mutex& producerMutex)
-                : mInstructionBuffer(instructionBuffer)
-                , mConsumerMutex(consumerMutex)
-                , mProducerMutex(producerMutex)
-            {
-                // patiently wait until this buffer is available to consume
-                mConsumerMutex.lock();
-            }
+        // patiently wait until this buffer is available to consume
+        threadData->mInstructionConsumerMutex[bufferToConsumeFrom].lock();
 
-            ~ConsumptionScope()
-            {
-                mInstructionBuffer.Reset();
+        auto& producerMutex = threadData->mInstructionProducerMutex[bufferToConsumeFrom];
+        auto consumptionScope = make_scope_guard([&]{
+            instructionBuffer.Reset();
 
-                // makes this buffer available to the producer again
-                mProducerMutex.unlock();
-            }
-        } consumptionScope(instructionBuffer,
-                           threadData->mInstructionConsumerMutex[bufferToConsumeFrom],
-                           threadData->mInstructionProducerMutex[bufferToConsumeFrom]);
+            // makes this buffer available to the producer again
+            producerMutex.unlock();
+        });
 
         SizedOpenGLInstruction<OpenGLInstruction::MaxParams> sizedInst(SizedOpenGLInstruction<OpenGLInstruction::MaxParams>::NoInitTag);
         OpenGLInstruction& inst = sizedInst.Instruction;

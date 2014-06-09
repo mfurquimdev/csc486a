@@ -72,7 +72,10 @@ public:
         mat4 AsMat4;
     };
 
-    UniformValue() = default;
+    UniformValue()
+        : Type(UniformType::Vec4)
+        , AsVec4()
+    { }
 
     template<class T>
     UniformValue(T t)

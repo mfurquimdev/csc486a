@@ -9,16 +9,21 @@
 namespace ng
 {
 
+namespace detail
+{
+
 class RenderObjectManagerCameraHelper
 {
 protected:
     bool mIsCurrentCamera;
 
 public:
-    friend class SceneGraph;
+    friend class ::ng::SceneGraph;
 };
 
-class Camera : public RenderObjectManagerCameraHelper, public IRenderObject
+} // end namespace detail
+
+class Camera : public detail::RenderObjectManagerCameraHelper, public IRenderObject
 {
     int mTimesUpdated = 0;
 
@@ -57,7 +62,7 @@ public:
 
 class CameraNode : public RenderObjectNode
 {
-    std::shared_ptr<ng::Camera> mCamera;
+    std::shared_ptr<Camera> mCamera;
 
     mat4 mProjection;
     float mZFar = 0.0f;
@@ -72,17 +77,17 @@ protected:
     }
 
 public:
-    CameraNode(std::shared_ptr<ng::Camera> camera)
+    CameraNode(std::shared_ptr<Camera> camera)
     {
-        SetCamera(camera);
+        SetCamera(std::move(camera));
     }
 
-    const std::shared_ptr<ng::Camera>& GetCamera() const
+    const std::shared_ptr<Camera>& GetCamera() const
     {
         return mCamera;
     }
 
-    void SetCamera(std::shared_ptr<ng::Camera> camera)
+    void SetCamera(std::shared_ptr<Camera> camera)
     {
         mCamera = camera;
         RenderObjectNode::SetRenderObject(camera);

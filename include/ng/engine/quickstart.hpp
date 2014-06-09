@@ -7,6 +7,11 @@
 
 // includes for convenience
 #include "ng/engine/window/windowevent.hpp"
+#include "ng/engine/rendering/shaderprogram.hpp"
+#include "ng/engine/rendering/renderstate.hpp"
+#include "ng/engine/math/linearalgebra.hpp"
+#include "ng/engine/math/geometry.hpp"
+#include "ng/engine/math/constants.hpp"
 
 namespace ng
 {

@@ -38,6 +38,11 @@ protected:
         return false;
     }
 
+    virtual bool IsLight()
+    {
+        return false;
+    }
+
 public:
     RenderObjectNode() = default;
 

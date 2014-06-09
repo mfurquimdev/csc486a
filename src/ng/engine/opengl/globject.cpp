@@ -158,17 +158,29 @@ void OpenGLStaticMesh::Init(
         throw std::logic_error("format.IsIndexed == false, but indexData != nullptr");
     }
 
+    // to make sure we don't generate the same buffer twice
+    std::map<std::pair<std::shared_ptr<const void>,std::ptrdiff_t>, VertexAttributeName> uniqueBuffers;
+
     // upload vertexData
     std::map<VertexAttributeName,OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>>> vertexBuffers;
     for (const auto& attrib : attributeDataAndSize)
     {
         const std::pair<std::shared_ptr<const void>,std::ptrdiff_t>& dataAndSize = attrib.second;
 
-        OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>> buf = mRenderer->SendGenBuffer();
-        buf = mRenderer->SendBufferData(OpenGLRenderer::ResourceInstructionHandler, buf,
-                                        GL_ARRAY_BUFFER, dataAndSize.second, dataAndSize.first, GL_STATIC_DRAW);
+        auto it = uniqueBuffers.find(dataAndSize);
+        if (it != uniqueBuffers.end())
+        {
+            OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>> buf = vertexBuffers.at(it->second);
+            vertexBuffers.emplace(attrib.first, std::move(buf));
+        }
+        else
+        {
+            OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>> buf = mRenderer->SendGenBuffer();
+            buf = mRenderer->SendBufferData(OpenGLRenderer::ResourceInstructionHandler, buf,
+                                            GL_ARRAY_BUFFER, dataAndSize.second, dataAndSize.first, GL_STATIC_DRAW);
 
-        vertexBuffers.emplace(attrib.first, std::move(buf));
+            vertexBuffers.emplace(attrib.first, std::move(buf));
+        }
     }
 
     OpenGLSharedFuture<std::shared_ptr<OpenGLBufferHandle>> indexBuffer;
@@ -193,6 +205,9 @@ void OpenGLStaticMesh::Draw(std::shared_ptr<IShaderProgram> program,
                             RenderState renderState,
                             PrimitiveType primitiveType, std::size_t firstVertexIndex, std::size_t vertexCount)
 {
+    if (vertexCount == 0)
+        return;
+
     std::shared_ptr<OpenGLShaderProgram> programGL = std::static_pointer_cast<OpenGLShaderProgram>(program);
     mRenderer->SendDrawVertexArray(mVertexArray.VertexArrayHandle, programGL->GetFutureHandle(),
                                    std::move(uniforms), std::move(renderState),

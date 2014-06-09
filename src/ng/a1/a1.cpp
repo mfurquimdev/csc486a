@@ -13,6 +13,7 @@
 #include "ng/framework/scenegraph/scenegraph.hpp"
 #include "ng/framework/scenegraph/renderobjectnode.hpp"
 #include "ng/framework/scenegraph/camera.hpp"
+#include "ng/framework/scenegraph/light.hpp"
 #include "ng/framework/scenegraph/gridmesh.hpp"
 #include "ng/framework/scenegraph/uvsphere.hpp"
 #include "ng/framework/scenegraph/linestrip.hpp"
@@ -83,6 +84,9 @@ public:
     ng::vec3 eyeTarget;
     ng::vec3 eyeUpVector;
 
+    std::shared_ptr<ng::Light> light;
+    std::shared_ptr<ng::LightNode> lightNode;
+
     std::shared_ptr<ng::GridMesh> gridMesh;
     std::shared_ptr<ng::RenderObjectNode> gridNode;
 
@@ -130,22 +134,40 @@ public:
         window = windowManager->CreateWindow("Splines", 640, 480, 0, 0, ng::VideoFlags());
         renderer = ng::CreateRenderer(windowManager, window);
 
-        static const char* vsrc = "#version 100\n"
-                                  "uniform highp mat4 uModelView;\n"
-                                  "uniform highp mat4 uProjection;\n"
-                                  "attribute highp vec4 iPosition;\n"
-                                  "varying highp vec3 fViewPosition;\n"
-                                  "void main() {\n"
-                                  "    fViewPosition = vec3(uModelView * iPosition);\n"
-                                  "    gl_Position = uProjection * uModelView * iPosition;\n"
-                                  "}\n";
+        static const char* vsrc =
+                "#version 100\n"
 
-        static const char* fsrc = "#version 100\n"
-                                  "uniform lowp vec4 uTint;\n"
-                                  "varying highp vec3 fViewPosition;\n"
-                                  "void main() {\n"
-                                  "    gl_FragColor = uTint * pow(20.0 / length(fViewPosition), 2.0);\n"
-                                  "}\n";
+                "struct Light {\n"
+                "    highp vec3 Position;\n"
+                "    mediump vec3 Color;\n"
+                "};\n"
+
+                "uniform Light uLight;\n"
+                "uniform highp mat4 uProjection;\n"
+                "uniform highp mat4 uModelView;\n"
+                "uniform highp mat3 uNormalMatrix;\n"
+
+                "attribute highp vec4 iPosition;\n"
+                "attribute mediump vec3 iNormal;\n"
+
+                "varying mediump vec3 fLightTint;\n"
+
+                "void main() {\n"
+                "    vec4 viewPosition = uModelView * iPosition;\n"
+                "    fLightTint = uLight.Color * min(0.0,dot(uNormalMatrix * iNormal,vec3(viewPosition) - uLight.Position));\n"
+                "    gl_Position = uProjection * viewPosition;\n"
+                "}\n";
+
+        static const char* fsrc =
+                "#version 100\n"
+
+                "uniform lowp vec4 uTint;\n"
+
+                "varying mediump vec3 fLightTint;\n"
+
+                "void main() {\n"
+                "    gl_FragColor = vec4(fLightTint,1.0) * uTint;\n"
+                "}\n";
 
         program = renderer->CreateShaderProgram();
 
@@ -166,7 +188,15 @@ public:
         eyeUpVector = { 0.0f, 1.0f, 0.0f };
         cameraNode->SetLookAt(eyePosition, eyeTarget, eyeUpVector);
         cameraNode->SetViewport(0, 0, window->GetWidth(), window->GetHeight());
-        roManager.SetCurrentCamera(cameraNode);
+        roManager.AddCamera(cameraNode);
+        roManager.SetUpdateRoot(cameraNode);
+
+        light = std::make_shared<ng::Light>();
+        light->SetColor(ng::vec3(1,0,0));
+        light->SetRadius(10);
+        lightNode = std::make_shared<ng::LightNode>(light);
+        roManager.AddLight(lightNode);
+        cameraNode->AdoptChild(lightNode);
 
         gridMesh = std::make_shared<ng::GridMesh>(renderer);
         gridMesh->Init(20, 20, ng::vec2(1.0f));
@@ -568,7 +598,7 @@ public:
 
         renderer->Clear(true, true, false);
 
-        roManager.Draw(program, renderState);
+        roManager.DrawMultiPass(program, renderState);
 
         renderer->SwapBuffers();
 
