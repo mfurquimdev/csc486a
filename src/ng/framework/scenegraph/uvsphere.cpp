@@ -38,9 +38,12 @@ void UVSphere::Init(int numRings, int numSegments, float radius)
         {
             float phi = radiansPerRing * ring;
 
-            sphereVertices.push_back(radius * vec3(std::sin(theta) * std::cos(phi),
-                                                   std::cos(theta),
-                                                   std::sin(theta) * std::sin(phi)));
+            vec3 normal(std::sin(theta) * std::cos(phi),
+                        std::cos(theta),
+                        std::sin(theta) * std::sin(phi));
+
+            sphereVertices.push_back(radius * normal);
+            sphereVertices.push_back(normal);
         }
     }
 
@@ -62,6 +65,11 @@ void UVSphere::Init(int numRings, int numSegments, float radius)
         }
     }
 
+    VertexFormat gridFormat({
+            { VertexAttributeName::Position, VertexAttribute(3, ArithmeticType::Float, false, sizeof(vec3) * 2, 0) },
+            { VertexAttributeName::Normal,   VertexAttribute(3, ArithmeticType::Float, false, sizeof(vec3) * 2, sizeof(vec3)) }
+        }, ArithmeticType::UInt32);
+
     std::size_t indexBufferSize = sphereIndices.size() * sizeof(std::uint32_t);
     std::size_t indexCount = sphereIndices.size();
 
@@ -69,15 +77,12 @@ void UVSphere::Init(int numRings, int numSegments, float radius)
     std::shared_ptr<const void> indexBuffer(pSphereIndices->data(), [pSphereIndices](const void*){});
 
     auto pSphereVertices = std::make_shared<std::vector<vec3>>(std::move(sphereVertices));
-    std::shared_ptr<const void> vertexBuffer(pSphereVertices->data(), [pSphereVertices](const void*){});
-
-    VertexFormat gridFormat({
-            { VertexAttributeName::Position, VertexAttribute(3, ArithmeticType::Float, false, 0, 0) }
-        }, ArithmeticType::UInt32);
-
+    std::pair<std::shared_ptr<const void>,std::ptrdiff_t> pBufferData({pSphereVertices->data(), [pSphereVertices](const void*){}},
+                                                                       pSphereVertices->size() * sizeof(vec3));
 
     mMesh->Init(gridFormat, {
-                    { VertexAttributeName::Position, { vertexBuffer, pSphereVertices->size() * sizeof(vec3) } }
+                    { VertexAttributeName::Position, pBufferData },
+                    { VertexAttributeName::Normal,   pBufferData }
                 }, indexBuffer, indexBufferSize, indexCount);
 
     mNumRings = numRings;

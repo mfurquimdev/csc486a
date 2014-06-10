@@ -877,6 +877,15 @@ InstructionHandlerResponse HandleRenderingInstruction(RenderingOpenGLThreadData&
             if (state.DepthTestEnabled)
             {
                 glEnable(GL_DEPTH_TEST);
+
+                if (state.ActivatedParameters.test(RenderState::Activate_DepthTestFunc))
+                {
+                    glDepthFunc(ToGLDepthFunc(state.DepthTestFunc));
+                }
+                else
+                {
+                    glDepthFunc(GL_LESS);
+                }
             }
             else
             {
@@ -886,7 +895,42 @@ InstructionHandlerResponse HandleRenderingInstruction(RenderingOpenGLThreadData&
             FlushOpenGLErrors("glEnable/Disable(GL_DEPTH_TEST)", code);
         }
 
+        if (state.ActivatedParameters.test(RenderState::Activate_BlendingEnabled))
+        {
+            if (state.BlendingEnabled)
+            {
+                glEnable(GL_BLEND);
 
+                GLenum srcblend = GL_ONE;
+                GLenum dstblend = GL_ZERO;
+
+                if (state.ActivatedParameters.test(RenderState::Activate_SourceBlendMode))
+                {
+                    srcblend = ToGLBlendMode(state.SourceBlendMode);
+                }
+
+                if (state.ActivatedParameters.test(RenderState::Activate_DestinationBlendMode))
+                {
+                    dstblend = ToGLBlendMode(state.DestinationBlendMode);
+                }
+
+                if (state.ActivatedParameters.test(RenderState::Activate_BlendColor))
+                {
+                    vec4 bc = state.BlendColor;
+                    glBlendColor(bc.x, bc.y, bc.z, bc.w);
+                }
+                else
+                {
+                    glBlendColor(0,0,0,0);
+                }
+
+                glBlendFunc(srcblend, dstblend);
+            }
+            else
+            {
+                glDisable(GL_BLEND);
+            }
+        }
 
 #ifndef NG_USE_EMSCRIPTEN
         if (state.ActivatedParameters.test(RenderState::Activate_PolygonMode))

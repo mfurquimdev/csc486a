@@ -2,6 +2,7 @@
 #define NG_GLENUMCONVERSION_HPP
 
 #include "ng/engine/rendering/vertexformat.hpp"
+#include "ng/engine/rendering/renderstate.hpp"
 #include "ng/engine/util/arithmetictype.hpp"
 #include "ng/engine/rendering/primitivetype.hpp"
 
@@ -55,7 +56,40 @@ constexpr GLuint ToGLAttributeIndex(VertexAttributeName va)
          : va == VertexAttributeName::Texcoord0 ? 1
          : va == VertexAttributeName::Texcoord1 ? 2
          : va == VertexAttributeName::Normal ? 3
-         : throw std::logic_error("No define GL attribute index for this VertexAttributeName");
+         : throw std::logic_error("No defined GL attribute index for this VertexAttributeName");
+}
+
+constexpr GLenum ToGLDepthFunc(DepthTestFunc d)
+{
+    return d == DepthTestFunc::Never ? GL_NEVER
+         : d == DepthTestFunc::Less ? GL_LESS
+         : d == DepthTestFunc::Equal ? GL_EQUAL
+         : d == DepthTestFunc::LessOrEqual ? GL_LEQUAL
+         : d == DepthTestFunc::Greater ? GL_GREATER
+         : d == DepthTestFunc::NotEqual ? GL_NOTEQUAL
+         : d == DepthTestFunc::GreaterOrEqual ? GL_GEQUAL
+         : d == DepthTestFunc::Always ? GL_ALWAYS
+         : throw std::logic_error("No GL equivalent for this DepthTestFunc");
+}
+
+constexpr GLenum ToGLBlendMode(BlendMode b)
+{
+    return b == BlendMode::Zero ? GL_ZERO
+         : b == BlendMode::One ? GL_ONE
+         : b == BlendMode::SourceColor ? GL_SRC_COLOR
+         : b == BlendMode::OneMinusSourceColor ? GL_ONE_MINUS_SRC_COLOR
+         : b == BlendMode::DestinationColor ? GL_DST_COLOR
+         : b == BlendMode::OneMinusDestinationColor ? GL_ONE_MINUS_DST_COLOR
+         : b == BlendMode::SourceAlpha ? GL_SRC_ALPHA
+         : b == BlendMode::OneMinusSourceAlpha ? GL_ONE_MINUS_SRC_ALPHA
+         : b == BlendMode::DestinationAlpha ? GL_DST_ALPHA
+         : b == BlendMode::OneMinusDestinationAlpha ? GL_ONE_MINUS_DST_ALPHA
+         : b == BlendMode::ConstantColor ? GL_CONSTANT_COLOR
+         : b == BlendMode::OneMinusConstantColor ? GL_ONE_MINUS_CONSTANT_COLOR
+         : b == BlendMode::ConstantAlpha ? GL_CONSTANT_ALPHA
+         : b == BlendMode::OneMinusConstantAlpha ? GL_ONE_MINUS_CONSTANT_ALPHA
+         : b == BlendMode::SourceAlphaSaturate ? GL_SRC_ALPHA_SATURATE
+         : throw std::logic_error("No GL equivalent for this BlendMode");
 }
 
 constexpr const char* OpenGLErrorCodeToString(GLenum e)

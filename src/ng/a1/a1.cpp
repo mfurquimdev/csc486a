@@ -107,6 +107,9 @@ public:
     std::shared_ptr<ng::UVSphere> splineRider;
     std::shared_ptr<ng::RenderObjectNode> splineRiderNode;
 
+    std::shared_ptr<ng::Light> splineRiderLight;
+    std::shared_ptr<ng::LightNode> splineRiderLightNode;
+
     float splineRiderT;
     float splineRiderTSpeed;
 
@@ -232,6 +235,13 @@ public:
         splineRiderNode->Hide();
         splineRiderT = 0.0f;
         splineRiderTSpeed = 3.0f; // units per second
+
+        splineRiderLight = std::make_shared<ng::Light>();
+        splineRiderLight->SetColor(ng::vec3(1,0,0));
+        splineRiderLight->SetRadius(3);
+        splineRiderLightNode = std::make_shared<ng::LightNode>(splineRiderLight);
+        roManager.AddLight(splineRiderLightNode);
+        splineRiderNode->AdoptChild(splineRiderLightNode);
 
         numSplineDivisions = 10;
         isSelectedNodeBeingDragged = false;

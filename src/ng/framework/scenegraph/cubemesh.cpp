@@ -70,14 +70,15 @@ void CubeMesh::Init(float sideLength)
         g,top,    h,top,    e,top,      h,top,    f,top,    e,top       // top face
     });
 
-    constexpr std::size_t numVertices = 36;
+    std::size_t numVertices = pVertexBuffer->size() / 2;
 
     VertexFormat cubeFormat({
             { VertexAttributeName::Position, VertexAttribute(3, ArithmeticType::Float, false, 2 * sizeof(vec3), 0) },
             { VertexAttributeName::Normal,   VertexAttribute(3, ArithmeticType::Float, false, 2 * sizeof(vec3), sizeof(vec3)) }
         });
 
-    std::pair<std::shared_ptr<const void>,std::ptrdiff_t> pBufferData({pVertexBuffer->data(), [pVertexBuffer](const void*){}}, numVertices * 2 * sizeof(vec3));
+    std::pair<std::shared_ptr<const void>,std::ptrdiff_t> pBufferData({pVertexBuffer->data(), [pVertexBuffer](const void*){}},
+                                                                      numVertices * 2 * sizeof(vec3));
 
     mMesh->Init(cubeFormat, {
                     { VertexAttributeName::Position, pBufferData },

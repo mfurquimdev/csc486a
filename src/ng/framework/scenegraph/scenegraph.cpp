@@ -108,6 +108,8 @@ static void DrawMultiPassDepthFirst(
                 { "uModelView", modelView }
             };
 
+            bool drewOnce = false;
+
             for (const std::weak_ptr<LightNode>& wpLight : lights)
             {
                 if (wpLight.expired())
@@ -120,7 +122,7 @@ static void DrawMultiPassDepthFirst(
                 // check if the light intersects with the node
                 if (!AABBoxIntersect(light->GetWorldBoundingBox(), node->GetWorldBoundingBox()))
                 {
-                    // continue;
+                    continue;
                 }
 
                 vec4 lightViewPos = worldView * light->GetWorldTransform() * vec4(0,0,0,1);
@@ -130,7 +132,25 @@ static void DrawMultiPassDepthFirst(
                 uniforms["uLight.Radius"] = UniformValue(vec1(light->GetLight()->GetRadius()));
                 uniforms["uLight.Color"] = UniformValue(light->GetLight()->GetColor());
 
-                pass = node->GetRenderObject()->Draw(program, uniforms, renderState);
+                RenderState decoratedState = renderState;
+
+                if (drewOnce)
+                {
+                    decoratedState.ActivatedParameters.set(RenderState::Activate_DepthTestFunc);
+                    decoratedState.DepthTestFunc = DepthTestFunc::Equal;
+
+                    decoratedState.ActivatedParameters.set(RenderState::Activate_BlendingEnabled);
+                    decoratedState.BlendingEnabled = true;
+
+                    decoratedState.ActivatedParameters.set(RenderState::Activate_SourceBlendMode);
+                    decoratedState.SourceBlendMode = BlendMode::SourceColor;
+
+                    decoratedState.ActivatedParameters.set(RenderState::Activate_DestinationBlendMode);
+                    decoratedState.DestinationBlendMode = BlendMode::DestinationColor;
+                }
+
+                pass = node->GetRenderObject()->Draw(program, uniforms, decoratedState);
+                drewOnce = true;
             }
         }
 
