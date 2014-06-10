@@ -11,7 +11,6 @@ void RenderObjectNode::SetDirtyRecursively() const
     if (!mIsWorldTransformDirty)
     {
         mIsWorldTransformDirty = true;
-        mIsNormalMatrixDirty = true;
         for (const std::shared_ptr<RenderObjectNode>& child : GetChildren())
         {
             child->SetDirtyRecursively();
@@ -32,7 +31,7 @@ mat4 RenderObjectNode::GetWorldTransform() const
         mWorldTransform = mLocalTransform;
 
         for (std::weak_ptr<RenderObjectNode> parent = GetParent();
-             !parent.expired() && parent.lock().get() != this && !parent.lock()->IsCamera();
+             !parent.expired();
              parent = parent.lock()->GetParent())
         {
             mWorldTransform = parent.lock()->GetLocalTransform() * mWorldTransform;
@@ -51,13 +50,7 @@ mat4 RenderObjectNode::GetWorldTransform() const
 
 mat3 RenderObjectNode::GetNormalMatrix() const
 {
-    if (mIsNormalMatrixDirty)
-    {
-        mNormalMatrix = mat3(transpose(inverse(GetWorldTransform())));
-
-        mIsNormalMatrixDirty = false;
-    }
-    return mNormalMatrix;
+    return mat3(inverse(GetWorldTransform()));
 }
 
 AxisAlignedBoundingBox<float> RenderObjectNode::GetLocalBoundingBox() const
@@ -91,7 +84,8 @@ void RenderObjectNode::AdoptChild(std::shared_ptr<RenderObjectNode> childNode)
     }
 
     childNode->mParentNode = shared_from_this();
-    mChildNodes.push_back(std::move(childNode));
+    mChildNodes.push_back(childNode);
+    childNode->SetDirtyRecursively();
 }
 
 void RenderObjectNode::AbandonChild(std::shared_ptr<RenderObjectNode> childNode)
@@ -104,6 +98,7 @@ void RenderObjectNode::AbandonChild(std::shared_ptr<RenderObjectNode> childNode)
 
     childNode->mParentNode.reset();
     mChildNodes.erase(it);
+    childNode->SetDirtyRecursively();
 }
 
 } // end namespace ng

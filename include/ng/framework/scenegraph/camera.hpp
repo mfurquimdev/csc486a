@@ -9,21 +9,7 @@
 namespace ng
 {
 
-namespace detail
-{
-
-class RenderObjectManagerCameraHelper
-{
-protected:
-    bool mIsCurrentCamera;
-
-public:
-    friend class ::ng::SceneGraph;
-};
-
-} // end namespace detail
-
-class Camera : public detail::RenderObjectManagerCameraHelper, public IRenderObject
+class Camera : public IRenderObject
 {
     int mTimesUpdated = 0;
 
@@ -36,27 +22,18 @@ public:
     RenderObjectPass PreUpdate(std::chrono::milliseconds,
                                RenderObjectNode&) override
     {
-        mTimesUpdated++;
-
-        if (!mIsCurrentCamera || mTimesUpdated > 1)
-        {
-            return RenderObjectPass::SkipChildren;
-        }
-
         return RenderObjectPass::Continue;
     }
 
     void PostUpdate(std::chrono::milliseconds,
                     RenderObjectNode&) override
-    {
-        mTimesUpdated--;
-    }
+    { }
 
     RenderObjectPass Draw(const std::shared_ptr<IShaderProgram>&,
                           const std::map<std::string, UniformValue>&,
                           const RenderState&) override
     {
-        return RenderObjectPass::SkipChildren;
+        return RenderObjectPass::Continue;
     }
 };
 
@@ -65,6 +42,8 @@ class CameraNode : public RenderObjectNode
     std::shared_ptr<Camera> mCamera;
 
     mat4 mProjection;
+    mat4 mWorldView;
+
     float mZFar = 0.0f;
     float mZNear = 0.0f;
 
@@ -103,7 +82,7 @@ public:
         return mProjection;
     }
 
-    void SetPerspectiveProjection(float fovy, float aspect, float zNear, float zFar)
+    void SetPerspective(float fovy, float aspect, float zNear, float zFar)
     {
         mZNear = zNear;
         mZFar = zFar;
@@ -120,9 +99,20 @@ public:
         return mZFar;
     }
 
+    mat4 GetWorldView() const
+    {
+        return mWorldView;
+    }
+
     void SetLookAt(vec3 eye, vec3 center, vec3 up)
     {
-        SetLocalTransform(inverse(LookAt(eye, center, up)));
+        mWorldView = LookAt(eye, center, up);
+
+        vec3 z = normalize(eye - center);
+        vec3 x = cross(normalize(up), z);
+        vec3 y = cross(z,x);
+
+        SetLocalTransform(mat4(vec4(x,0), vec4(y,0), vec4(z,0), vec4(eye,1)));
     }
 
     ivec4 GetViewport() const

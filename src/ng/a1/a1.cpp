@@ -31,7 +31,7 @@ ng::Ray<float> RayFromClick(const ng::CameraNode& cameraNode,
                             ng::ivec2 click)
 {
     // create ray from camera and unprojected coordinate
-    ng::mat4 worldView = inverse(cameraNode.GetWorldTransform());
+    ng::mat4 worldView = cameraNode.GetWorldView();
 
     ng::vec2 mouseCoord(click.x, window.GetHeight() - click.y);
 
@@ -43,7 +43,7 @@ ng::Ray<float> RayFromClick(const ng::CameraNode& cameraNode,
                                           worldView, cameraNode.GetProjection(),
                                           cameraNode.GetViewport());
 
-    ng::Ray<float> clickRay(ng::vec3(cameraNode.GetLocalTransform() * ng::vec4(0,0,0,1)),
+    ng::Ray<float> clickRay(ng::vec3(cameraNode.GetWorldTransform() * ng::vec4(0,0,0,1)),
                             farUnProject - nearUnProject);
 
     return clickRay;
@@ -77,6 +77,8 @@ public:
     std::shared_ptr<ng::IShaderProgram> program;
     ng::RenderState renderState;
     ng::SceneGraph roManager;
+
+    std::shared_ptr<ng::RenderObjectNode> root;
 
     std::shared_ptr<ng::Camera> camera;
     std::shared_ptr<ng::CameraNode> cameraNode;
@@ -139,13 +141,13 @@ public:
 
                 "struct Light {\n"
                 "    highp vec3 Position;\n"
+                "    highp float Radius;\n"
                 "    mediump vec3 Color;\n"
                 "};\n"
 
                 "uniform Light uLight;\n"
                 "uniform highp mat4 uProjection;\n"
                 "uniform highp mat4 uModelView;\n"
-                "uniform highp mat3 uNormalMatrix;\n"
 
                 "attribute highp vec4 iPosition;\n"
                 "attribute mediump vec3 iNormal;\n"
@@ -153,9 +155,10 @@ public:
                 "varying mediump vec3 fLightTint;\n"
 
                 "void main() {\n"
-                "    vec4 viewPosition = uModelView * iPosition;\n"
-                "    fLightTint = uLight.Color * min(0.0,dot(uNormalMatrix * iNormal,vec3(viewPosition) - uLight.Position));\n"
-                "    gl_Position = uProjection * viewPosition;\n"
+                "    vec3 P = iPosition.xyz;\n"
+                "    vec3 L = normalize(uLight.Position - P);\n"
+                "    fLightTint = uLight.Color * max(dot(iNormal, L),0.0);\n"
+                "    gl_Position = uProjection * uModelView * iPosition;\n"
                 "}\n";
 
         static const char* fsrc =
@@ -166,7 +169,7 @@ public:
                 "varying mediump vec3 fLightTint;\n"
 
                 "void main() {\n"
-                "    gl_FragColor = vec4(fLightTint,1.0) * uTint;\n"
+                "    gl_FragColor = vec4(fLightTint,1.0); // * uTint;\n"
                 "}\n";
 
         program = renderer->CreateShaderProgram();
@@ -179,42 +182,44 @@ public:
         renderState.ActivatedParameters.set(ng::RenderState::Activate_DepthTestEnabled);
 
         // prepare the scene
+        root = std::make_shared<ng::RenderObjectNode>();
+        roManager.SetRoot(root);
 
         camera = std::make_shared<ng::Camera>();
         cameraNode = std::make_shared<ng::CameraNode>(camera);
-        cameraNode->SetPerspectiveProjection(70.0f, (float) window->GetWidth() / window->GetHeight(), 0.1f, 1000.0f);
+        cameraNode->SetPerspective(70.0f, (float) window->GetWidth() / window->GetHeight(), 0.1f, 1000.0f);
         eyePosition = { 10.0f, 10.0f, 10.0f };
         eyeTarget = { 0.0f, 0.0f, 0.0f };
         eyeUpVector = { 0.0f, 1.0f, 0.0f };
         cameraNode->SetLookAt(eyePosition, eyeTarget, eyeUpVector);
         cameraNode->SetViewport(0, 0, window->GetWidth(), window->GetHeight());
-        roManager.AddCamera(cameraNode);
-        roManager.SetUpdateRoot(cameraNode);
+        roManager.SetCamera(cameraNode);
+        root->AdoptChild(cameraNode);
 
         light = std::make_shared<ng::Light>();
         light->SetColor(ng::vec3(1,0,0));
         light->SetRadius(10);
         lightNode = std::make_shared<ng::LightNode>(light);
         roManager.AddLight(lightNode);
-        cameraNode->AdoptChild(lightNode);
+        root->AdoptChild(lightNode);
 
         gridMesh = std::make_shared<ng::GridMesh>(renderer);
         gridMesh->Init(20, 20, ng::vec2(1.0f));
         gridNode = std::make_shared<ng::RenderObjectNode>(gridMesh);
         gridNode->SetLocalTransform(ng::Translate(-gridNode->GetLocalBoundingBox().GetCenter()));
         gridNode->Hide();
-        cameraNode->AdoptChild(gridNode);
+        root->AdoptChild(gridNode);
 
         lineStrip = std::make_shared<ng::LineStrip>(renderer);
         lineStripNode = std::make_shared<ng::RenderObjectNode>(lineStrip);
-        cameraNode->AdoptChild(lineStripNode);
+        root->AdoptChild(lineStripNode);
 
         catmullRomStrip = std::make_shared<ng::LineStrip>(renderer);
         catmullStripNode = std::make_shared<ng::RenderObjectNode>(catmullRomStrip);
-        cameraNode->AdoptChild(catmullStripNode);
+        root->AdoptChild(catmullStripNode);
 
         controlPointGroupNode = std::make_shared<ng::RenderObjectNode>();
-        cameraNode->AdoptChild(controlPointGroupNode);
+        root->AdoptChild(controlPointGroupNode);
 
         selectorCube = std::make_shared<ng::CubeMesh>(renderer);
         selectorCubeNode = std::make_shared<ng::RenderObjectNode>(selectorCube);
@@ -223,7 +228,7 @@ public:
         splineRider = std::make_shared<ng::UVSphere>(renderer);
         splineRider->Init(3, 3, 0.6f);
         splineRiderNode = std::make_shared<ng::RenderObjectNode>(splineRider);
-        cameraNode->AdoptChild(splineRiderNode);
+        root->AdoptChild(splineRiderNode);
         splineRiderNode->Hide();
         splineRiderT = 0.0f;
         splineRiderTSpeed = 3.0f; // units per second
@@ -528,7 +533,7 @@ public:
         }
 
         // update perspective to window
-        cameraNode->SetPerspectiveProjection(70.0f, (float) window->GetWidth() / window->GetHeight(), 0.1f, 1000.0f);
+        cameraNode->SetPerspective(70.0f, (float) window->GetWidth() / window->GetHeight(), 0.1f, 1000.0f);
 
         // do fixed step updates
         while (lag >= fixedUpdateStep)

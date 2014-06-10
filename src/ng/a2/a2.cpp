@@ -67,14 +67,14 @@ public:
         // prepare the scene
         mCamera = std::make_shared<ng::Camera>();
         mCameraNode = std::make_shared<ng::CameraNode>(mCamera);
-        mCameraNode->SetPerspectiveProjection(70.0f, (float) Window->GetWidth() / Window->GetHeight(), 0.1f, 1000.0f);
+        mCameraNode->SetPerspective(70.0f, (float) Window->GetWidth() / Window->GetHeight(), 0.1f, 1000.0f);
         mEyePosition = { 10.0f, 10.0f, 10.0f };
         mEyeTarget = { 0.0f, 0.0f, 0.0f };
         mEyeUpVector = { 0.0f, 1.0f, 0.0f };
         mCameraNode->SetLookAt(mEyePosition, mEyeTarget, mEyeUpVector);
         mCameraNode->SetViewport(0, 0, Window->GetWidth(), Window->GetHeight());
-        mROManager.AddCamera(mCameraNode);
-        mROManager.SetUpdateRoot(mCameraNode);
+        mROManager.SetCamera(mCameraNode);
+        mROManager.SetRoot(mCameraNode);
 
         mIsoSurface = std::make_shared<ng::IsoSurface>(Renderer);
         mIsoSurface->Polygonize([](ng::vec3 p){

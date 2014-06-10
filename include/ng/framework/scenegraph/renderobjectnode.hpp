@@ -27,9 +27,6 @@ class RenderObjectNode : public std::enable_shared_from_this<RenderObjectNode>
     mutable mat4 mWorldTransform;
     mutable bool mIsWorldTransformDirty = true;
 
-    mutable mat3 mNormalMatrix;
-    mutable bool mIsNormalMatrixDirty = true;
-
     void SetDirtyRecursively() const;
 
 protected:

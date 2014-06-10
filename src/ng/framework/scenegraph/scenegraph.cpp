@@ -17,17 +17,17 @@
 namespace ng
 {
 
-void SceneGraph::SetUpdateRoot(std::shared_ptr<RenderObjectNode> updateRoot)
+void SceneGraph::SetRoot(std::shared_ptr<RenderObjectNode> root)
 {
-    mUpdateRoot = std::move(updateRoot);
+    mRoot = std::move(root);
 }
 
-void SceneGraph::AddCamera(std::shared_ptr<CameraNode> currentCamera)
+void SceneGraph::SetCamera(std::shared_ptr<CameraNode> camera)
 {
-    mCameras.push_back(std::move(currentCamera));
+    mCamera = std::move(camera);
 }
 
-void SceneGraph::AddLight(std::shared_ptr<LightNode> light)
+void SceneGraph::AddLight(std::weak_ptr<LightNode> light)
 {
     mLights.push_back(std::move(light));
 }
@@ -62,17 +62,18 @@ static void UpdateDepthFirst(
 
 void SceneGraph::Update(std::chrono::milliseconds deltaTime)
 {
-    UpdateDepthFirst(deltaTime, mUpdateRoot);
+    UpdateDepthFirst(deltaTime, mRoot);
 }
 
 using MatrixStack = std::stack<mat4, std::vector<mat4>>;
 
 static void DrawMultiPassDepthFirst(
         const mat4& projection,
+        const mat4& worldView,
         MatrixStack& modelViewStack,
         const std::shared_ptr<IShaderProgram>& program,
         const RenderState& renderState,
-        const std::vector<std::shared_ptr<LightNode>>& lights,
+        const std::vector<std::weak_ptr<LightNode>>& lights,
         const std::shared_ptr<RenderObjectNode>& node)
 {
     if (node)
@@ -104,15 +105,29 @@ static void DrawMultiPassDepthFirst(
 
             std::map<std::string,UniformValue> uniforms{
                 { "uProjection", projection },
-                { "uModelView", modelView },
-                { "uNormalMatrix", mat3(inverse(transpose(modelView))) }
+                { "uModelView", modelView }
             };
 
-            for (const std::shared_ptr<LightNode>& light : lights)
+            for (const std::weak_ptr<LightNode>& wpLight : lights)
             {
-                // TODO: fix this
-                vec3 lightViewPos = light->GetWorldBoundingBox().GetCenter();
-                uniforms["uLight.Position"] = UniformValue(vec3(lightViewPos));
+                if (wpLight.expired())
+                {
+                    continue;
+                }
+
+                std::shared_ptr<LightNode> light = wpLight.lock();
+
+                // check if the light intersects with the node
+                if (!AABBoxIntersect(light->GetWorldBoundingBox(), node->GetWorldBoundingBox()))
+                {
+                    // continue;
+                }
+
+                vec4 lightViewPos = worldView * light->GetWorldTransform() * vec4(0,0,0,1);
+                vec4 lightModelPos = inverse(modelView) * lightViewPos;
+
+                uniforms["uLight.Position"] = UniformValue(vec3(lightModelPos));
+                uniforms["uLight.Radius"] = UniformValue(vec1(light->GetLight()->GetRadius()));
                 uniforms["uLight.Color"] = UniformValue(light->GetLight()->GetColor());
 
                 pass = node->GetRenderObject()->Draw(program, uniforms, renderState);
@@ -123,7 +138,7 @@ static void DrawMultiPassDepthFirst(
         {
             for (const std::shared_ptr<RenderObjectNode>& child : node->GetChildren())
             {
-                DrawMultiPassDepthFirst(projection, modelViewStack,
+                DrawMultiPassDepthFirst(projection, worldView, modelViewStack,
                                         program, renderState, lights, child);
             }
         }
@@ -134,42 +149,25 @@ void SceneGraph::DrawMultiPass(
         const std::shared_ptr<IShaderProgram>& program,
         const RenderState& renderState) const
 {
-    for (const std::shared_ptr<CameraNode>& camera : mCameras)
+    const std::shared_ptr<CameraNode>& camera = mCamera;
+
+    RenderState decoratedState = renderState;
+    decoratedState.Viewport = camera->GetViewport();
+    decoratedState.ActivatedParameters.set(RenderState::Activate_Viewport);
+
+    if (decoratedState.Viewport == ng::ivec4(0,0,0,1))
     {
-        camera->GetCamera()->mIsCurrentCamera = true;
-        auto currentCameraGuard = make_scope_guard([&]{
-            camera->GetCamera()->mIsCurrentCamera = false;
-        });
-
-        RenderState decoratedState = renderState;
-        decoratedState.Viewport = camera->GetViewport();
-        decoratedState.ActivatedParameters.set(RenderState::Activate_Viewport);
-
-        if (decoratedState.Viewport == ng::ivec4(0,0,0,1))
-        {
-            throw std::logic_error("Woops, you probably forgot to initialize the viewport with meaningful values.");
-        }
-
-        // create the viewWorld matrix
-        mat4 viewWorld = camera->GetLocalTransform();
-
-        // add in all transformations of parents of the camera
-        for (std::weak_ptr<RenderObjectNode> parent = camera->GetParent();
-             !parent.expired() && parent.lock() != camera;
-             parent = parent.lock()->GetParent())
-        {
-            viewWorld = viewWorld * parent.lock()->GetLocalTransform();
-        }
-
-        MatrixStack modelViewStack;
-        modelViewStack.push(inverse(viewWorld));
-
-        for (const std::shared_ptr<RenderObjectNode>& child : camera->GetChildren())
-        {
-            DrawMultiPassDepthFirst(camera->GetProjection(),
-                           modelViewStack, program, decoratedState, mLights, child);
-        }
+        throw std::logic_error("Woops, you probably forgot to initialize the viewport with meaningful values.");
     }
+
+    // create the viewWorld matrix
+    mat4 worldView = camera->GetWorldView();
+
+    MatrixStack modelViewStack;
+    modelViewStack.push(worldView);
+
+    DrawMultiPassDepthFirst(camera->GetProjection(), worldView, modelViewStack,
+                            program, decoratedState, mLights, mRoot);
 }
 
 } // end namespace ng

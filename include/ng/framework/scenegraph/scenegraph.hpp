@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include <chrono>
+#include <map>
 
 namespace ng
 {
@@ -19,28 +20,26 @@ class LightNode;
 
 class SceneGraph
 {
-    std::shared_ptr<RenderObjectNode> mUpdateRoot;
-    std::vector<std::shared_ptr<CameraNode>> mCameras;
-    std::vector<std::shared_ptr<LightNode>> mLights;
+    std::shared_ptr<RenderObjectNode> mRoot;
+    std::shared_ptr<CameraNode> mCamera;
+    std::vector<std::weak_ptr<LightNode>> mLights;
 
 public:
-    void SetUpdateRoot(std::shared_ptr<RenderObjectNode> updateRoot);
+    void SetRoot(std::shared_ptr<RenderObjectNode> root);
 
-    void AddCamera(std::shared_ptr<CameraNode> currentCamera);
+    void SetCamera(std::shared_ptr<CameraNode> camera);
 
-    void AddLight(std::shared_ptr<LightNode> light);
+    void AddLight(std::weak_ptr<LightNode> light);
 
-    // Currently not allowed to modify the scene graph during an update pass.
-    // ... but that might be a nice feature for later? Just gotta find a good way to do it.
+    // Not allowed to modify the scene graph structure during an update pass.
     void Update(std::chrono::milliseconds deltaTime);
 
     // Not allowed to modify the scene graph during a draw pass.
     // multi-pass rendering algorithm:
     //
-    // for each camera
-    //     for each node
-    //         for each light
-    //             node.draw();
+    // for each node
+    //     for each light
+    //         node.draw();
     void DrawMultiPass(const std::shared_ptr<IShaderProgram>& program,
                        const RenderState& renderState) const;
 };

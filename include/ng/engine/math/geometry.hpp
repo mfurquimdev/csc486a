@@ -92,6 +92,21 @@ struct Sphere
 };
 
 template<class T>
+bool AABBoxIntersect(const AxisAlignedBoundingBox<T>& a, const AxisAlignedBoundingBox<T>& b)
+{
+    bool xOverlap = (a.Minimum.x >= b.Minimum.x && a.Minimum.x <= b.Maximum.x) ||
+                    (b.Minimum.x >= a.Minimum.x && b.Minimum.x <= b.Maximum.x);
+
+    bool yOverlap = (a.Minimum.y >= b.Minimum.y && a.Minimum.y <= b.Maximum.y) ||
+                    (b.Minimum.y >= a.Minimum.y && b.Minimum.y <= b.Maximum.y);
+
+    bool zOverlap = (a.Minimum.z >= b.Minimum.z && a.Minimum.z <= b.Maximum.z) ||
+                    (b.Minimum.z >= a.Minimum.z && b.Minimum.z <= b.Maximum.z);
+
+    return xOverlap && yOverlap && zOverlap;
+}
+
+template<class T>
 bool RayPlaneIntersect(const Ray<T>& ray, const Plane<T>& plane, T tmin, T tmax, T& t)
 {
     T denom = dot(plane.Normal, ray.Direction);
