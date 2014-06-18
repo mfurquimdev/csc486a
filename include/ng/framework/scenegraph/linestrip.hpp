@@ -25,18 +25,9 @@ class LineStrip : public IRenderObject
 public:
     LineStrip(std::shared_ptr<IRenderer> renderer);
 
-    void Reset();
+    void UpdatePoints(const vec3* points, std::size_t numPoints);
 
-    void AddPoint(vec3 point);
-
-    void RemovePoint(std::vector<vec3>::const_iterator which);
-
-    void SetPoint(std::vector<vec3>::const_iterator which, vec3 value);
-
-    const std::vector<vec3>& GetPoints() const
-    {
-        return mPoints;
-    }
+    void UpdatePoints(std::vector<vec3> points);
 
     AxisAlignedBoundingBox<float> GetLocalBoundingBox() const override;
 

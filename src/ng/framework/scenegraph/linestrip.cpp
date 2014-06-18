@@ -12,37 +12,15 @@ LineStrip::LineStrip(std::shared_ptr<IRenderer> renderer)
     : mMesh(renderer->CreateStaticMesh())
 { }
 
-void LineStrip::Reset()
+void LineStrip::UpdatePoints(const vec3* points, std::size_t numPoints)
 {
-    mPoints.clear();
-    mBoundingBox = AxisAlignedBoundingBox<float>();
+    mPoints = std::vector<vec3>(points, points + numPoints);
     mIsMeshDirty = true;
 }
 
-void LineStrip::AddPoint(vec3 point)
+void LineStrip::UpdatePoints(std::vector<vec3> points)
 {
-    mPoints.push_back(point);
-    mBoundingBox.AddPoint(point);
-    mIsMeshDirty = true;
-}
-
-void LineStrip::RemovePoint(std::vector<vec3>::const_iterator which)
-{
-    mPoints.erase(mPoints.begin() + std::distance(mPoints.cbegin(), which));
-
-    // rebuild bounding box
-    mBoundingBox = ng::AxisAlignedBoundingBox<float>();
-    for (vec3 point : mPoints)
-    {
-        mBoundingBox.AddPoint(point);
-    }
-
-    mIsMeshDirty = true;
-}
-
-void LineStrip::SetPoint(std::vector<vec3>::const_iterator which, vec3 value)
-{
-    mPoints.at(which - mPoints.begin()) = value;
+    mPoints = std::move(points);
     mIsMeshDirty = true;
 }
 

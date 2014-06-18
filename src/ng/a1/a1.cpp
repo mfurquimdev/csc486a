@@ -49,10 +49,10 @@ ng::Ray<float> RayFromClick(const ng::CameraNode& cameraNode,
     return clickRay;
 }
 
-void RebuildCatmullRomSpline(int numDivisions, const ng::CatmullRomSpline<float>& spline,
-                             ng::LineStrip& lineStrip)
+void RebuildCatmullRomLineStrip(int numDivisions, const ng::CatmullRomSpline<float>& spline,
+                             std::vector<ng::vec3>& lineStrip)
 {
-    lineStrip.Reset();
+    lineStrip.clear();
 
     if (spline.ControlPoints.size() >= 4)
     {
@@ -62,7 +62,7 @@ void RebuildCatmullRomSpline(int numDivisions, const ng::CatmullRomSpline<float>
         {
             for (int division = 0; division <= numDivisions; division++)
             {
-                lineStrip.AddPoint(spline.CalculatePosition(segment, (float) division / numDivisions));
+                lineStrip.push_back(spline.CalculatePosition(segment, (float) division / numDivisions));
             }
         }
     }
@@ -94,6 +94,7 @@ public:
 
     std::shared_ptr<ng::LineStrip> lineStrip;
     std::shared_ptr<ng::RenderObjectNode> lineStripNode;
+    std::vector<ng::vec3> lineStripPoints;
 
     ng::CatmullRomSpline<float> catmullRomSpline;
     std::shared_ptr<ng::LineStrip> catmullRomStrip;
@@ -320,10 +321,11 @@ public:
                             catmullRomSpline.ControlPoints[indexToMove] = collisonPoint;
 
                             // remove that index from the line strip
-                            lineStrip->SetPoint(lineStrip->GetPoints().begin() + indexToMove, collisonPoint);
+                            lineStripPoints[indexToMove] = collisonPoint;
 
                             // rebuild the catmull rom spline
-                            RebuildCatmullRomSpline(numSplineDivisions, catmullRomSpline, *catmullRomStrip);
+                            RebuildCatmullRomLineStrip(numSplineDivisions, catmullRomSpline, lineStripPoints);
+                            catmullRomStrip->UpdatePoints(lineStripPoints);
                         }
                     }
                 }
@@ -367,10 +369,11 @@ public:
                         catmullRomSpline.ControlPoints.erase(catmullRomSpline.ControlPoints.begin() + indexToDelete);
 
                         // remove that index from the line strip
-                        lineStrip->RemovePoint(lineStrip->GetPoints().begin() + indexToDelete);
+                        lineStripPoints.erase(lineStripPoints.begin() + indexToDelete);
 
                         // rebuild the catmull rom spline
-                        RebuildCatmullRomSpline(numSplineDivisions, catmullRomSpline, *catmullRomStrip);
+                        RebuildCatmullRomLineStrip(numSplineDivisions, catmullRomSpline, lineStripPoints);
+                        catmullRomStrip->UpdatePoints(lineStripPoints);
 
                         // remove the deleted node from its parent
                         parentOfSelected->AbandonChild(selected);
@@ -473,7 +476,7 @@ public:
                             controlPointGroupNode->AdoptChild(sphereNode);
 
                             // add the new point to the line strip
-                            lineStrip->AddPoint(collisonPoint);
+                            lineStripPoints.push_back(collisonPoint);
 
                             // add the new point to the catmull rom spline
                             catmullRomSpline.ControlPoints.push_back(collisonPoint);
@@ -490,7 +493,8 @@ public:
                             sphereNode->AdoptChild(selectorCubeNode);
 
                             // rebuild the catmull rom mesh
-                            RebuildCatmullRomSpline(numSplineDivisions, catmullRomSpline, *catmullRomStrip);
+                            RebuildCatmullRomLineStrip(numSplineDivisions, catmullRomSpline, lineStripPoints);
+                            catmullRomStrip->UpdatePoints(lineStripPoints);
                         }
                     }
                 }
@@ -522,10 +526,11 @@ public:
                     catmullRomSpline.ControlPoints[indexToMove] = selected->GetWorldBoundingBox().GetCenter();
 
                     // remove that index from the line strip
-                    lineStrip->SetPoint(lineStrip->GetPoints().begin() + indexToMove, selected->GetWorldBoundingBox().GetCenter());
+                    lineStripPoints[indexToMove] = selected->GetWorldBoundingBox().GetCenter();
 
                     // rebuild the catmull rom spline
-                    RebuildCatmullRomSpline(numSplineDivisions, catmullRomSpline, *catmullRomStrip);
+                    RebuildCatmullRomLineStrip(numSplineDivisions, catmullRomSpline, lineStripPoints);
+                    catmullRomStrip->UpdatePoints(lineStripPoints);
                 }
                 else
                 {
