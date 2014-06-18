@@ -105,57 +105,63 @@ static void DrawMultiPassDepthFirst(
         {
             mat4 modelView = modelViewStack.top();
 
-            std::shared_ptr<IShaderProgram> program = profile.GetProgramForMaterial(node->GetMaterial());
+            const Material& mat = node->GetMaterial();
+            std::shared_ptr<IShaderProgram> program = profile.GetProgramForMaterial(mat);
 
             std::map<std::string,UniformValue> uniforms{
                 { "uProjection", projection },
-                { "uModelView", modelView }
+                { "uModelView", modelView },
+                { "uTint", mat.Tint }
             };
 
-            bool drewOnce = false;
-
-            for (const std::weak_ptr<LightNode>& wpLight : lights)
+            if (mat.Style == MaterialStyle::Debug)
             {
-                if (wpLight.expired())
-                {
-                    continue;
-                }
-
-                std::shared_ptr<LightNode> light = wpLight.lock();
-
-                // check if the light intersects with the node
-                if (!AABBoxIntersect(light->GetWorldBoundingBox(), node->GetWorldBoundingBox()))
-                {
-                    continue;
-                }
-
-                vec4 lightViewPos = worldView * light->GetWorldTransform() * vec4(0,0,0,1);
-                vec4 lightModelPos = inverse(modelView) * lightViewPos;
-
-                uniforms["uLight.Position"] = UniformValue(vec3(lightModelPos));
-                uniforms["uLight.Radius"] = UniformValue(vec1(light->GetLight()->GetRadius()));
-                uniforms["uLight.Color"] = UniformValue(light->GetLight()->GetColor());
-
-                RenderState decoratedState = renderState;
-
-                if (drewOnce)
-                {
-                    decoratedState.ActivatedParameters.set(RenderState::Activate_DepthTestFunc);
-                    decoratedState.DepthTestFunc = DepthTestFunc::Equal;
-
-                    decoratedState.ActivatedParameters.set(RenderState::Activate_BlendingEnabled);
-                    decoratedState.BlendingEnabled = true;
-
-                    decoratedState.ActivatedParameters.set(RenderState::Activate_SourceBlendMode);
-                    decoratedState.SourceBlendMode = BlendMode::SourceColor;
-
-                    decoratedState.ActivatedParameters.set(RenderState::Activate_DestinationBlendMode);
-                    decoratedState.DestinationBlendMode = BlendMode::DestinationColor;
-                }
-
-                pass = node->GetRenderObject()->Draw(program, uniforms, decoratedState);
-                drewOnce = true;
+                // ignore lighting. just draw.
+                pass = node->GetRenderObject()->Draw(program, uniforms, renderState);
             }
+            else
+            {
+                bool drewOnce = false;
+
+                for (const std::weak_ptr<LightNode>& wpLight : lights)
+                {
+                    if (wpLight.expired())
+                    {
+                        continue;
+                    }
+
+                    std::shared_ptr<LightNode> light = wpLight.lock();
+
+                    // check if the light intersects with the node
+                    if (!AABBoxIntersect(light->GetWorldBoundingBox(), node->GetWorldBoundingBox()))
+                    {
+                        continue;
+                    }
+
+                    vec4 lightViewPos = worldView * light->GetWorldTransform() * vec4(0,0,0,1);
+                    vec4 lightModelPos = inverse(modelView) * lightViewPos;
+
+                    uniforms["uLight.Position"] = UniformValue(vec3(lightModelPos));
+                    uniforms["uLight.Radius"] = UniformValue(vec1(light->GetLight()->GetRadius()));
+                    uniforms["uLight.Color"] = UniformValue(light->GetLight()->GetColor());
+
+                    RenderState decoratedState = renderState;
+
+                    if (drewOnce)
+                    {
+                        decoratedState.DepthTestFunc = DepthTestFunc::Equal;
+
+                        decoratedState.BlendingEnabled = true;
+
+                        decoratedState.SourceBlendMode = BlendMode::SourceColor;
+
+                        decoratedState.DestinationBlendMode = BlendMode::DestinationColor;
+                    }
+
+                    pass = node->GetRenderObject()->Draw(program, uniforms, decoratedState);
+                    drewOnce = true;
+                }
+                }
         }
 
         if (pass != RenderObjectPass::SkipChildren)
@@ -174,15 +180,16 @@ void SceneGraph::DrawMultiPass(const ShaderProfile& profile) const
     const std::shared_ptr<CameraNode>& camera = mCamera;
 
     RenderState renderState;
+
+    renderState.DepthTestEnabled = true;
+
     renderState.Viewport = camera->GetViewport();
-    renderState.ActivatedParameters.set(RenderState::Activate_Viewport);
 
     if (renderState.Viewport == ng::ivec4(0,0,0,1))
     {
         throw std::logic_error("Woops, you probably forgot to initialize the viewport with meaningful values.");
     }
 
-    // create the viewWorld matrix
     mat4 worldView = camera->GetWorldView();
 
     MatrixStack modelViewStack;

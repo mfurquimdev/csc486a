@@ -96,6 +96,30 @@ struct vec : public genType_storage<T,N>
 };
 
 template<class T, std::size_t N>
+T* begin(vec<T,N>& v)
+{
+    return &v[0];
+}
+
+template<class T, std::size_t N>
+const T* begin(const vec<T,N>& v)
+{
+    return &v[0];
+}
+
+template<class T, std::size_t N>
+T* end(vec<T,N>& v)
+{
+    return &v[0] + N;
+}
+
+template<class T, std::size_t N>
+const T* end(const vec<T,N>& v)
+{
+    return &v[0] + N;
+}
+
+template<class T, std::size_t N>
 vec<T,N> operator+(vec<T,N> lhs, vec<T,N> rhs)
 {
     lhs += rhs;
@@ -427,8 +451,9 @@ bool all(vec<bool,N> v)
     return true;
 }
 
+// "not" is a keyword in C++. :(
 template<std::size_t N>
-bool not(vec<bool,N> v)
+vec<bool,N> not_(vec<bool,N> v)
 {
     vec<bool,N> r;
     for (std::size_t i = 0; i < N; i++)

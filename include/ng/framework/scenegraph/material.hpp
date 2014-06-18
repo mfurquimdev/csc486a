@@ -1,7 +1,10 @@
 #ifndef NG_MATERIAL_HPP
 #define NG_MATERIAL_HPP
 
+#include "ng/engine/math/linearalgebra.hpp"
+
 #include <functional>
+#include <algorithm>
 
 namespace ng
 {
@@ -20,25 +23,11 @@ enum class MaterialQuality : int
 class Material
 {
 public:
-    Material() = default;
+    MaterialStyle Style = MaterialStyle::Debug;
 
-    Material(MaterialStyle style,
-             MaterialQuality quality)
-        : Style(style)
-        , Quality(quality)
-    { }
-
-    MaterialStyle Style = MaterialStyle::Phong;
     MaterialQuality Quality = MaterialQuality::Medium;
-};
 
-struct MaterialLess
-{
-    constexpr bool operator()(const ng::Material& a, const ng::Material& b) const
-    {
-        return (int(a.Style) < int(b.Style)) ||
-               (int(a.Style) == int(b.Style) && int(a.Quality) < int(b.Quality));
-    }
+    vec3 Tint = vec3(1,1,1);
 };
 
 } // end namespace ng

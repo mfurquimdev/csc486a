@@ -54,10 +54,7 @@ RenderObjectPass LineStrip::Draw(
             mIsMeshDirty = false;
         }
 
-        auto extraUniforms = uniforms;
-        extraUniforms.emplace("uTint", vec4(1,1,1,1));
-
-        mMesh->Draw(program, extraUniforms, renderState,
+        mMesh->Draw(program, uniforms, renderState,
                     PrimitiveType::LineStrip, 0, mMesh->GetVertexCount());
     }
 

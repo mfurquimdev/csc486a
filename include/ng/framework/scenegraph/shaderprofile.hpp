@@ -4,7 +4,6 @@
 #include "ng/framework/scenegraph/material.hpp"
 
 #include <memory>
-#include <map>
 
 namespace ng
 {
@@ -15,7 +14,8 @@ class Material;
 
 class ShaderProfile
 {
-    std::map<Material,std::shared_ptr<IShaderProgram>,MaterialLess> mMaterialToProgram;
+    std::shared_ptr<IShaderProgram> mPhongProgram;
+    std::shared_ptr<IShaderProgram> mDebugProgram;
 
 public:
     void BuildShaders(const std::shared_ptr<IRenderer>& renderer);

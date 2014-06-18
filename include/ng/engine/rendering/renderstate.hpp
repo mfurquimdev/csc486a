@@ -51,56 +51,30 @@ enum class BlendMode
 class RenderState
 {
 public:
-    enum ActiveParamMask
-    {
-        Activate_DepthTestEnabled,
-        Activate_DepthTestFunc,
+    bool DepthTestEnabled = false;
 
-        Activate_BlendingEnabled,
-        Activate_SourceBlendMode,
-        Activate_DestinationBlendMode,
-        Activate_BlendColor,
+    ng::DepthTestFunc DepthTestFunc = ng::DepthTestFunc::Less;
 
-        Activate_PolygonMode,
-        Activate_LineWidth,
-        Activate_PointSize,
-        Activate_Viewport,
+    bool BlendingEnabled = false;
 
-        NumActivationParams
-    };
+    BlendMode SourceBlendMode = BlendMode::One;
 
-    std::bitset<NumActivationParams> ActivatedParameters;
-
-    bool DepthTestEnabled;
-
-    // if this is not activated but DepthTestEnabled is,
-    // then the DepthTestFunc will default to Less
-    // if this is activated and DepthTestEnabled is not activated or false,
-    // then this does nothing.
-    ng::DepthTestFunc DepthTestFunc;
-
-    bool BlendingEnabled;
-
-    // if this is not activated but BlendingEnabled is,
-    // then SourceBlendMode will default to One
-    // if this is activated and BlendingEnabled is not activated or false,
-    // then this does nothing.
-    BlendMode SourceBlendMode;
-
-    // Same as SourceBlendMode, but defaults to Zero.
-    BlendMode DestinationBlendMode;
+    BlendMode DestinationBlendMode = BlendMode::Zero;
 
     // for use with blend modes: ConstantColor, OneMinusConstantColor, ConstantAlpha, OneMinusConstantAlpha
-    // if not enabled, defaults to vec4(0,0,0,0)
-    vec4 BlendColor;
+    vec4 BlendColor = vec4(0,0,0,0);
 
-    ng::PolygonMode PolygonMode;
+    // note: not available on all platforms
+    ng::PolygonMode PolygonMode = ng::PolygonMode::Fill;
 
-    float LineWidth;
+    // note: not available on all platforms
+    float LineWidth = 1;
 
-    float PointSize;
+    // note: not available on all platforms
+    float PointSize = 1;
 
-    ivec4 Viewport;
+    // this value should likely be overwritten before drawing.
+    ivec4 Viewport = ivec4(0,0,0,0);
 };
 
 } // end namespace ng

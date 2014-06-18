@@ -38,7 +38,7 @@ void IsoSurface::Polygonize(std::function<float(vec3)> fieldFunction,
 
     std::map<ivec3, std::uint8_t,std::function<bool(ivec3,ivec3)>> voxelSignMap(
     [](ivec3 a, ivec3 b){
-        return a.x < b.x || ((a.x == b.x && a.y < b.y) || (a.y == b.y && a.z < b.z));
+        return std::lexicographical_compare(begin(a),end(a),begin(b),end(b));
     });
 
     std::vector<vec3> vertexBuffer;
@@ -213,9 +213,8 @@ RenderObjectPass IsoSurface::Draw(
         const std::map<std::string, UniformValue>& uniforms,
         const RenderState& renderState)
 {
-    std::map<std::string, UniformValue> modUniforms = uniforms;
-    modUniforms.emplace("uTint", vec4(1,0,0,1));
-    mMesh->Draw(program, modUniforms, renderState, PrimitiveType::Triangles, 0, mMesh->GetVertexCount());
+    mMesh->Draw(program, uniforms, renderState,
+                PrimitiveType::Triangles, 0, mMesh->GetVertexCount());
     return RenderObjectPass::Continue;
 }
 

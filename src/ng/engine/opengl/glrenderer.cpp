@@ -872,105 +872,59 @@ InstructionHandlerResponse HandleRenderingInstruction(RenderingOpenGLThreadData&
         // set up rendering state
         const RenderState& state = *params.State;
 
-        if (state.ActivatedParameters.test(RenderState::Activate_DepthTestEnabled))
+        if (state.DepthTestEnabled)
         {
-            if (state.DepthTestEnabled)
-            {
-                glEnable(GL_DEPTH_TEST);
+            glEnable(GL_DEPTH_TEST);
 
-                if (state.ActivatedParameters.test(RenderState::Activate_DepthTestFunc))
-                {
-                    glDepthFunc(ToGLDepthFunc(state.DepthTestFunc));
-                }
-                else
-                {
-                    glDepthFunc(GL_LESS);
-                }
-            }
-            else
-            {
-                glDisable(GL_DEPTH_TEST);
-            }
-
-            FlushOpenGLErrors("glEnable/Disable(GL_DEPTH_TEST)", code);
+            glDepthFunc(ToGLDepthFunc(state.DepthTestFunc));
+        }
+        else
+        {
+            glDisable(GL_DEPTH_TEST);
         }
 
-        if (state.ActivatedParameters.test(RenderState::Activate_BlendingEnabled))
+        if (state.BlendingEnabled)
         {
-            if (state.BlendingEnabled)
-            {
-                glEnable(GL_BLEND);
+            glEnable(GL_BLEND);
 
-                GLenum srcblend = GL_ONE;
-                GLenum dstblend = GL_ZERO;
+            GLenum srcblend = ToGLBlendMode(state.SourceBlendMode);
+            GLenum dstblend = ToGLBlendMode(state.DestinationBlendMode);
 
-                if (state.ActivatedParameters.test(RenderState::Activate_SourceBlendMode))
-                {
-                    srcblend = ToGLBlendMode(state.SourceBlendMode);
-                }
+            vec4 bc = state.BlendColor;
+            glBlendColor(bc.x, bc.y, bc.z, bc.w);
 
-                if (state.ActivatedParameters.test(RenderState::Activate_DestinationBlendMode))
-                {
-                    dstblend = ToGLBlendMode(state.DestinationBlendMode);
-                }
-
-                if (state.ActivatedParameters.test(RenderState::Activate_BlendColor))
-                {
-                    vec4 bc = state.BlendColor;
-                    glBlendColor(bc.x, bc.y, bc.z, bc.w);
-                }
-                else
-                {
-                    glBlendColor(0,0,0,0);
-                }
-
-                glBlendFunc(srcblend, dstblend);
-            }
-            else
-            {
-                glDisable(GL_BLEND);
-            }
+            glBlendFunc(srcblend, dstblend);
+        }
+        else
+        {
+            glDisable(GL_BLEND);
         }
 
 #ifndef NG_USE_EMSCRIPTEN
-        if (state.ActivatedParameters.test(RenderState::Activate_PolygonMode))
+        switch (state.PolygonMode)
         {
-            switch (state.PolygonMode)
-            {
-            case PolygonMode::Point:
-                glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
-                break;
-            case PolygonMode::Line:
-                glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-                break;
-            case PolygonMode::Fill:
-                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-                break;
-            }
-
-            FlushOpenGLErrors("glPolygonMode", code);
+        case PolygonMode::Point:
+            glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+            break;
+        case PolygonMode::Line:
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            break;
+        case PolygonMode::Fill:
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            break;
         }
 #endif
 
-        if (state.ActivatedParameters.test(RenderState::Activate_LineWidth))
-        {
-            glLineWidth(state.LineWidth);
-            FlushOpenGLErrors("glLineWidth", code);
-        }
+        glLineWidth(state.LineWidth);
+        FlushOpenGLErrors("glLineWidth", code);
 
 #ifndef NG_USE_EMSCRIPTEN
-        if (state.ActivatedParameters.test(RenderState::Activate_PointSize))
-        {
-            glPointSize(state.PointSize);
-            FlushOpenGLErrors("glPointSize", code);
-        }
+        glPointSize(state.PointSize);
+        FlushOpenGLErrors("glPointSize", code);
 #endif
 
-        if (state.ActivatedParameters.test(RenderState::Activate_Viewport))
-        {
-            glViewport(state.Viewport[0], state.Viewport[1], state.Viewport[2], state.Viewport[3]);
-            FlushOpenGLErrors("glViewport", code);
-        }
+        glViewport(state.Viewport[0], state.Viewport[1], state.Viewport[2], state.Viewport[3]);
+        FlushOpenGLErrors("glViewport", code);
 
         // perform the draw
         if (params.IsIndexed)

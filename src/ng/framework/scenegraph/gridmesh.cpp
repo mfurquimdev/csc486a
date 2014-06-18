@@ -90,10 +90,7 @@ RenderObjectPass GridMesh::Draw(
         const std::map<std::string, UniformValue>& uniforms,
         const RenderState& renderState)
 {
-    auto extraUniforms = uniforms;
-    extraUniforms.emplace("uTint", vec4(0,1,0,1));
-
-    mMesh->Draw(program, extraUniforms, renderState,
+    mMesh->Draw(program, uniforms, renderState,
                 PrimitiveType::TriangleStrip, 0, mMesh->GetVertexCount());
 
     return RenderObjectPass::Continue;
