@@ -322,6 +322,122 @@ vec<T,N>>::type normalize(vec<T,N> v)
     return v / length(v);
 }
 
+template<class T, std::size_t N>
+typename std::enable_if<std::is_same<T,float>::value ||
+                        std::is_same<T,std::int32_t>::value ||
+                        std::is_same<T,std::uint32_t>::value,
+vec<bool,N>>::type lessThan(vec<T,N> x, vec<T,N> y)
+{
+    vec<bool,N> v;
+    for (std::size_t i = 0; i < N; i++)
+    {
+        v[i] = x[i] < y[i];
+    }
+    return v;
+}
+
+template<class T, std::size_t N>
+typename std::enable_if<std::is_same<T,float>::value ||
+                        std::is_same<T,std::int32_t>::value ||
+                        std::is_same<T,std::uint32_t>::value,
+vec<bool,N>>::type lessThanEqual(vec<T,N> x, vec<T,N> y)
+{
+    vec<bool,N> v;
+    for (std::size_t i = 0; i < N; i++)
+    {
+        v[i] = x[i] <= y[i];
+    }
+    return v;
+}
+
+
+template<class T, std::size_t N>
+typename std::enable_if<std::is_same<T,float>::value ||
+                        std::is_same<T,std::int32_t>::value ||
+                        std::is_same<T,std::uint32_t>::value,
+vec<bool,N>>::type greaterThan(vec<T,N> x, vec<T,N> y)
+{
+    vec<bool,N> v;
+    for (std::size_t i = 0; i < N; i++)
+    {
+        v[i] = x[i] > y[i];
+    }
+    return v;
+}
+
+template<class T, std::size_t N>
+typename std::enable_if<std::is_same<T,float>::value ||
+                        std::is_same<T,std::int32_t>::value ||
+                        std::is_same<T,std::uint32_t>::value,
+vec<bool,N>>::type greaterThanEqual(vec<T,N> x, vec<T,N> y)
+{
+    vec<bool,N> v;
+    for (std::size_t i = 0; i < N; i++)
+    {
+        v[i] = x[i] >= y[i];
+    }
+    return v;
+}
+
+template<class T, std::size_t N>
+typename std::enable_if<std::is_same<T,float>::value ||
+                        std::is_same<T,std::int32_t>::value ||
+                        std::is_same<T,std::uint32_t>::value,
+vec<bool,N>>::type equal(vec<T,N> x, vec<T,N> y)
+{
+    vec<bool,N> v;
+    for (std::size_t i = 0; i < N; i++)
+    {
+        v[i] = x[i] == y[i];
+    }
+    return v;
+}
+
+template<class T, std::size_t N>
+typename std::enable_if<std::is_same<T,float>::value ||
+                        std::is_same<T,std::int32_t>::value ||
+                        std::is_same<T,std::uint32_t>::value,
+vec<bool,N>>::type notEqual(vec<T,N> x, vec<T,N> y)
+{
+    vec<bool,N> v;
+    for (std::size_t i = 0; i < N; i++)
+    {
+        v[i] = x[i] != y[i];
+    }
+    return v;
+}
+
+template<std::size_t N>
+bool any(vec<bool,N> v)
+{
+    for (std::size_t i = 0; i < N; i++)
+    {
+        if (v[i]) return true;
+    }
+    return false;
+}
+
+template<std::size_t N>
+bool all(vec<bool,N> v)
+{
+    for (std::size_t i = 0; i < N; i++)
+    {
+        if (!v[i]) return false;
+    }
+    return true;
+}
+
+template<std::size_t N>
+bool not(vec<bool,N> v)
+{
+    vec<bool,N> r;
+    for (std::size_t i = 0; i < N; i++)
+    {
+        r[i] = !v[i];
+    }
+    return r;
+}
+
 using vec1 = genType<1>;
 using vec2 = genType<2>;
 using vec3 = genType<3>;
