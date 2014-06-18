@@ -7,10 +7,12 @@
 #include "ng/framework/scenegraph/camera.hpp"
 #include "ng/framework/scenegraph/isosurface.hpp"
 #include "ng/framework/scenegraph/uvsphere.hpp"
+#include "ng/framework/scenegraph/shaderprofile.hpp"
 
 class A2 : public ng::IApp, private ng::QuickStart
 {
-    std::shared_ptr<ng::IShaderProgram> mProgram;
+    ng::ShaderProfile mShaderProfile;
+
     ng::SceneGraph mROManager;
 
     std::shared_ptr<ng::Camera> mCamera;
@@ -33,36 +35,7 @@ class A2 : public ng::IApp, private ng::QuickStart
 public:
     void Init() override
     {
-        static const char* vsrc = "#version 100\n"
-                                  "struct Light {\n"
-                                  "    highp vec3 Position;\n"
-                                  "    mediump vec4 Color;\n"
-                                  "} uLight;\n"
-                                  "uniform highp mat4 uModelView;\n"
-                                  "uniform highp mat4 uProjection;\n"
-                                  "attribute highp vec4 iPosition;\n"
-                                  "attribute mediump vec3 iNormal;\n"
-                                  "varying highp vec3 fViewPosition;\n"
-                                  "varying mediump float fLightTint;\n"
-                                  "void main() {\n"
-                                  "    fViewPosition = vec3(uModelView * iPosition);\n"
-                                  "    fLightTint = min(0.0,dot(iNormal, normalize(uLight.Position - iPosition.xyz)));\n"
-                                  "    gl_Position = uProjection * uModelView * iPosition;\n"
-                                  "}\n";
-
-        static const char* fsrc = "#version 100\n"
-                                  "uniform lowp vec4 uTint;\n"
-                                  "varying highp vec3 fViewPosition;\n"
-                                  "varying mediump float fLightTint;\n"
-                                  "void main() {\n"
-                                  "    gl_FragColor = fLightTint * uTint;"
-                                  "}\n";
-
-        mProgram = Renderer->CreateShaderProgram();
-
-        mProgram->Init(std::shared_ptr<const char>(vsrc, [](const char*){}),
-                       std::shared_ptr<const char>(fsrc, [](const char*){}),
-                       true);
+        mShaderProfile.BuildShaders(Renderer);
 
         // prepare the scene
         mCamera = std::make_shared<ng::Camera>();
@@ -143,7 +116,7 @@ public:
 
         Renderer->Clear(true, true, true);
 
-        mROManager.DrawMultiPass(mProgram, ng::RenderState());
+        mROManager.DrawMultiPass(mShaderProfile);
 
         Renderer->SwapBuffers();
 

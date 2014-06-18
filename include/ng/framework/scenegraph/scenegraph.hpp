@@ -17,11 +17,15 @@ class RenderState;
 class RenderObjectNode;
 class CameraNode;
 class LightNode;
+class IRenderer;
+class ShaderProfile;
 
 class SceneGraph
 {
     std::shared_ptr<RenderObjectNode> mRoot;
+
     std::shared_ptr<CameraNode> mCamera;
+
     std::vector<std::weak_ptr<LightNode>> mLights;
 
 public:
@@ -40,8 +44,7 @@ public:
     // for each node
     //     for each light
     //         node.draw();
-    void DrawMultiPass(const std::shared_ptr<IShaderProgram>& program,
-                       const RenderState& renderState) const;
+    void DrawMultiPass(const ShaderProfile& profile) const;
 };
 
 } // end namespace ng

@@ -11,6 +11,8 @@
 #include "ng/engine/rendering/renderstate.hpp"
 #include "ng/engine/util/scopeguard.hpp"
 
+#include "ng/framework/scenegraph/shaderprofile.hpp"
+
 #include <stack>
 #include <algorithm>
 
@@ -71,7 +73,7 @@ static void DrawMultiPassDepthFirst(
         const mat4& projection,
         const mat4& worldView,
         MatrixStack& modelViewStack,
-        const std::shared_ptr<IShaderProgram>& program,
+        const ShaderProfile& profile,
         const RenderState& renderState,
         const std::vector<std::weak_ptr<LightNode>>& lights,
         const std::shared_ptr<RenderObjectNode>& node)
@@ -102,6 +104,8 @@ static void DrawMultiPassDepthFirst(
         if (node->GetRenderObject() && !node->IsHidden())
         {
             mat4 modelView = modelViewStack.top();
+
+            std::shared_ptr<IShaderProgram> program = profile.GetProgramForMaterial(node->GetMaterial());
 
             std::map<std::string,UniformValue> uniforms{
                 { "uProjection", projection },
@@ -159,23 +163,21 @@ static void DrawMultiPassDepthFirst(
             for (const std::shared_ptr<RenderObjectNode>& child : node->GetChildren())
             {
                 DrawMultiPassDepthFirst(projection, worldView, modelViewStack,
-                                        program, renderState, lights, child);
+                                        profile, renderState, lights, child);
             }
         }
     }
 }
 
-void SceneGraph::DrawMultiPass(
-        const std::shared_ptr<IShaderProgram>& program,
-        const RenderState& renderState) const
+void SceneGraph::DrawMultiPass(const ShaderProfile& profile) const
 {
     const std::shared_ptr<CameraNode>& camera = mCamera;
 
-    RenderState decoratedState = renderState;
-    decoratedState.Viewport = camera->GetViewport();
-    decoratedState.ActivatedParameters.set(RenderState::Activate_Viewport);
+    RenderState renderState;
+    renderState.Viewport = camera->GetViewport();
+    renderState.ActivatedParameters.set(RenderState::Activate_Viewport);
 
-    if (decoratedState.Viewport == ng::ivec4(0,0,0,1))
+    if (renderState.Viewport == ng::ivec4(0,0,0,1))
     {
         throw std::logic_error("Woops, you probably forgot to initialize the viewport with meaningful values.");
     }
@@ -187,7 +189,7 @@ void SceneGraph::DrawMultiPass(
     modelViewStack.push(worldView);
 
     DrawMultiPassDepthFirst(camera->GetProjection(), worldView, modelViewStack,
-                            program, decoratedState, mLights, mRoot);
+                            profile, renderState, mLights, mRoot);
 }
 
 } // end namespace ng

@@ -3,6 +3,8 @@
 
 #include "ng/engine/math/geometry.hpp"
 
+#include "ng/framework/scenegraph/material.hpp"
+
 #include <memory>
 #include <vector>
 #include <algorithm>
@@ -17,8 +19,9 @@ class RenderObjectNode : public std::enable_shared_from_this<RenderObjectNode>
     std::weak_ptr<RenderObjectNode> mParentNode;
     std::shared_ptr<IRenderObject> mRenderObject;
 
-    // TODO: Add list of "weak children" for handling cycles
     std::vector<std::shared_ptr<RenderObjectNode>> mChildNodes;
+
+    Material mMaterial;
 
     bool mIsHidden = false;
 
@@ -62,6 +65,16 @@ public:
     void Show()
     {
         mIsHidden = false;
+    }
+
+    void SetMaterial(Material material)
+    {
+        mMaterial = std::move(material);
+    }
+
+    const Material& GetMaterial() const
+    {
+        return mMaterial;
     }
 
     mat4 GetLocalTransform() const

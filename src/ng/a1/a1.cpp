@@ -9,6 +9,7 @@
 #include "ng/engine/rendering/staticmesh.hpp"
 #include "ng/engine/rendering/vertexformat.hpp"
 #include "ng/engine/rendering/shaderprogram.hpp"
+#include "ng/engine/math/constants.hpp"
 
 #include "ng/framework/scenegraph/scenegraph.hpp"
 #include "ng/framework/scenegraph/renderobjectnode.hpp"
@@ -19,7 +20,7 @@
 #include "ng/framework/scenegraph/linestrip.hpp"
 #include "ng/framework/scenegraph/cubemesh.hpp"
 #include "ng/framework/animation/catmullromspline.hpp"
-#include "ng/engine/math/constants.hpp"
+#include "ng/framework/scenegraph/shaderprofile.hpp"
 
 #include <chrono>
 #include <vector>
@@ -74,8 +75,8 @@ public:
     std::shared_ptr<ng::IWindowManager> windowManager;
     std::shared_ptr<ng::IWindow> window;
     std::shared_ptr<ng::IRenderer> renderer;
-    std::shared_ptr<ng::IShaderProgram> program;
-    ng::RenderState renderState;
+    ng::ShaderProfile shaderProfile;
+
     ng::SceneGraph roManager;
 
     std::shared_ptr<ng::RenderObjectNode> root;
@@ -139,51 +140,7 @@ public:
         windowManager = ng::CreateWindowManager();
         window = windowManager->CreateWindow("Splines", 640, 480, 0, 0, ng::VideoFlags());
         renderer = ng::CreateRenderer(windowManager, window);
-
-        static const char* vsrc =
-                "#version 100\n"
-
-                "struct Light {\n"
-                "    highp vec3 Position;\n"
-                "    highp float Radius;\n"
-                "    mediump vec3 Color;\n"
-                "};\n"
-
-                "uniform Light uLight;\n"
-                "uniform highp mat4 uProjection;\n"
-                "uniform highp mat4 uModelView;\n"
-
-                "attribute highp vec4 iPosition;\n"
-                "attribute mediump vec3 iNormal;\n"
-
-                "varying mediump vec3 fLightTint;\n"
-
-                "void main() {\n"
-                "    vec3 P = iPosition.xyz;\n"
-                "    vec3 L = normalize(uLight.Position - P);\n"
-                "    fLightTint = uLight.Color * max(dot(iNormal, L),0.0);\n"
-                "    gl_Position = uProjection * uModelView * iPosition;\n"
-                "}\n";
-
-        static const char* fsrc =
-                "#version 100\n"
-
-                "uniform lowp vec4 uTint;\n"
-
-                "varying mediump vec3 fLightTint;\n"
-
-                "void main() {\n"
-                "    gl_FragColor = vec4(fLightTint,1.0); // * uTint;\n"
-                "}\n";
-
-        program = renderer->CreateShaderProgram();
-
-        program->Init(std::shared_ptr<const char>(vsrc, [](const char*){}),
-                      std::shared_ptr<const char>(fsrc, [](const char*){}),
-                      true);
-
-        renderState.DepthTestEnabled = true;
-        renderState.ActivatedParameters.set(ng::RenderState::Activate_DepthTestEnabled);
+        shaderProfile.BuildShaders(renderer);
 
         // prepare the scene
         root = std::make_shared<ng::RenderObjectNode>();
@@ -618,7 +575,7 @@ public:
 
         renderer->Clear(true, true, false);
 
-        roManager.DrawMultiPass(program, renderState);
+        roManager.DrawMultiPass(shaderProfile);
 
         renderer->SwapBuffers();
 
