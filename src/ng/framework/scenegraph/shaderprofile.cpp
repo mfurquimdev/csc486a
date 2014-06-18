@@ -8,7 +8,7 @@ namespace ng
 
 void ShaderProfile::BuildShaders(const std::shared_ptr<IRenderer>& renderer)
 {
-    static const char* phong_vsrc =
+    static const char* gouraud_vsrc =
             "#version 100\n"
 
             "struct Light {\n"
@@ -20,33 +20,35 @@ void ShaderProfile::BuildShaders(const std::shared_ptr<IRenderer>& renderer)
             "uniform Light uLight;\n"
             "uniform highp mat4 uProjection;\n"
             "uniform highp mat4 uModelView;\n"
+            "uniform lowp vec3 uTint;\n"
 
             "attribute highp vec4 iPosition;\n"
             "attribute mediump vec3 iNormal;\n"
 
-            "varying mediump vec3 fLightTint;\n"
+            "varying lowp vec3 fColor;\n"
 
             "void main() {\n"
             "    vec3 P = iPosition.xyz;\n"
-            "    vec3 L = normalize(uLight.Position - P);\n"
-            "    fLightTint = uLight.Color * max(dot(iNormal, L),0.0);\n"
+            "    vec3 toLight = uLight.Position - P;\n"
+            "    float distanceLengthRatio = length(toLight) / uLight.Radius;\n"
+            "    float attenuation = 1.0 - (distanceLengthRatio * distanceLengthRatio);\n"
+            "    vec3 L = normalize(toLight);\n"
+            "    fColor = uTint * uLight.Color * attenuation * max(dot(iNormal, L),0.0);\n"
             "    gl_Position = uProjection * uModelView * iPosition;\n"
             "}\n";
 
-    static const char* phong_fsrc =
+    static const char* gouraud_fsrc =
             "#version 100\n"
 
-            "uniform lowp vec3 uTint;\n"
-
-            "varying lowp vec3 fLightTint;\n"
+            "varying lowp vec3 fColor;\n"
 
             "void main() {\n"
-            "    gl_FragColor = vec4(fLightTint * uTint, 1.0);\n"
+            "    gl_FragColor = vec4(fColor, 1.0);\n"
             "}\n";
 
     mPhongProgram = renderer->CreateShaderProgram();
-    mPhongProgram->Init(std::shared_ptr<const char>(phong_vsrc, [](const char*){}),
-                        std::shared_ptr<const char>(phong_fsrc, [](const char*){}),
+    mPhongProgram->Init(std::shared_ptr<const char>(gouraud_vsrc, [](const char*){}),
+                        std::shared_ptr<const char>(gouraud_fsrc, [](const char*){}),
                         true);
 
     static const char* debug_vsrc =
