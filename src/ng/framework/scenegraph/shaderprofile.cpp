@@ -31,7 +31,7 @@ void ShaderProfile::BuildShaders(const std::shared_ptr<IRenderer>& renderer)
             "    vec3 P = iPosition.xyz;\n"
             "    vec3 toLight = uLight.Position - P;\n"
             "    float distanceLengthRatio = length(toLight) / uLight.Radius;\n"
-            "    float attenuation = 1.0 - (distanceLengthRatio * distanceLengthRatio);\n"
+            "    float attenuation = max(0.0, 1.0 - (distanceLengthRatio * distanceLengthRatio));\n"
             "    vec3 L = normalize(toLight);\n"
             "    fColor = uTint * uLight.Color * attenuation * max(dot(iNormal, L),0.0);\n"
             "    gl_Position = uProjection * uModelView * iPosition;\n"
