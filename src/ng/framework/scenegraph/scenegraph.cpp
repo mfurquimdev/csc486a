@@ -153,9 +153,9 @@ static void DrawMultiPassDepthFirst(
 
                         decoratedState.BlendingEnabled = true;
 
-                        decoratedState.SourceBlendMode = BlendMode::SourceColor;
+                        decoratedState.SourceBlendMode = BlendMode::One;
 
-                        decoratedState.DestinationBlendMode = BlendMode::DestinationColor;
+                        decoratedState.DestinationBlendMode = BlendMode::One;
                     }
 
                     pass = node->GetRenderObject()->Draw(program, uniforms, decoratedState);
