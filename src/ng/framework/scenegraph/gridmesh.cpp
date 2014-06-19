@@ -34,6 +34,7 @@ void GridMesh::Init(int numColumns, int numRows, vec2 tileSize)
         for (int col = 0; col < numColumns + 1; col++)
         {
             gridVertices.emplace_back(tileSize.x * col, 0, tileSize.y * row);
+            gridVertices.emplace_back(0.0f, 1.0f, 0.0f);
         }
     }
 
@@ -56,21 +57,26 @@ void GridMesh::Init(int numColumns, int numRows, vec2 tileSize)
         }
     }
 
+    VertexFormat gridFormat({
+            { VertexAttributeName::Position, VertexAttribute(3, ArithmeticType::Float, false, 2 * sizeof(vec3), 0) },
+            { VertexAttributeName::Normal,   VertexAttribute(3, ArithmeticType::Float, false, 2 * sizeof(vec3), sizeof(vec3)) }
+        }, ArithmeticType::UInt32);
+
     std::size_t indexBufferSize = gridIndices.size() * sizeof(gridIndices[0]);
     std::size_t indexCount = gridIndices.size();
+    std::size_t vertexCount = gridVertices.size() / 2;
 
     auto pGridIndices = std::make_shared<std::vector<std::uint32_t>>(std::move(gridIndices));
     std::shared_ptr<const void> indexBuffer(pGridIndices->data(), [pGridIndices](const void*){});
 
-    auto pGridVertices = std::make_shared<std::vector<vec3>>(std::move(gridVertices));
-    std::shared_ptr<const void> vertexBuffer(pGridVertices->data(), [pGridVertices](const void*){});
+    std::shared_ptr<std::vector<vec3>> pVertexBuffer(new std::vector<vec3>(std::move(gridVertices)));
 
-    VertexFormat gridFormat({
-            { VertexAttributeName::Position, VertexAttribute(3, ArithmeticType::Float, false, 0, 0) }
-        }, ArithmeticType::UInt32);
+    std::pair<std::shared_ptr<const void>,std::ptrdiff_t> pBufferData({pVertexBuffer->data(), [pVertexBuffer](const void*){}},
+                                                                      vertexCount * 2 * sizeof(vec3));
 
     mMesh->Init(gridFormat, {
-                    { VertexAttributeName::Position, { vertexBuffer, pGridVertices->size() * sizeof(vec3) } }
+                    { VertexAttributeName::Position, pBufferData },
+                    { VertexAttributeName::Normal,   pBufferData }
                 }, indexBuffer, indexBufferSize, indexCount);
 
     mNumColumns = numColumns;

@@ -106,6 +106,9 @@ public:
     std::shared_ptr<ng::CubeMesh> selectorCube;
     std::shared_ptr<ng::RenderObjectNode> selectorCubeNode;
 
+    std::shared_ptr<ng::Light> selectorLight;
+    std::shared_ptr<ng::LightNode> selectorLightNode;
+
     std::shared_ptr<ng::UVSphere> splineRider;
     std::shared_ptr<ng::RenderObjectNode> splineRiderNode;
 
@@ -170,7 +173,6 @@ public:
         gridNode = std::make_shared<ng::RenderObjectNode>(gridMesh);
         gridNode->SetMaterial(standardMaterial);
         gridNode->SetLocalTransform(ng::Translate(-gridNode->GetLocalBoundingBox().GetCenter()));
-        gridNode->Hide();
         root->AdoptChild(gridNode);
 
         catmullRomStrip = std::make_shared<ng::LineStrip>(renderer);
@@ -185,6 +187,14 @@ public:
         selectorCubeNode->SetMaterial(standardMaterial);
         selectorCubeNode->Hide();
 
+        selectorLight = std::make_shared<ng::Light>(ng::LightType::Point);
+        selectorLight->SetColor(ng::vec3(1,1,0));
+        selectorLight->SetRadius(4);
+        selectorLightNode = std::make_shared<ng::LightNode>(selectorLight);
+        selectorLightNode->Hide();
+        roManager.AddLight(selectorLightNode);
+        selectorCubeNode->AdoptChild(selectorLightNode);
+
         splineRider = std::make_shared<ng::UVSphere>(renderer);
         splineRider->Init(3, 3, 0.6f);
         splineRiderNode = std::make_shared<ng::RenderObjectNode>(splineRider);
@@ -196,8 +206,9 @@ public:
 
         splineRiderLight = std::make_shared<ng::Light>(ng::LightType::Point);
         splineRiderLight->SetColor(ng::vec3(1,0,0));
-        splineRiderLight->SetRadius(3);
+        splineRiderLight->SetRadius(7);
         splineRiderLightNode = std::make_shared<ng::LightNode>(splineRiderLight);
+        splineRiderLightNode->Hide();
         roManager.AddLight(splineRiderLightNode);
         splineRiderNode->AdoptChild(splineRiderLightNode);
 
@@ -428,16 +439,18 @@ public:
                             sphere->Init(10, 5, 0.3f);
                             std::shared_ptr<ng::RenderObjectNode> sphereNode = std::make_shared<ng::RenderObjectNode>(sphere);
                             sphereNode->SetMaterial(standardMaterial);
-                            sphereNode->SetLocalTransform(ng::Translate(collisonPoint + ng::vec3(0.0f, 0.3f, 0.0f)));
+
+                            ng::vec3 spawnPoint = collisonPoint + ng::vec3(0.0f, sphere->GetRadius(), 0.0f);
+                            sphereNode->SetLocalTransform(ng::Translate(spawnPoint));
 
                             // add it to the node that hosts all control points
                             controlPointGroupNode->AdoptChild(sphereNode);
 
                             // add the new point to the line strip
-                            lineStripPoints.push_back(collisonPoint);
+                            lineStripPoints.push_back(spawnPoint);
 
                             // add the new point to the catmull rom spline
-                            catmullRomSpline.ControlPoints.push_back(collisonPoint);
+                            catmullRomSpline.ControlPoints.push_back(spawnPoint);
 
                             // unhook the selector from its previous parent
                             if (!selectorCubeNode->GetParent().expired())
@@ -518,6 +531,7 @@ public:
             if (catmullRomSpline.ControlPoints.size() >= 4)
             {
                 splineRiderNode->Show();
+                splineRiderLightNode->Show();
 
                 splineRiderTSpeed = 3.0f;
 
@@ -543,6 +557,16 @@ public:
             else
             {
                 splineRiderNode->Hide();
+                splineRiderLightNode->Hide();
+            }
+
+            if (selectorCubeNode->IsHidden())
+            {
+                selectorLightNode->Hide();
+            }
+            else
+            {
+                selectorLightNode->Show();
             }
 
             lag -= fixedUpdateStep;

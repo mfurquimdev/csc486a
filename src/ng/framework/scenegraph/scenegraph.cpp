@@ -125,6 +125,11 @@ static void DrawMultiPassDepthFirst(
 
                 std::shared_ptr<LightNode> light = wpLight.lock();
 
+                if (light->IsHidden())
+                {
+                    continue;
+                }
+
                 // check if the light intersects with the node for basic collision test.
                 if (!AABBoxIntersect(light->GetWorldBoundingBox(), node->GetWorldBoundingBox()))
                 {

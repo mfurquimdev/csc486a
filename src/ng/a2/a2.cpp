@@ -5,6 +5,7 @@
 #include "ng/framework/scenegraph/scenegraph.hpp"
 #include "ng/framework/scenegraph/renderobjectnode.hpp"
 #include "ng/framework/scenegraph/camera.hpp"
+#include "ng/framework/scenegraph/light.hpp"
 #include "ng/framework/scenegraph/isosurface.hpp"
 #include "ng/framework/scenegraph/uvsphere.hpp"
 #include "ng/framework/scenegraph/shaderprofile.hpp"
@@ -17,6 +18,9 @@ class A2 : public ng::IApp, private ng::QuickStart
 
     std::shared_ptr<ng::Camera> mCamera;
     std::shared_ptr<ng::CameraNode> mCameraNode;
+
+    std::shared_ptr<ng::Light> mAmbientLight;
+    std::shared_ptr<ng::LightNode> mAmbientLightNode;
 
     ng::vec3 mEyePosition;
     ng::vec3 mEyeTarget;
