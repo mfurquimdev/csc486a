@@ -35,6 +35,9 @@ namespace ng
 
 static int FlushOpenGLErrors(const char* lastOp, OpenGLOpCode code)
 {
+    (void) lastOp;
+    (void) code;
+
     int numErrors = 0;
 #ifndef NDEBUG
     GLenum err;
