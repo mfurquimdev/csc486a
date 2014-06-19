@@ -8,12 +8,28 @@
 namespace ng
 {
 
+enum LightType
+{
+    Ambient,
+    Point
+};
+
 class Light : public IRenderObject
 {
+    LightType mType;
     vec3 mColor;
     float mRadius;
 
 public:
+    Light(LightType type)
+        : mType(type)
+    { }
+
+    LightType GetLightType() const
+    {
+        return mType;
+    }
+
     vec3 GetColor() const
     {
         return mColor;
@@ -26,19 +42,43 @@ public:
 
     float GetRadius() const
     {
+        if (mType != LightType::Point)
+        {
+            throw std::logic_error("Only point lights have a radius");
+        }
+
         return mRadius;
     }
 
     void SetRadius(float radius)
     {
+        if (mType != LightType::Point)
+        {
+            throw std::logic_error("Only point lights have a radius");
+        }
+
         mRadius = radius;
     }
 
     AxisAlignedBoundingBox<float> GetLocalBoundingBox() const override
     {
-        return {
-            vec3(-mRadius), vec3(mRadius)
-        };
+        if (mType == LightType::Ambient)
+        {
+            return {
+                vec3(std::numeric_limits<float>::lowest()),
+                vec3(std::numeric_limits<float>::max())
+            };
+        }
+        else if (mType == LightType::Point)
+        {
+            return {
+                vec3(-mRadius), vec3(mRadius)
+            };
+        }
+        else
+        {
+            throw std::logic_error("light type has no local bounding box");
+        }
     }
 
     RenderObjectPass PreUpdate(std::chrono::milliseconds,
@@ -62,12 +102,6 @@ public:
 class LightNode : public RenderObjectNode
 {
     std::shared_ptr<Light> mLight;
-
-protected:
-    bool IsLight() override
-    {
-        return true;
-    }
 
 public:
     LightNode(std::shared_ptr<Light> light)

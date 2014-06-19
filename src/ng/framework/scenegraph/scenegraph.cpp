@@ -73,7 +73,7 @@ static void DrawMultiPassDepthFirst(
         const mat4& projection,
         const mat4& worldView,
         MatrixStack& modelViewStack,
-        const ShaderProfile& profile,
+        const ShaderProfileFactory& profileFactory,
         const RenderState& renderState,
         const std::vector<std::weak_ptr<LightNode>>& lights,
         const std::shared_ptr<RenderObjectNode>& node)
@@ -106,7 +106,7 @@ static void DrawMultiPassDepthFirst(
             mat4 modelView = modelViewStack.top();
 
             const Material& mat = node->GetMaterial();
-            std::shared_ptr<IShaderProgram> program = profile.GetProgramForMaterial(mat);
+            ShaderProfile profile = profileFactory.GetProfileForMaterial(mat);
 
             std::map<std::string,UniformValue> uniforms{
                 { "uProjection", projection },
@@ -114,26 +114,40 @@ static void DrawMultiPassDepthFirst(
                 { "uTint", mat.Tint }
             };
 
-            if (mat.Style == MaterialStyle::Debug)
-            {
-                // ignore lighting. just draw.
-                pass = node->GetRenderObject()->Draw(program, uniforms, renderState);
-            }
-            else
-            {
-                bool drewOnce = false;
+            bool drewOnce = false;
 
-                for (const std::weak_ptr<LightNode>& wpLight : lights)
+            for (const std::weak_ptr<LightNode>& wpLight : lights)
+            {
+                if (wpLight.expired())
                 {
-                    if (wpLight.expired())
+                    continue;
+                }
+
+                std::shared_ptr<LightNode> light = wpLight.lock();
+
+                // check if the light intersects with the node for basic collision test.
+                if (!AABBoxIntersect(light->GetWorldBoundingBox(), node->GetWorldBoundingBox()))
+                {
+                    continue;
+                }
+
+                std::shared_ptr<IShaderProgram> program;
+                RenderState decoratedState = renderState;
+
+                if (light->GetLight()->GetLightType() == LightType::Ambient)
+                {
+                    program = profile.AmbientProgram;
+                    if (!program)
                     {
                         continue;
                     }
 
-                    std::shared_ptr<LightNode> light = wpLight.lock();
-
-                    // check if the light intersects with the node
-                    if (!AABBoxIntersect(light->GetWorldBoundingBox(), node->GetWorldBoundingBox()))
+                    uniforms["uLight.Color"] = UniformValue(light->GetLight()->GetColor());
+                }
+                else if (light->GetLight()->GetLightType() == LightType::Point)
+                {
+                    program = profile.DiffuseProgram;
+                    if (!program)
                     {
                         continue;
                     }
@@ -147,24 +161,22 @@ static void DrawMultiPassDepthFirst(
                     uniforms["uLight.Position"] = UniformValue(vec3(lightModelPos));
                     uniforms["uLight.Radius"] = UniformValue(length(vec3(lightExtentModelPos - lightModelPos)));
                     uniforms["uLight.Color"] = UniformValue(light->GetLight()->GetColor());
-
-                    RenderState decoratedState = renderState;
-
-                    if (drewOnce)
-                    {
-                        decoratedState.DepthTestFunc = DepthTestFunc::Equal;
-
-                        decoratedState.BlendingEnabled = true;
-
-                        decoratedState.SourceBlendMode = BlendMode::One;
-
-                        decoratedState.DestinationBlendMode = BlendMode::One;
-                    }
-
-                    pass = node->GetRenderObject()->Draw(program, uniforms, decoratedState);
-                    drewOnce = true;
                 }
+
+                if (drewOnce)
+                {
+                    decoratedState.DepthTestFunc = DepthTestFunc::Equal;
+
+                    decoratedState.BlendingEnabled = true;
+
+                    decoratedState.SourceBlendMode = BlendMode::One;
+
+                    decoratedState.DestinationBlendMode = BlendMode::One;
                 }
+
+                pass = node->GetRenderObject()->Draw(program, uniforms, decoratedState);
+                drewOnce = true;
+            }
         }
 
         if (pass != RenderObjectPass::SkipChildren)
@@ -172,13 +184,13 @@ static void DrawMultiPassDepthFirst(
             for (const std::shared_ptr<RenderObjectNode>& child : node->GetChildren())
             {
                 DrawMultiPassDepthFirst(projection, worldView, modelViewStack,
-                                        profile, renderState, lights, child);
+                                        profileFactory, renderState, lights, child);
             }
         }
     }
 }
 
-void SceneGraph::DrawMultiPass(const ShaderProfile& profile) const
+void SceneGraph::DrawMultiPass(const ShaderProfileFactory& profileFactory) const
 {
     const std::shared_ptr<CameraNode>& camera = mCamera;
 
@@ -199,7 +211,7 @@ void SceneGraph::DrawMultiPass(const ShaderProfile& profile) const
     modelViewStack.push(worldView);
 
     DrawMultiPassDepthFirst(camera->GetProjection(), worldView, modelViewStack,
-                            profile, renderState, mLights, mRoot);
+                            profileFactory, renderState, mLights, mRoot);
 }
 
 } // end namespace ng

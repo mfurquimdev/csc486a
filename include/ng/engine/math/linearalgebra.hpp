@@ -93,6 +93,11 @@ struct vec : public genType_storage<T,N>
     {
         return (*this) * T(-1);
     }
+
+    vec operator+() const
+    {
+        return *this;
+    }
 };
 
 template<class T, std::size_t N>

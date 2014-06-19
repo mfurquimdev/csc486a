@@ -11,7 +11,7 @@
 
 class A2 : public ng::IApp, private ng::QuickStart
 {
-    ng::ShaderProfile mShaderProfile;
+    ng::ShaderProfileFactory mShaderProfileFactory;
 
     ng::SceneGraph mROManager;
 
@@ -35,7 +35,7 @@ class A2 : public ng::IApp, private ng::QuickStart
 public:
     void Init() override
     {
-        mShaderProfile.BuildShaders(Renderer);
+        mShaderProfileFactory.BuildShaders(Renderer);
 
         // prepare the scene
         mCamera = std::make_shared<ng::Camera>();
@@ -116,7 +116,7 @@ public:
 
         Renderer->Clear(true, true, true);
 
-        mROManager.DrawMultiPass(mShaderProfile);
+        mROManager.DrawMultiPass(mShaderProfileFactory);
 
         Renderer->SwapBuffers();
 

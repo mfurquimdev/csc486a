@@ -14,13 +14,21 @@ class Material;
 
 class ShaderProfile
 {
-    std::shared_ptr<IShaderProgram> mPhongProgram;
+public:
+    std::shared_ptr<IShaderProgram> AmbientProgram;
+    std::shared_ptr<IShaderProgram> DiffuseProgram;
+};
+
+class ShaderProfileFactory
+{
+    std::shared_ptr<IShaderProgram> mAmbientProgram;
+    std::shared_ptr<IShaderProgram> mGouraudDiffuseProgram;
     std::shared_ptr<IShaderProgram> mDebugProgram;
 
 public:
     void BuildShaders(const std::shared_ptr<IRenderer>& renderer);
 
-    std::shared_ptr<IShaderProgram> GetProgramForMaterial(const Material& material) const;
+    ShaderProfile GetProfileForMaterial(const Material& material) const;
 };
 
 } // end namespace ng

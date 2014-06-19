@@ -18,7 +18,7 @@ class RenderObjectNode;
 class CameraNode;
 class LightNode;
 class IRenderer;
-class ShaderProfile;
+class ShaderProfileFactory;
 
 class SceneGraph
 {
@@ -43,8 +43,8 @@ public:
     //
     // for each node
     //     for each light
-    //         node.draw();
-    void DrawMultiPass(const ShaderProfile& profile) const;
+    //         draw(node);
+    void DrawMultiPass(const ShaderProfileFactory& profileFactory) const;
 };
 
 } // end namespace ng

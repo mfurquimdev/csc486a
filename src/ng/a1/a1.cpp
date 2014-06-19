@@ -75,7 +75,7 @@ public:
     std::shared_ptr<ng::IWindowManager> windowManager;
     std::shared_ptr<ng::IWindow> window;
     std::shared_ptr<ng::IRenderer> renderer;
-    ng::ShaderProfile shaderProfile;
+    ng::ShaderProfileFactory shaderProfileFactory;
 
     ng::SceneGraph roManager;
 
@@ -140,7 +140,7 @@ public:
         windowManager = ng::CreateWindowManager();
         window = windowManager->CreateWindow("Splines", 640, 480, 0, 0, ng::VideoFlags());
         renderer = ng::CreateRenderer(windowManager, window);
-        shaderProfile.BuildShaders(renderer);
+        shaderProfileFactory.BuildShaders(renderer);
 
         // prepare the scene
         root = std::make_shared<ng::RenderObjectNode>();
@@ -159,9 +159,8 @@ public:
 
         standardMaterial.Style = ng::MaterialStyle::Phong;
 
-        light = std::make_shared<ng::Light>();
-        light->SetColor(ng::vec3(0,0,1));
-        light->SetRadius(10);
+        light = std::make_shared<ng::Light>(ng::LightType::Ambient);
+        light->SetColor(ng::vec3(0,0,0.1));
         lightNode = std::make_shared<ng::LightNode>(light);
         roManager.AddLight(lightNode);
         root->AdoptChild(lightNode);
@@ -195,7 +194,7 @@ public:
         splineRiderT = 0.0f;
         splineRiderTSpeed = 3.0f; // units per second
 
-        splineRiderLight = std::make_shared<ng::Light>();
+        splineRiderLight = std::make_shared<ng::Light>(ng::LightType::Point);
         splineRiderLight->SetColor(ng::vec3(1,0,0));
         splineRiderLight->SetRadius(3);
         splineRiderLightNode = std::make_shared<ng::LightNode>(splineRiderLight);
@@ -568,7 +567,7 @@ public:
 
         renderer->Clear(true, true, false);
 
-        roManager.DrawMultiPass(shaderProfile);
+        roManager.DrawMultiPass(shaderProfileFactory);
 
         renderer->SwapBuffers();
 

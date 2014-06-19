@@ -32,17 +32,6 @@ class RenderObjectNode : public std::enable_shared_from_this<RenderObjectNode>
 
     void SetDirtyRecursively() const;
 
-protected:
-    virtual bool IsCamera()
-    {
-        return false;
-    }
-
-    virtual bool IsLight()
-    {
-        return false;
-    }
-
 public:
     RenderObjectNode() = default;
 

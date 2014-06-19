@@ -49,12 +49,6 @@ class CameraNode : public RenderObjectNode
 
     ivec4 mViewport;
 
-protected:
-    bool IsCamera() override
-    {
-        return true;
-    }
-
 public:
     CameraNode(std::shared_ptr<Camera> camera)
     {
