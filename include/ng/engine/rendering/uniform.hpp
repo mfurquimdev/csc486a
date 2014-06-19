@@ -22,6 +22,12 @@ template<class T>
 struct ToUniformType;
 
 template<>
+struct ToUniformType<float>
+{
+    static const UniformType enum_value = UniformType::Vec1;
+};
+
+template<>
 struct ToUniformType<vec1>
 {
     static const UniformType enum_value = UniformType::Vec1;

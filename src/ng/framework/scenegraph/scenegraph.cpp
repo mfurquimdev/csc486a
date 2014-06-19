@@ -141,8 +141,11 @@ static void DrawMultiPassDepthFirst(
                     vec4 lightViewPos = worldView * light->GetWorldTransform() * vec4(0,0,0,1);
                     vec4 lightModelPos = inverse(modelView) * lightViewPos;
 
+                    vec4 lightExtentViewPos = worldView * light->GetWorldTransform() * vec4(light->GetLight()->GetRadius(),0,0,1);
+                    vec4 lightExtentModelPos = inverse(modelView) * lightExtentViewPos;
+
                     uniforms["uLight.Position"] = UniformValue(vec3(lightModelPos));
-                    uniforms["uLight.Radius"] = UniformValue(vec1(light->GetLight()->GetRadius()));
+                    uniforms["uLight.Radius"] = UniformValue(length(vec3(lightExtentModelPos - lightModelPos)));
                     uniforms["uLight.Color"] = UniformValue(light->GetLight()->GetColor());
 
                     RenderState decoratedState = renderState;
