@@ -16,22 +16,29 @@ class A2 : public ng::IApp, private ng::QuickStart
 
     ng::SceneGraph mROManager;
 
+    std::shared_ptr<ng::RenderObjectNode> mRoot;
+
     std::shared_ptr<ng::Camera> mCamera;
     std::shared_ptr<ng::CameraNode> mCameraNode;
-
-    std::shared_ptr<ng::Light> mAmbientLight;
-    std::shared_ptr<ng::LightNode> mAmbientLightNode;
-
     ng::vec3 mEyePosition;
     ng::vec3 mEyeTarget;
     ng::vec3 mEyeUpVector;
 
+    ng::Material mStandardMaterial;
+
+    std::shared_ptr<ng::Light> mAmbientLight;
+    std::shared_ptr<ng::LightNode> mAmbientLightNode;
+
     std::shared_ptr<ng::RenderObjectNode> mIsoSurfaceNode;
     std::shared_ptr<ng::IsoSurface> mIsoSurface;
 
-    std::shared_ptr<ng::RenderObjectNode> mUVSphereNode;
-    std::shared_ptr<ng::UVSphere> mUVSphere;
+    std::shared_ptr<ng::Light> mIsoSurfaceLight1;
+    std::shared_ptr<ng::LightNode> mIsoSurfaceLight1Node;
 
+    std::shared_ptr<ng::Light> mIsoSurfaceLight2;
+    std::shared_ptr<ng::LightNode> mIsoSurfaceLight2Node;
+
+    std::chrono::time_point<std::chrono::high_resolution_clock> mStartTime;
     std::chrono::time_point<std::chrono::high_resolution_clock> mNow, mThen;
     std::chrono::milliseconds mLag;
     std::chrono::milliseconds mFixedUpdateStep;
@@ -42,6 +49,9 @@ public:
         mShaderProfileFactory.BuildShaders(Renderer);
 
         // prepare the scene
+        mRoot = std::make_shared<ng::RenderObjectNode>();
+        mROManager.SetRoot(mRoot);
+
         mCamera = std::make_shared<ng::Camera>();
         mCameraNode = std::make_shared<ng::CameraNode>(mCamera);
         mCameraNode->SetPerspective(70.0f, (float) Window->GetWidth() / Window->GetHeight(), 0.1f, 1000.0f);
@@ -51,28 +61,50 @@ public:
         mCameraNode->SetLookAt(mEyePosition, mEyeTarget, mEyeUpVector);
         mCameraNode->SetViewport(0, 0, Window->GetWidth(), Window->GetHeight());
         mROManager.SetCamera(mCameraNode);
-        mROManager.SetRoot(mCameraNode);
+
+        mStandardMaterial.Style = ng::MaterialStyle::Phong;
+
+        mAmbientLight = std::make_shared<ng::Light>(ng::LightType::Ambient);
+        mAmbientLight->SetColor(ng::vec3(0.1,0.1,0.1));
+        mAmbientLightNode = std::make_shared<ng::LightNode>(mAmbientLight);
+        mROManager.AddLight(mAmbientLightNode);
+        mRoot->AdoptChild(mAmbientLightNode);
 
         mIsoSurface = std::make_shared<ng::IsoSurface>(Renderer);
-        mIsoSurface->Polygonize([](ng::vec3 p){
-            return ng::dot(p,p) - 1;
-        }, 1.0f, 1.0f, { ng::ivec3(0,0,0) });
+        mIsoSurface->Polygonize([](ng::vec3 p) {
+            return length(p); // distance from origin
+        },
+        [](float r) {
+            r /= 5;
+            return (1 - r*r) * (1 - r*r) * (1 - r*r);
+        }, 0.5f, 0.3f);
 
         mIsoSurfaceNode = std::make_shared<ng::RenderObjectNode>();
         mIsoSurfaceNode->SetRenderObject(mIsoSurface);
-        mCameraNode->AdoptChild(mIsoSurfaceNode);
+        mIsoSurfaceNode->SetMaterial(mStandardMaterial);
+        mRoot->AdoptChild(mIsoSurfaceNode);
 
-        // for testing the camera when the isosurface is glitchy
-        mUVSphere = std::make_shared<ng::UVSphere>(Renderer);
-        mUVSphere->Init(5, 5, 1.0f);
-        mUVSphereNode = std::make_shared<ng::RenderObjectNode>();
-        mUVSphereNode->SetRenderObject(mUVSphere);
-        // mCameraNode->AdoptChild(mUVSphereNode);
+        mIsoSurfaceLight1 = std::make_shared<ng::Light>(ng::LightType::Point);
+        mIsoSurfaceLight1->SetColor(ng::vec3(0.7,0.5,0.0));
+        mIsoSurfaceLight1->SetRadius(5.0f);
+        mIsoSurfaceLight1Node = std::make_shared<ng::LightNode>(mIsoSurfaceLight1);
+        mROManager.AddLight(mIsoSurfaceLight1Node);
+        mRoot->AdoptChild(mIsoSurfaceLight1Node);
+        mIsoSurfaceNode->AdoptChild(mIsoSurfaceLight1Node);
+
+        mIsoSurfaceLight2 = std::make_shared<ng::Light>(ng::LightType::Point);
+        mIsoSurfaceLight2->SetColor(ng::vec3(0.0,0.5,0.6));
+        mIsoSurfaceLight2->SetRadius(5.0f);
+        mIsoSurfaceLight2Node = std::make_shared<ng::LightNode>(mIsoSurfaceLight2);
+        mROManager.AddLight(mIsoSurfaceLight2Node);
+        mRoot->AdoptChild(mIsoSurfaceLight2Node);
+        mIsoSurfaceNode->AdoptChild(mIsoSurfaceLight2Node);
 
         // do an initial update to get things going
         mROManager.Update(std::chrono::milliseconds(0));
 
         // initialize time stuff
+        mStartTime = std::chrono::high_resolution_clock::now();
         mThen = std::chrono::high_resolution_clock::now();
         mLag = std::chrono::milliseconds(0);
         mFixedUpdateStep = std::chrono::milliseconds(1000/60);
@@ -115,7 +147,20 @@ public:
             else if (we.Type == ng::WindowEventType::WindowStructure)
             {
                 mCameraNode->SetViewport(0, 0, Window->GetWidth(), Window->GetHeight());
+                mCameraNode->SetPerspective(70.0f, (float) Window->GetWidth() / Window->GetHeight(), 0.1f, 1000.0f);
             }
+        }
+
+        {
+            std::chrono::duration<float> fsec = mStartTime - mNow;
+
+            float r = 5.0f;
+            float x = std::cos(fsec.count() * ng::pi<float>::value);
+            float y = std::sin(fsec.count() * ng::pi<float>::value);
+            float z = x * y;
+
+            mIsoSurfaceLight1Node->SetLocalTransform(ng::Translate(r * ng::vec3(x,y,z)));
+            mIsoSurfaceLight2Node->SetLocalTransform(inverse(mIsoSurfaceLight1Node->GetLocalTransform()));
         }
 
         Renderer->Clear(true, true, true);

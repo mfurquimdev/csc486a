@@ -14,27 +14,26 @@ IsoSurface::IsoSurface(std::shared_ptr<IRenderer> renderer)
     : mMesh(renderer->CreateStaticMesh())
 { }
 
-void IsoSurface::Polygonize(std::function<float(vec3)> fieldFunction,
-                            float isoValue,
-                            float voxelSize,
-                            std::vector<ivec3> seedVoxels)
+void IsoSurface::Polygonize(std::function<float(vec3)> distanceFunction,
+                std::function<float(float)> falloffFilterFunction,
+                float isoValue,
+                float voxelSize)
 {
+    std::function<float(vec3)> fieldFunction = [=](vec3 v){ return falloffFilterFunction(distanceFunction(v)); };
+
     mBoundingBox = AxisAlignedBoundingBox<float>();
 
-    // make sure seedVoxels are unique
-    std::sort(seedVoxels.begin(), seedVoxels.end(), [](ivec3 a, ivec3 b){
-        return a.x < b.x || ((a.x == b.x && a.y < b.y) || (a.y == b.y && a.z < b.z));
-    });
-
-    seedVoxels.erase(std::unique(seedVoxels.begin(), seedVoxels.end()), seedVoxels.end());
-
-    // add seeds to visit queue
+    // queue of nodes to visit
     std::queue<ivec3> toVisit;
 
-    for (ivec3 seed : seedVoxels)
+    // search for initial seed node to visit
+    ivec3 seed(0,0,0);
+    while (fieldFunction(vec3(seed) * voxelSize) >= isoValue)
     {
-        toVisit.push(seed);
+        seed.x++;
     }
+    if (seed.x > 0) seed.x--;
+    toVisit.push(seed);
 
     std::map<ivec3, std::uint8_t,std::function<bool(ivec3,ivec3)>> voxelSignMap(
     [](ivec3 a, ivec3 b){
@@ -93,14 +92,14 @@ void IsoSurface::Polygonize(std::function<float(vec3)> fieldFunction,
         vec3 h = maxExtent;
 
         std::uint8_t voxelSigns =
-            (fieldFunction(a) < isoValue) << 0 |
-            (fieldFunction(b) < isoValue) << 1 |
-            (fieldFunction(c) < isoValue) << 2 |
-            (fieldFunction(d) < isoValue) << 3 |
-            (fieldFunction(e) < isoValue) << 4 |
-            (fieldFunction(f) < isoValue) << 5 |
-            (fieldFunction(g) < isoValue) << 6 |
-            (fieldFunction(h) < isoValue) << 7 ;
+            (fieldFunction(a) >= isoValue) << 0 |
+            (fieldFunction(b) >= isoValue) << 1 |
+            (fieldFunction(c) >= isoValue) << 2 |
+            (fieldFunction(d) >= isoValue) << 3 |
+            (fieldFunction(e) >= isoValue) << 4 |
+            (fieldFunction(f) >= isoValue) << 5 |
+            (fieldFunction(g) >= isoValue) << 6 |
+            (fieldFunction(h) >= isoValue) << 7 ;
 
         DebugPrintf("Voxel signs: %x\n", voxelSigns);
 
@@ -112,14 +111,22 @@ void IsoSurface::Polygonize(std::function<float(vec3)> fieldFunction,
             mBoundingBox.AddPoint(minExtent);
             mBoundingBox.AddPoint(maxExtent);
 
+            // normals
+            vec3 top(0,1,0);
+            vec3 bottom(0,-1,0);
+            vec3 left(-1,0,0);
+            vec3 right(1,0,0);
+            vec3 front(0,0,1);
+            vec3 back(0,0,-1);
+
             vertexBuffer.insert(vertexBuffer.end(), {
-                                    a,b,c, b,d,c, // bottom face
-                                    c,d,g, d,h,g, // front face
-                                    a,c,e, c,g,e, // left face
-                                    b,a,f, a,e,f, // back face
-                                    d,b,h, b,f,h, // right face
-                                    g,h,e, h,f,e  // top face
-                                });
+                a,bottom, b,bottom, c,bottom,   b,bottom, d,bottom, c,bottom,   // bottom face
+                c,front,  d,front,  g,front,    d,front,  h,front,  g,front,    // front face
+                a,left,   c,left,   e,left,     c,left,   g,left,   e,left,     // left face
+                b,back,   a,back,   f,back,     a,back,   e,back,   f,back,     // back face
+                d,right,  b,right,  h,right,    b,right,  f,right,  h,right,    // right face
+                g,top,    h,top,    e,top,      h,top,    f,top,    e,top       // top face
+            });
         }
 
         // queue bottom voxel
@@ -189,23 +196,27 @@ void IsoSurface::Polygonize(std::function<float(vec3)> fieldFunction,
         }
     }
 
-    std::size_t numVertices = vertexBuffer.size();
+    std::size_t numVertices = vertexBuffer.size() / 2;
     DebugPrintf("Got %zu vertices\n", numVertices);
     if (numVertices == 0)
     {
         return;
     }
 
-    VertexFormat::AttributeMap attributes;
-    attributes[VertexAttributeName::Position] = VertexAttribute(3, ArithmeticType::Float, false, 0, 0);
+    VertexFormat meshFormat({
+            { VertexAttributeName::Position, VertexAttribute(3, ArithmeticType::Float, false, 2 * sizeof(vec3), 0) },
+            { VertexAttributeName::Normal,   VertexAttribute(3, ArithmeticType::Float, false, 2 * sizeof(vec3), sizeof(vec3)) }
+        });
 
-    std::map<VertexAttributeName,std::pair<std::shared_ptr<const void>,std::ptrdiff_t>> attributeDataAndSize;
     std::shared_ptr<std::vector<vec3>> pVertexBuffer(new std::vector<vec3>(std::move(vertexBuffer)));
-    attributeDataAndSize[VertexAttributeName::Position] = std::pair<std::shared_ptr<const void>,std::ptrdiff_t>(
-        std::shared_ptr<const void>(pVertexBuffer->data(), [pVertexBuffer](const void*){}),
-        pVertexBuffer->size() * sizeof(vec3));
 
-    mMesh->Init(VertexFormat(attributes), attributeDataAndSize, nullptr, 0, numVertices);
+    std::pair<std::shared_ptr<const void>,std::ptrdiff_t> pBufferData({pVertexBuffer->data(), [pVertexBuffer](const void*){}},
+                                                                      numVertices * 2 * sizeof(vec3));
+
+    mMesh->Init(meshFormat, {
+                    { VertexAttributeName::Position, pBufferData },
+                    { VertexAttributeName::Normal,   pBufferData }
+                }, nullptr, 0, numVertices);
 }
 
 RenderObjectPass IsoSurface::Draw(

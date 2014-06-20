@@ -22,10 +22,10 @@ class IsoSurface : public IRenderObject
 public:
     IsoSurface(std::shared_ptr<IRenderer> renderer);
 
-    void Polygonize(std::function<float(vec3)> fieldFunction,
+    void Polygonize(std::function<float(vec3)> distanceFunction,
+                    std::function<float(float)> falloffFilterFunction,
                     float isoValue,
-                    float voxelSize,
-                    std::vector<ivec3> seedVoxels);
+                    float voxelSize);
 
     AxisAlignedBoundingBox<float> GetLocalBoundingBox() const override
     {
