@@ -19,7 +19,7 @@ struct vec : public genType_storage<T,N>
 {
     using genType_storage<T,N>::genType_storage;
 
-    vec() = default;
+    constexpr vec() = default;
 
     template<class U, std::size_t M>
     explicit vec(vec<U,M> other)
@@ -198,11 +198,11 @@ struct genType_storage<T,1>
 {
     T x;
 
-    genType_storage()
+    constexpr genType_storage()
         : x(0)
     { }
 
-    explicit genType_storage(T xx)
+    explicit constexpr genType_storage(T xx)
         : x(xx)
     { }
 
@@ -222,15 +222,15 @@ struct genType_storage<T,2>
 {
     T x,y;
 
-    genType_storage()
+    constexpr genType_storage()
         : x(0), y(0)
     { }
 
-    genType_storage(T s)
+    explicit constexpr genType_storage(T s)
         : x(s), y(s)
     { }
 
-    genType_storage(T xx, T yy)
+    constexpr genType_storage(T xx, T yy)
         : x(xx), y(yy)
     { }
 };
@@ -240,23 +240,23 @@ struct genType_storage<T,3>
 {
     T x,y,z;
 
-    genType_storage()
+    constexpr genType_storage()
         : x(0), y(0), z(0)
     { }
 
-    explicit genType_storage(T s)
+    explicit constexpr genType_storage(T s)
         : x(s), y(s), z(s)
     { }
 
-    genType_storage(T xx, T yy, T zz)
+    constexpr genType_storage(T xx, T yy, T zz)
         : x(xx), y(yy), z(zz)
     { }
 
-    genType_storage(vec<T,2> v, T zz)
+    constexpr genType_storage(vec<T,2> v, T zz)
         : x(v.x), y(v.y), z(zz)
     { }
 
-    genType_storage(T xx, vec<T,2> v)
+    constexpr genType_storage(T xx, vec<T,2> v)
         : x(xx), y(v.x), z(v.y)
     { }
 };
@@ -266,35 +266,35 @@ struct genType_storage<T,4>
 {
     T x,y,z,w;
 
-    genType_storage()
+    constexpr genType_storage()
         : x(0), y(0), z(0), w(1)
     { }
 
-    explicit genType_storage(T s)
+    explicit constexpr genType_storage(T s)
         : x(s), y(s), z(s), w(s)
     { }
 
-    genType_storage(T xx, T yy, T zz, T ww)
+    constexpr genType_storage(T xx, T yy, T zz, T ww)
         : x(xx), y(yy), z(zz), w(ww)
     { }
 
-    genType_storage(vec<T,3> v, T ww)
+    constexpr genType_storage(vec<T,3> v, T ww)
         : x(v.x), y(v.y), z(v.z), w(ww)
     { }
 
-    genType_storage(T xx, vec<T,3> v)
+    constexpr genType_storage(T xx, vec<T,3> v)
         : x(xx), y(v.x), z(v.y), w(v.z)
     { }
 
-    genType_storage(vec<T,2> u, vec<T,2> v)
+    constexpr genType_storage(vec<T,2> u, vec<T,2> v)
         : x(u.x), y(u.y), z(v.x), w(v.y)
     { }
 
-    genType_storage(vec<T,2> v, T zz, T ww)
+    constexpr genType_storage(vec<T,2> v, T zz, T ww)
         : x(v.x), y(v.y), z(zz), w(ww)
     { }
 
-    genType_storage(T xx, T yy, vec<T,2> v)
+    constexpr genType_storage(T xx, T yy, vec<T,2> v)
         : x(xx), y(yy), z(v.x), w(v.y)
     { }
 };

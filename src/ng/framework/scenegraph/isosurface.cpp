@@ -23,7 +23,7 @@ public:
     static constexpr unsigned int NBits = Nbits;
     static constexpr unsigned int BMask = (1 << NBits) - 1;
 
-    constexpr std::uint16_t operator()(ivec3 i)
+    constexpr std::uint16_t operator()(ivec3 i) const
     {
         // takes 5 least significant bits of x,y,z and combines them
         // result: 0xxxxxyyyyyzzzzz
@@ -97,25 +97,25 @@ void IsoSurface::Polygonize(
     //      v
     //     +z
 
-    const std::array<ivec3,8> kDirections {
-        ivec3{ 0, 0, 0 }, // 0
-        ivec3{ 0, 0, 1 }, // 1
-        ivec3{ 0, 1, 0 }, // 2
-        ivec3{ 0, 1, 1 }, // 3
-        ivec3{ 1, 0, 0 }, // 4
-        ivec3{ 1, 0, 1 }, // 5
-        ivec3{ 1, 1, 0 }, // 6
-        ivec3{ 1, 1, 1 }  // 7
+    const std::array<ivec3,8> kDirections = {
+        ivec3( 0, 0, 0 ), // 0
+        ivec3( 0, 0, 1 ), // 1
+        ivec3( 0, 1, 0 ), // 2
+        ivec3( 0, 1, 1 ), // 3
+        ivec3( 1, 0, 0 ), // 4
+        ivec3( 1, 0, 1 ), // 5
+        ivec3( 1, 1, 0 ), // 6
+        ivec3( 1, 1, 1 )  // 7
     };
 
     // the bits that correspond to that face and the direction of the face
-    const std::array<std::pair<std::uint8_t,ivec3>,8> kFaces {
-        std::pair<std::uint8_t,ivec3>{ 0x0F, ivec3{ -1,  0,  0 } }, // left
-        std::pair<std::uint8_t,ivec3>{ 0xF0, ivec3{ +1,  0,  0 } }, // right
-        std::pair<std::uint8_t,ivec3>{ 0x33, ivec3{  0, -1,  0 } }, // bottom
-        std::pair<std::uint8_t,ivec3>{ 0xCC, ivec3{  0, +1,  0 } }, // top
-        std::pair<std::uint8_t,ivec3>{ 0x55, ivec3{  0,  0, -1 } }, // back
-        std::pair<std::uint8_t,ivec3>{ 0xAA, ivec3{ -1,  0, +1 } }, // front
+    const std::array<std::pair<std::uint8_t,ivec3>,8> kFaces = {
+        std::pair<std::uint8_t,ivec3>( 0x0F, ivec3( -1,  0,  0 ) ), // left
+        std::pair<std::uint8_t,ivec3>( 0xF0, ivec3( +1,  0,  0 ) ), // right
+        std::pair<std::uint8_t,ivec3>( 0x33, ivec3(  0, -1,  0 ) ), // bottom
+        std::pair<std::uint8_t,ivec3>( 0xCC, ivec3(  0, +1,  0 ) ), // top
+        std::pair<std::uint8_t,ivec3>( 0x55, ivec3(  0,  0, -1 ) ), // back
+        std::pair<std::uint8_t,ivec3>( 0xAA, ivec3( -1,  0, +1 ) ), // front
     };
 
     std::vector<vec3> vertexBuffer;
