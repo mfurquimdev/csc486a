@@ -31,10 +31,10 @@ public:
     }
 };
 
-void IsoSurface::Polygonize(std::function<float(vec3)> distanceFunction,
-                std::function<float(float)> falloffFilterFunction,
-                float isoValue,
-                float voxelSize)
+void IsoSurface::Polygonize(
+        const std::vector<IsoPrimitive>& primitives,
+        float isoValue,
+        float voxelSize)
 {
     Profiler polygonizeTimer;
     polygonizeTimer.Start();
@@ -48,21 +48,31 @@ void IsoSurface::Polygonize(std::function<float(vec3)> distanceFunction,
     std::unordered_map<ivec3, TableEntry, WyvillHash<>> hashTable;
     hashTable.reserve(1 << (WyvillHash<>::NBits * 3));
 
-    std::function<float(vec3)> fieldFunction = [&](vec3 v){ return falloffFilterFunction(distanceFunction(v)); };
+    std::function<float(vec3)> fieldFunction = [&](vec3 p){
+        float f = 0;
+        for (const IsoPrimitive& prim : primitives)
+        {
+            f += prim.GetFieldValue(p);
+        }
+        return f;
+    };
 
     AxisAlignedBoundingBox<float> bbox;
 
     // queue of nodes to visit
     std::queue<ivec3> toVisit;
 
-    // search for initial seed node to visit
-    ivec3 seed(0,0,0);
-    while (fieldFunction(vec3(seed) * voxelSize) >= isoValue)
+    // search for initial seed nodes to visit
+    for (const IsoPrimitive& prim : primitives)
     {
-        seed.x++;
+        ivec3 seed = ivec3(prim.GetPointOnSkeleton() / voxelSize);
+        while (prim.GetFieldValue(vec3(seed) * voxelSize) >= isoValue)
+        {
+            seed.x++;
+        }
+        if (seed.x > 0) seed.x--;
+        toVisit.push(seed);
     }
-    if (seed.x > 0) seed.x--;
-    toVisit.push(seed);
 
     // mapping of indices to voxel vertices
     //

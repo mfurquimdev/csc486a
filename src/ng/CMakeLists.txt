@@ -8,6 +8,12 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     set(CMAKE_CXX_FLAGS ${CMAKE_CLANG_CXX_FLAGS} ${CMAKE_CXX_FLAGS})
 endif()
 
+option(NG_ENABLE_PROFILING "Add flags for profiling with gprof" OFF)
+
+if(NG_ENABLE_PROFILING)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
+endif()
+
 add_subdirectory(engine)
 add_subdirectory(framework)
 add_subdirectory(a1)

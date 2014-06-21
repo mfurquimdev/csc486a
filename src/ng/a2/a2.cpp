@@ -70,14 +70,13 @@ public:
         mROManager.AddLight(mAmbientLightNode);
         mRoot->AdoptChild(mAmbientLightNode);
 
+        std::vector<ng::IsoPrimitive> primitives;
+        primitives.emplace_back(ng::Sphere<float>({0,0,0},0), ng::WyvillFilter(5.0f));
+        primitives.emplace_back(ng::Sphere<float>({3,0,0},0), ng::WyvillFilter(3.0f));
+        primitives.emplace_back(ng::Sphere<float>({0,3,0},0), ng::WyvillFilter(2.0f));
+
         mIsoSurface = std::make_shared<ng::IsoSurface>(Renderer);
-        mIsoSurface->Polygonize([](ng::vec3 p) {
-            return length(p); // distance from origin
-        },
-        [](float r) {
-            r /= 5;
-            return (1 - r*r) * (1 - r*r) * (1 - r*r);
-        }, 0.5f, 0.3f);
+        mIsoSurface->Polygonize(primitives, 0.3f, 0.1f);
 
         mIsoSurfaceNode = std::make_shared<ng::RenderObjectNode>();
         mIsoSurfaceNode->SetRenderObject(mIsoSurface);
@@ -86,7 +85,7 @@ public:
 
         mIsoSurfaceLight1 = std::make_shared<ng::Light>(ng::LightType::Point);
         mIsoSurfaceLight1->SetColor(ng::vec3(0.7,0.5,0.0));
-        mIsoSurfaceLight1->SetRadius(5.0f);
+        mIsoSurfaceLight1->SetRadius(10.0f);
         mIsoSurfaceLight1Node = std::make_shared<ng::LightNode>(mIsoSurfaceLight1);
         mROManager.AddLight(mIsoSurfaceLight1Node);
         mRoot->AdoptChild(mIsoSurfaceLight1Node);
@@ -94,7 +93,7 @@ public:
 
         mIsoSurfaceLight2 = std::make_shared<ng::Light>(ng::LightType::Point);
         mIsoSurfaceLight2->SetColor(ng::vec3(0.0,0.5,0.6));
-        mIsoSurfaceLight2->SetRadius(5.0f);
+        mIsoSurfaceLight2->SetRadius(10.0f);
         mIsoSurfaceLight2Node = std::make_shared<ng::LightNode>(mIsoSurfaceLight2);
         mROManager.AddLight(mIsoSurfaceLight2Node);
         mRoot->AdoptChild(mIsoSurfaceLight2Node);
@@ -154,7 +153,7 @@ public:
         {
             std::chrono::duration<float> fsec = mStartTime - mNow;
 
-            float r = 5.0f;
+            float r = 10.0f;
             float x = std::cos(fsec.count() * ng::pi<float>::value);
             float y = std::sin(fsec.count() * ng::pi<float>::value);
             float z = x * y;
