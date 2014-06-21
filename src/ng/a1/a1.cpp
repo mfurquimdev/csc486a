@@ -238,8 +238,8 @@ public:
         {
             if (e.Type == ng::WindowEventType::Quit)
             {
-                ng::DebugPrintf("Time spent rendering clientside: %lfms\n", renderProfiler.GetTotalTimeMS());
-                ng::DebugPrintf("Average clientside rendering time per frame: %lfms\n", renderProfiler.GetAverageTimeMS());
+                ng::DebugPrintf("Time spent rendering clientside: %ums\n", renderProfiler.GetTotalTimeMS());
+                ng::DebugPrintf("Average clientside rendering time per frame: %ums\n", renderProfiler.GetAverageTimeMS());
                 return ng::AppStepAction::Quit;
             }
             else if (e.Type == ng::WindowEventType::MouseMotion)

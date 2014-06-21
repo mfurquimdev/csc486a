@@ -20,14 +20,14 @@ void Profiler::Stop()
     mNumSamples++;
 }
 
-double Profiler::GetTotalTimeMS() const
+std::chrono::milliseconds::rep Profiler::GetTotalTimeMS() const
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(mTimeSpent).count();
 }
 
-double Profiler::GetAverageTimeMS() const
+std::chrono::milliseconds::rep Profiler::GetAverageTimeMS() const
 {
-    return double(mTimeSpent.count()) / double(mNumSamples);
+    return mNumSamples == 0 ? 0 : GetTotalTimeMS() / mNumSamples;
 }
 
 } // end namespace ng

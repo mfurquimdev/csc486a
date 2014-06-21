@@ -3,9 +3,11 @@
 #include "ng/engine/rendering/renderer.hpp"
 #include "ng/engine/rendering/staticmesh.hpp"
 #include "ng/engine/util/debug.hpp"
+#include "ng/engine/util/profiler.hpp"
 
+#include <unordered_map>
+#include <array>
 #include <queue>
-#include <map>
 
 namespace ng
 {
@@ -14,14 +16,41 @@ IsoSurface::IsoSurface(std::shared_ptr<IRenderer> renderer)
     : mMesh(renderer->CreateStaticMesh())
 { }
 
+template<unsigned int Nbits=5>
+class WyvillHash
+{
+public:
+    static constexpr unsigned int NBits = Nbits;
+    static constexpr unsigned int BMask = (1 << NBits) - 1;
+
+    constexpr std::uint16_t operator()(ivec3 i)
+    {
+        // takes 5 least significant bits of x,y,z and combines them
+        // result: 0xxxxxyyyyyzzzzz
+        return ((((i.x & BMask) << NBits) | (i.y & BMask)) << NBits) | (i.z & BMask);
+    }
+};
+
 void IsoSurface::Polygonize(std::function<float(vec3)> distanceFunction,
                 std::function<float(float)> falloffFilterFunction,
                 float isoValue,
                 float voxelSize)
 {
-    std::function<float(vec3)> fieldFunction = [=](vec3 v){ return falloffFilterFunction(distanceFunction(v)); };
+    Profiler polygonizeTimer;
+    polygonizeTimer.Start();
 
-    mBoundingBox = AxisAlignedBoundingBox<float>();
+    struct TableEntry
+    {
+        float Field;
+        bool  Visited;
+    };
+
+    std::unordered_map<ivec3, TableEntry, WyvillHash<>> hashTable;
+    hashTable.reserve(1 << (WyvillHash<>::NBits * 3));
+
+    std::function<float(vec3)> fieldFunction = [&](vec3 v){ return falloffFilterFunction(distanceFunction(v)); };
+
+    AxisAlignedBoundingBox<float> bbox;
 
     // queue of nodes to visit
     std::queue<ivec3> toVisit;
@@ -35,10 +64,49 @@ void IsoSurface::Polygonize(std::function<float(vec3)> distanceFunction,
     if (seed.x > 0) seed.x--;
     toVisit.push(seed);
 
-    std::map<ivec3, std::uint8_t,std::function<bool(ivec3,ivec3)>> voxelSignMap(
-    [](ivec3 a, ivec3 b){
-        return std::lexicographical_compare(begin(a),end(a),begin(b),end(b));
-    });
+    // mapping of indices to voxel vertices
+    //
+    //        2----------6
+    //       /|         /|
+    //      3----------7 |
+    //      | |        | |
+    //      | |        | |
+    //      | 0--------|-4
+    //      |/         |/
+    //      1----------5
+    //
+    //              -z
+    //               ^
+    //         +y   /
+    //          ^  /
+    //          | /
+    //    -x <-- --> +x
+    //         /|
+    //        / v
+    //       / -y
+    //      v
+    //     +z
+
+    const std::array<ivec3,8> kDirections {
+        ivec3{ 0, 0, 0 }, // 0
+        ivec3{ 0, 0, 1 }, // 1
+        ivec3{ 0, 1, 0 }, // 2
+        ivec3{ 0, 1, 1 }, // 3
+        ivec3{ 1, 0, 0 }, // 4
+        ivec3{ 1, 0, 1 }, // 5
+        ivec3{ 1, 1, 0 }, // 6
+        ivec3{ 1, 1, 1 }  // 7
+    };
+
+    // the bits that correspond to that face and the direction of the face
+    const std::array<std::pair<std::uint8_t,ivec3>,8> kFaces {
+        std::pair<std::uint8_t,ivec3>{ 0x0F, ivec3{ -1,  0,  0 } }, // left
+        std::pair<std::uint8_t,ivec3>{ 0xF0, ivec3{ +1,  0,  0 } }, // right
+        std::pair<std::uint8_t,ivec3>{ 0x33, ivec3{  0, -1,  0 } }, // bottom
+        std::pair<std::uint8_t,ivec3>{ 0xCC, ivec3{  0, +1,  0 } }, // top
+        std::pair<std::uint8_t,ivec3>{ 0x55, ivec3{  0,  0, -1 } }, // back
+        std::pair<std::uint8_t,ivec3>{ 0xAA, ivec3{ -1,  0, +1 } }, // front
+    };
 
     std::vector<vec3> vertexBuffer;
 
@@ -47,69 +115,69 @@ void IsoSurface::Polygonize(std::function<float(vec3)> distanceFunction,
         ivec3 vertexToVisit = toVisit.front();
         toVisit.pop();
 
-        DebugPrintf("Visiting {%5d,%5d,%5d}\n", vertexToVisit.x, vertexToVisit.y, vertexToVisit.z);
+        {
+            // check if it was already visited
+            auto it = hashTable.find(vertexToVisit);
+            if (it != hashTable.end() && it->second.Visited)
+            {
+                continue;
+            }
+        }
 
-        // calculate field values at all vertices
-        //
-        //        4----------5
-        //       /|         /|
-        //      6----------7 |
-        //      | |        | |
-        //      | |        | |
-        //      | 0--------|-1
-        //      |/         |/
-        //      2----------3
-        //
-        // minExtent = vertex 0
-        // maxExtent = vertex 7
-        //
-        // 0 1 2 3 4 5 6 7
-        // | | | | | | | |
-        // a b c d e f g h
-        //
-        //              -z
-        //               ^
-        //         +y   /
-        //          ^  /
-        //          | /
-        //    -x <-- --> +x
-        //         /|
-        //        / v
-        //       / -y
-        //      v
-        //     +z
+        // calculate the absolute values of the lattice indices
+        std::array<ivec3,8> latticeIndices;
+        for (std::size_t i = 0; i < latticeIndices.size(); i++)
+        {
+            latticeIndices[i] = vertexToVisit + kDirections[i];
+        }
 
-        vec3 minExtent = vec3(vertexToVisit) * voxelSize;
-        vec3 maxExtent = vec3(vertexToVisit + ivec3(1)) * voxelSize;
+        // calculate the field value at all indices or grab the cached ones.
+        std::array<float,8> fieldValues;
+        for (std::size_t i = 0; i < fieldValues.size(); i++)
+        {
+            ivec3 latticeIndex = latticeIndices[i];
+            auto it = hashTable.find(latticeIndex);
+            if (it != hashTable.end())
+            {
+                fieldValues[i] = it->second.Field;
+            }
+            else
+            {
+                fieldValues[i] = fieldFunction(vec3(latticeIndex) * voxelSize);
+                hashTable.emplace(latticeIndex, TableEntry{ fieldValues[i], false });
+            }
+        }
 
-        vec3 a = minExtent;
-        vec3 b = minExtent + vec3(voxelSize,0,0);
-        vec3 c = minExtent + vec3(0,0,voxelSize);
-        vec3 d = minExtent + vec3(voxelSize,0,voxelSize);
-        vec3 e = maxExtent - vec3(voxelSize,0,voxelSize);
-        vec3 f = maxExtent - vec3(0,0,voxelSize);
-        vec3 g = maxExtent - vec3(voxelSize,0,0);
-        vec3 h = maxExtent;
+        // calculate the signs of all corners
+        // inside  = 1 / '+' / f >= iso
+        // outside = 0 / '-' / f <  iso
+        std::uint8_t signBits = 0;
+        for (std::size_t i = 0; i < fieldValues.size(); i++)
+        {
+            signBits |= (fieldValues[i] >= isoValue) << i;
+        }
 
-        std::uint8_t voxelSigns =
-            (fieldFunction(a) >= isoValue) << 0 |
-            (fieldFunction(b) >= isoValue) << 1 |
-            (fieldFunction(c) >= isoValue) << 2 |
-            (fieldFunction(d) >= isoValue) << 3 |
-            (fieldFunction(e) >= isoValue) << 4 |
-            (fieldFunction(f) >= isoValue) << 5 |
-            (fieldFunction(g) >= isoValue) << 6 |
-            (fieldFunction(h) >= isoValue) << 7 ;
-
-        DebugPrintf("Voxel signs: %x\n", voxelSigns);
-
-        voxelSignMap[vertexToVisit] = voxelSigns;
+        hashTable[vertexToVisit].Visited = true;
 
         // add polygons
-        if (voxelSigns)
+        if (signBits)
         {
-            mBoundingBox.AddPoint(minExtent);
-            mBoundingBox.AddPoint(maxExtent);
+            vec3 minExtent = vec3(vertexToVisit) * voxelSize;
+            vec3 maxExtent = vec3(vertexToVisit + ivec3(1)) * voxelSize;
+
+            // the order here doesn't match the cube in the comment up there,
+            // but it's placeholder so whatever.
+            vec3 a = minExtent;
+            vec3 b = minExtent + vec3(voxelSize,0,0);
+            vec3 c = minExtent + vec3(0,0,voxelSize);
+            vec3 d = minExtent + vec3(voxelSize,0,voxelSize);
+            vec3 e = maxExtent - vec3(voxelSize,0,voxelSize);
+            vec3 f = maxExtent - vec3(0,0,voxelSize);
+            vec3 g = maxExtent - vec3(voxelSize,0,0);
+            vec3 h = maxExtent;
+
+            bbox.AddPoint(minExtent);
+            bbox.AddPoint(maxExtent);
 
             // normals
             vec3 top(0,1,0);
@@ -129,94 +197,49 @@ void IsoSurface::Polygonize(std::function<float(vec3)> distanceFunction,
             });
         }
 
-        // queue bottom voxel
-        if ((voxelSigns & 0x0F) != 0x0F && (voxelSigns & 0x0F) != 0x00)
+        // add neighbours if their faces intersect with the surface of the field
+        for (std::size_t i = 0; i < kFaces.size(); i++)
         {
-            ivec3 toQueue = vertexToVisit - ivec3(0,1,0);
-            if (voxelSignMap.find(toQueue) == voxelSignMap.end())
+            std::uint8_t bits = kFaces[i].first;
+            if ((signBits & bits) != bits && (signBits & bits) != 0x00)
             {
-                voxelSignMap[toQueue] = 0;
-                toVisit.push(toQueue);
-            }
-        }
-
-        // queue top voxel
-        if ((voxelSigns & 0xF0) != 0xF0 && (voxelSigns & 0xF0) != 0x00)
-        {
-            ivec3 toQueue = vertexToVisit + ivec3(0,1,0);
-            if (voxelSignMap.find(toQueue) == voxelSignMap.end())
-            {
-                voxelSignMap[toQueue] = 0;
-                toVisit.push(toQueue);
-            }
-        }
-
-        // queue left voxel
-        if ((voxelSigns & 0x55) != 0x55 && (voxelSigns & 0x55) != 0x00)
-        {
-            ivec3 toQueue = vertexToVisit - ivec3(1,0,0);
-            if (voxelSignMap.find(toQueue) == voxelSignMap.end())
-            {
-                voxelSignMap[toQueue] = 0;
-                toVisit.push(toQueue);
-            }
-        }
-
-        // queue right voxel
-        if ((voxelSigns & 0x99) != 0x99 && (voxelSigns & 0x99) != 0x00)
-        {
-            ivec3 toQueue = vertexToVisit + ivec3(1,0,0);
-            if (voxelSignMap.find(toQueue) == voxelSignMap.end())
-            {
-                voxelSignMap[toQueue] = 0;
-                toVisit.push(toQueue);
-            }
-        }
-
-        // queue back voxel
-        if ((voxelSigns & 0x33) != 0x33 && (voxelSigns & 0x33) != 0x00)
-        {
-            ivec3 toQueue = vertexToVisit - ivec3(0,0,1);
-            if (voxelSignMap.find(toQueue) == voxelSignMap.end())
-            {
-                voxelSignMap[toQueue] = 0;
-                toVisit.push(toQueue);
-            }
-        }
-
-        // queue front voxel
-        if ((voxelSigns & 0xCC) != 0xCC && (voxelSigns & 0xCC) != 0x00)
-        {
-            ivec3 toQueue = vertexToVisit + ivec3(0,0,1);
-            if (voxelSignMap.find(toQueue) == voxelSignMap.end())
-            {
-                voxelSignMap[toQueue] = 0;
-                toVisit.push(toQueue);
+                ivec3 toQueue = vertexToVisit + kFaces[i].second;
+                auto it = hashTable.find(toQueue);
+                if (it == hashTable.end() || !it->second.Visited)
+                {
+                    toVisit.push(toQueue);
+                }
             }
         }
     }
+
+    polygonizeTimer.Stop();
+    DebugPrintf("Time to polygonize: %ums\n", polygonizeTimer.GetTotalTimeMS());
 
     std::size_t numVertices = vertexBuffer.size() / 2;
-    DebugPrintf("Got %zu vertices\n", numVertices);
-    if (numVertices == 0)
+    if (numVertices > 0)
     {
-        return;
+        VertexFormat meshFormat({
+                { VertexAttributeName::Position, VertexAttribute(3, ArithmeticType::Float, false, 2 * sizeof(vec3), 0) },
+                { VertexAttributeName::Normal,   VertexAttribute(3, ArithmeticType::Float, false, 2 * sizeof(vec3), sizeof(vec3)) }
+            });
+
+        std::shared_ptr<std::vector<vec3>> pVertexBuffer(new std::vector<vec3>(std::move(vertexBuffer)));
+
+        std::pair<std::shared_ptr<const void>,std::ptrdiff_t> pBufferData({pVertexBuffer->data(), [pVertexBuffer](const void*){}},
+                                                                          numVertices * 2 * sizeof(vec3));
+
+        mMesh->Init(meshFormat, {
+                        { VertexAttributeName::Position, pBufferData },
+                        { VertexAttributeName::Normal,   pBufferData }
+                    }, nullptr, 0, numVertices);
+    }
+    else
+    {
+        mMesh->Reset();
     }
 
-    VertexFormat meshFormat({
-            { VertexAttributeName::Position, VertexAttribute(3, ArithmeticType::Float, false, 2 * sizeof(vec3), 0) },
-            { VertexAttributeName::Normal,   VertexAttribute(3, ArithmeticType::Float, false, 2 * sizeof(vec3), sizeof(vec3)) }
-        });
-
-    std::shared_ptr<std::vector<vec3>> pVertexBuffer(new std::vector<vec3>(std::move(vertexBuffer)));
-
-    std::pair<std::shared_ptr<const void>,std::ptrdiff_t> pBufferData({pVertexBuffer->data(), [pVertexBuffer](const void*){}},
-                                                                      numVertices * 2 * sizeof(vec3));
-
-    mMesh->Init(meshFormat, {
-                    { VertexAttributeName::Position, pBufferData },
-                    { VertexAttributeName::Normal,   pBufferData }
-                }, nullptr, 0, numVertices);
+    mBoundingBox = std::move(bbox);
 }
 
 RenderObjectPass IsoSurface::Draw(

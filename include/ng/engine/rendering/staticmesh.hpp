@@ -19,6 +19,9 @@ class IStaticMesh
 public:
     virtual ~IStaticMesh() = default;
 
+    // discard all state
+    virtual void Reset() = 0;
+
     virtual void Init(VertexFormat format,
                       std::map<VertexAttributeName, std::pair<std::shared_ptr<const void>,std::ptrdiff_t>> attributeDataAndSize,
                       std::shared_ptr<const void> indexData,

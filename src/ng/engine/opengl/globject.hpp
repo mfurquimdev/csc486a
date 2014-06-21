@@ -204,6 +204,8 @@ class OpenGLStaticMesh : public IStaticMesh
 public:
     OpenGLStaticMesh(std::shared_ptr<OpenGLRenderer> renderer);
 
+    void Reset() override;
+
     void Init(VertexFormat format,
               std::map<VertexAttributeName,std::pair<std::shared_ptr<const void>,std::ptrdiff_t>> attributeDataAndSize,
               std::shared_ptr<const void> indexData,

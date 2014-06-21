@@ -141,6 +141,11 @@ OpenGLStaticMesh::OpenGLStaticMesh(std::shared_ptr<OpenGLRenderer> renderer)
     : mRenderer(std::move(renderer))
 { }
 
+void OpenGLStaticMesh::Reset()
+{
+    mVertexArray = VertexArray();
+}
+
 void OpenGLStaticMesh::Init(
        VertexFormat format,
        std::map<VertexAttributeName,std::pair<std::shared_ptr<const void>,std::ptrdiff_t>> attributeDataAndSize,

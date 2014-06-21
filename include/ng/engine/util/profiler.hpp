@@ -18,8 +18,8 @@ public:
     void Stop();
 
     int GetNumSamples() const;
-    double GetTotalTimeMS() const;
-    double GetAverageTimeMS() const;
+    std::chrono::milliseconds::rep GetTotalTimeMS() const;
+    std::chrono::milliseconds::rep GetAverageTimeMS() const;
 };
 
 } // end namespace ng
