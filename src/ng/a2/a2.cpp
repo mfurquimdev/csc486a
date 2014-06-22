@@ -76,7 +76,7 @@ public:
         primitives.emplace_back(ng::Sphere<float>({0,3,0},0), ng::WyvillFilter(2.0f));
 
         mIsoSurface = std::make_shared<ng::IsoSurface>(Renderer);
-        mIsoSurface->Polygonize(primitives, 0.3f, 0.1f);
+        mIsoSurface->Polygonize(primitives, 0.3f, 0.7f);
 
         mIsoSurfaceNode = std::make_shared<ng::RenderObjectNode>();
         mIsoSurfaceNode->SetRenderObject(mIsoSurface);
@@ -91,6 +91,14 @@ public:
         mRoot->AdoptChild(mIsoSurfaceLight1Node);
         mIsoSurfaceNode->AdoptChild(mIsoSurfaceLight1Node);
 
+        std::shared_ptr<ng::UVSphere> light1Sphere = std::make_shared<ng::UVSphere>(Renderer);
+        light1Sphere->Init(10,10,1.0f);
+        std::shared_ptr<ng::RenderObjectNode> light1SphereNode = std::make_shared<ng::RenderObjectNode>(light1Sphere);
+        ng::Material light1mat = light1SphereNode->GetMaterial();
+        light1mat.Tint = ng::vec3(mIsoSurfaceLight1->GetColor());
+        light1SphereNode->SetMaterial(light1mat);
+        mIsoSurfaceLight1Node->AdoptChild(light1SphereNode);
+
         mIsoSurfaceLight2 = std::make_shared<ng::Light>(ng::LightType::Point);
         mIsoSurfaceLight2->SetColor(ng::vec3(0.0,0.5,0.6));
         mIsoSurfaceLight2->SetRadius(10.0f);
@@ -98,6 +106,14 @@ public:
         mROManager.AddLight(mIsoSurfaceLight2Node);
         mRoot->AdoptChild(mIsoSurfaceLight2Node);
         mIsoSurfaceNode->AdoptChild(mIsoSurfaceLight2Node);
+
+        std::shared_ptr<ng::UVSphere> light2Sphere = std::make_shared<ng::UVSphere>(Renderer);
+        light2Sphere->Init(10,10,1.0f);
+        std::shared_ptr<ng::RenderObjectNode> light2SphereNode = std::make_shared<ng::RenderObjectNode>(light2Sphere);
+        ng::Material light2mat = light2SphereNode->GetMaterial();
+        light2mat.Tint = ng::vec3(mIsoSurfaceLight2->GetColor());
+        light2SphereNode->SetMaterial(light2mat);
+        mIsoSurfaceLight2Node->AdoptChild(light2SphereNode);
 
         // do an initial update to get things going
         mROManager.Update(std::chrono::milliseconds(0));
@@ -153,7 +169,7 @@ public:
         {
             std::chrono::duration<float> fsec = mStartTime - mNow;
 
-            float r = 10.0f;
+            float r = 7.0f;
             float x = std::cos(fsec.count() * ng::pi<float>::value);
             float y = std::sin(fsec.count() * ng::pi<float>::value);
             float z = x * y;

@@ -448,6 +448,9 @@ void IsoSurface::Polygonize(
         return P1 + (isoValue - V1) * (P2 - P1) / (V2 - V1);
     };
 
+    // 0.01f found empirically (from Fundamentals of Computer Graphics page 399)
+    const float gradientDelta = 0.01f * voxelSize;
+
     std::vector<vec3> vertexBuffer;
 
     while (!toVisit.empty())
@@ -531,7 +534,17 @@ void IsoSurface::Polygonize(
                     vertexBuffer.push_back(position);
                     bbox.AddPoint(position);
 
-                    vertexBuffer.push_back(vec3(0,1,0)); // TODO: normals
+                    vec3 fp(fieldFunction(position));
+                    vec3 gradient(fieldFunction(position + vec3(gradientDelta,0,0)),
+                                  fieldFunction(position + vec3(0,gradientDelta,0)),
+                                  fieldFunction(position + vec3(0,0,gradientDelta)));
+                    gradient -= fp;
+
+                    // dunno why the sign needs to be flipped.
+                    // I guess I use the isovalue the opposite way as most people do?
+                    gradient /= vec3(-gradientDelta);
+
+                    vertexBuffer.push_back(normalize(gradient));
                 }
             }
 
