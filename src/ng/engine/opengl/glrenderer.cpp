@@ -1167,8 +1167,8 @@ void OpenGLResourceThreadEntry(ResourceOpenGLThreadData* threadData)
 
         if (response == InstructionHandlerResponse::Quit)
         {
-            RenderProfilePrintf("Time spent loading resources serverside in %s: %lfms\n", threadData->mThreadName.c_str(), resourceProfiler.GetTotalTimeMS());
-            RenderProfilePrintf("Average time spent loading resources serverside in %s: %lfms\n", threadData->mThreadName.c_str(), resourceProfiler.GetAverageTimeMS());
+            RenderProfilePrintf("Time spent loading resources serverside in %s: %ums\n", threadData->mThreadName.c_str(), resourceProfiler.GetTotalTimeMS());
+            RenderProfilePrintf("Average time spent loading resources serverside in %s: %ums\n", threadData->mThreadName.c_str(), resourceProfiler.GetAverageTimeMS());
             return;
         }
     }
