@@ -24,25 +24,27 @@ public:
         : StandardDeviation(standardDeviation)
     { }
 
-    float operator()(float d) const
+    float operator()(float d2) const
     {
-        return std::exp(-StandardDeviation * std::pow(d, 2));
+        return std::exp(-StandardDeviation * d2);
     }
 };
 
 class MetaballFilter
 {
 public:
-    float MaxDistance;
+    float MaxDistanceSquared;
 
     explicit MetaballFilter(float maxDistance)
-        : MaxDistance(maxDistance)
+        : MaxDistanceSquared(maxDistance*maxDistance)
     { }
 
-    float operator()(float d) const
+    float operator()(float d2) const
     {
-        return d <= MaxDistance / 3.0f ? 1.0f - 3.0f * std::pow(d / MaxDistance, 2)
-             : d <= MaxDistance        ? 3.0f / 2.0f * std::pow(1.0f - d / MaxDistance, 2)
+        float ratio = d2 / MaxDistanceSquared;
+
+        return d2 <= MaxDistanceSquared / 9.0f ? 1.0f - 3.0f * ratio
+             : d2 <= MaxDistanceSquared        ? 3.0f / 2.0f * std::pow(1.0f - std::sqrt(ratio), 2)
              : 0.0f;
     }
 };
@@ -50,33 +52,37 @@ public:
 class SoftObjectsFilter
 {
 public:
-    float MaxDistance;
+    float MaxDistanceSquared;
 
     explicit SoftObjectsFilter(float maxDistance)
-        : MaxDistance(maxDistance)
+        : MaxDistanceSquared(maxDistance*maxDistance)
     { }
 
-    float operator()(float d) const
+    float operator()(float d2) const
     {
+        float ratio = d2 / MaxDistanceSquared;
+
         return 1.0f
-             - 4.0f  / 9.0f * std::pow(d / MaxDistance, 6)
-             + 17.0f / 9.0f * std::pow(d / MaxDistance, 4)
-             - 22.0f / 9.0f * std::pow(d / MaxDistance, 2);
+             - 4.0f  / 9.0f * ratio * ratio * ratio
+             + 17.0f / 9.0f * ratio * ratio
+             - 22.0f / 9.0f * ratio;
     }
 };
 
 class WyvillFilter
 {
 public:
-    float MaxDistance;
+    float MaxDistanceSquared;
 
     explicit WyvillFilter(float maxDistance)
-        : MaxDistance(maxDistance)
+        : MaxDistanceSquared(maxDistance * maxDistance)
     { }
 
-    float operator()(float d) const
+    float operator()(float d2) const
     {
-        return std::pow(1.0f - std::pow(d / MaxDistance, 2), 3);
+        float ratio = d2 / MaxDistanceSquared;
+        float oneMinusRatio = 1.0f - ratio;
+        return oneMinusRatio * oneMinusRatio * oneMinusRatio;
     }
 };
 
@@ -87,7 +93,7 @@ class IsoPrimitive
     public:
         virtual ~IPrimitive() = default;
 
-        virtual float GetDistanceToSkeleton(vec3 position) const = 0;
+        virtual float GetDistanceSquaredToSkeleton(vec3 position) const = 0;
         virtual vec3 GetPointOnSkeleton() const = 0;
     };
 
@@ -101,9 +107,9 @@ class IsoPrimitive
             : mPrimitive(std::move(primitive))
         { }
 
-        float GetDistanceToSkeleton(vec3 position) const override
+        float GetDistanceSquaredToSkeleton(vec3 position) const override
         {
-            return DistanceToSkeleton(mPrimitive, position);
+            return DistanceSquaredToSkeleton(mPrimitive, position);
         }
 
         vec3 GetPointOnSkeleton() const override
@@ -125,7 +131,7 @@ public:
 
     float GetFieldValue(vec3 position) const
     {
-        return std::max(mFilter(mPrimitive->GetDistanceToSkeleton(position)),0.0f);
+        return std::max(mFilter(mPrimitive->GetDistanceSquaredToSkeleton(position)),0.0f);
     }
 
     vec3 GetPointOnSkeleton() const
@@ -135,9 +141,10 @@ public:
 };
 
 template<class T>
-float DistanceToSkeleton(const Sphere<T>& sph, vec3 position)
+float DistanceSquaredToSkeleton(const Sphere<T>& sph, vec3 position)
 {
-    return length(position - sph.Center);
+    vec3 diff = position - sph.Center;
+    return dot(diff,diff);
 }
 
 template<class T>
