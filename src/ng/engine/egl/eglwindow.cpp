@@ -268,8 +268,8 @@ public:
         throw std::logic_error("EWindowManager does not support PollEvent()");
     }
 
-    std::shared_ptr<IGLContext> CreateContext(const VideoFlags& flags,
-                                              std::shared_ptr<IGLContext> sharedWith) override
+    std::shared_ptr<IGLContext> CreateGLContext(const VideoFlags& flags,
+                                                std::shared_ptr<IGLContext> sharedWith) override
     {
         EGLContext shareContext = EGL_NO_CONTEXT;
         if (sharedWith)
@@ -288,8 +288,8 @@ public:
         return std::make_shared<ngEGLContext>(mDisplay.mDisplay, bestConfig, shareContext, contextAttribs);
     }
 
-    void SetCurrentContext(std::shared_ptr<IWindow> window,
-                           std::shared_ptr<IGLContext> context) override
+    void SetCurrentGLContext(std::shared_ptr<IWindow> window,
+                             std::shared_ptr<IGLContext> context) override
     {
         const ngEWindow& ewindow = static_cast<const ngEWindow&>(*window);
         const ngEGLContext& econtext = static_cast<const ngEGLContext&>(*context);

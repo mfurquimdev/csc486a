@@ -1,8 +1,6 @@
 #ifndef NG_WINDOW_HPP
 #define NG_WINDOW_HPP
 
-#include <memory>
-
 namespace ng
 {
 

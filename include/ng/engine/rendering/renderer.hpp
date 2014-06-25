@@ -8,20 +8,14 @@ namespace ng
 
 class IWindowManager;
 class IWindow;
-class IStaticMesh;
-class IShaderProgram;
+class IRenderBatch;
 
 class IRenderer
 {
 public:
     virtual ~IRenderer() = default;
 
-    virtual void Clear(bool color, bool depth, bool stencil) = 0;
-
-    virtual void SwapBuffers() = 0;
-
-    virtual std::shared_ptr<IStaticMesh> CreateStaticMesh() = 0;
-    virtual std::shared_ptr<IShaderProgram> CreateShaderProgram() = 0;
+    virtual std::shared_ptr<IRenderBatch> CreateRenderBatch() = 0;
 };
 
 std::shared_ptr<IRenderer> CreateRenderer(

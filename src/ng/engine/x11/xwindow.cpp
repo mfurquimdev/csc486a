@@ -909,8 +909,8 @@ public:
         return false;
     }
 
-    std::shared_ptr<IGLContext> CreateContext(const VideoFlags& flags,
-                                              std::shared_ptr<IGLContext> sharedWith) override
+    std::shared_ptr<IGLContext> CreateGLContext(const VideoFlags& flags,
+                                                std::shared_ptr<IGLContext> sharedWith) override
     {
         ngXPublicEntryScope entryScope;
 
@@ -930,8 +930,8 @@ public:
         return context;
     }
 
-    void SetCurrentContext(std::shared_ptr<IWindow> window,
-                           std::shared_ptr<IGLContext> context) override
+    void SetCurrentGLContext(std::shared_ptr<IWindow> window,
+                             std::shared_ptr<IGLContext> context) override
     {
         ngXPublicEntryScope entryScope;
 
