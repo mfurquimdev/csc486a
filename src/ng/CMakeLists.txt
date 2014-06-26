@@ -15,4 +15,5 @@ if(NG_ENABLE_PROFILING)
 endif()
 
 add_subdirectory(engine)
+add_subdirectory(framework)
 add_subdirectory(a4)

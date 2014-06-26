@@ -44,6 +44,9 @@ public:
     ~OpenGLRenderer();
 
     std::shared_ptr<IRenderBatch> CreateRenderBatch() override;
+
+    MeshID AddMesh(std::unique_ptr<IMesh> mesh) override;
+    void RemoveMesh(MeshID meshID) override;
 };
 
 } // end namespace ng

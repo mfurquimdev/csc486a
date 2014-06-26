@@ -47,6 +47,16 @@ public:
     {
         mShouldSwapBuffersShadow = shouldSwapBuffers;
     }
+
+    MeshInstanceID AddMeshInstance(MeshID meshID) override
+    {
+        throw std::runtime_error("OpenGLRenderBatch::AddMeshInstance not implemented");
+    }
+
+    void RemoveMeshInstance(MeshInstanceID meshInstanceID) override
+    {
+        throw std::runtime_error("GLRenderBatch::RemoveMeshInstance");
+    }
 };
 
 std::shared_ptr<IRenderBatch> OpenGLRenderer::CreateRenderBatch()
@@ -96,6 +106,7 @@ void RenderingThread(RenderingThreadData& threadData)
             continue;
         }
 
+        // do the work requested in the batch
         const OpenGLRenderBatch& batch = *batchPtr;
 
         if (batch.mShouldSwapBuffers)
@@ -124,6 +135,16 @@ OpenGLRenderer::~OpenGLRenderer()
 
     // join the now quit rendering thread.
     mRenderingThread.join();
+}
+
+MeshID OpenGLRenderer::AddMesh(std::unique_ptr<IMesh> mesh)
+{
+    throw std::runtime_error("OpenGLRenderer::AddMesh not yet implemented");
+}
+
+void OpenGLRenderer::RemoveMesh(MeshID meshID)
+{
+    throw std::runtime_error("OpenGLRenderer::RemoveMesh not yet implemented");
 }
 
 } // end namespace ng

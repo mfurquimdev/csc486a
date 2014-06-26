@@ -6,9 +6,16 @@
 namespace ng
 {
 
+class IMesh;
+class IRenderBatch;
 class IWindowManager;
 class IWindow;
-class IRenderBatch;
+
+class MeshID
+{
+public:
+    const std::uint32_t ID;
+};
 
 class IRenderer
 {
@@ -16,6 +23,9 @@ public:
     virtual ~IRenderer() = default;
 
     virtual std::shared_ptr<IRenderBatch> CreateRenderBatch() = 0;
+
+    virtual MeshID AddMesh(std::unique_ptr<IMesh> mesh) = 0;
+    virtual void RemoveMesh(MeshID meshID) = 0;
 };
 
 std::shared_ptr<IRenderer> CreateRenderer(
