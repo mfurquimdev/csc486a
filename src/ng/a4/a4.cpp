@@ -6,6 +6,10 @@
 #include "ng/engine/rendering/renderer.hpp"
 #include "ng/engine/rendering/renderbatch.hpp"
 
+#include "ng/engine/util/memory.hpp"
+
+#include "ng/framework/renderobjects/cubemesh.hpp"
+
 namespace a4
 {
 
@@ -23,6 +27,10 @@ public:
         mWindow = mWindowManager->CreateWindow("a4", 640, 480, 0, 0, ng::VideoFlags());
         mRenderer = ng::CreateRenderer(mWindowManager, mWindow);
         mRenderBatch = mRenderer->CreateRenderBatch();
+
+        ng::MeshID cubeMesh = mRenderer->AddMesh(ng::make_unique<ng::CubeMesh>(1.0f));
+
+        mRenderBatch->AddMeshInstance(cubeMesh);
     }
 
     ng::AppStepAction Step() override
