@@ -23,6 +23,7 @@ public:
     virtual void Commit() = 0;
 
     virtual void SetShouldSwapBuffers(bool shouldSwapBuffers) = 0;
+    virtual bool GetShouldSwapBuffers() const = 0;
 
     virtual MeshInstanceID AddMeshInstance(MeshID meshID) = 0;
     virtual void RemoveMeshInstance(MeshInstanceID meshInstanceID) = 0;
