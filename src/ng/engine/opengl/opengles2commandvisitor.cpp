@@ -202,6 +202,8 @@ void OpenGLES2CommandVisitor::Visit(EndFrameCommand&)
 
 void OpenGLES2CommandVisitor::Visit(RenderObjectsCommand& cmd)
 {
+    glEnable(GL_DEPTH_TEST);
+
     GLuint vbo;
     glGenBuffers(1, &vbo);
     auto vertexBufferScope = make_scope_guard([&]{

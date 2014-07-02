@@ -39,14 +39,26 @@ std::size_t CubeMesh::WriteVertices(void* buffer) const
         vec3 Position;
     };
 
-    //   e----------f
+    //   f----------g
     //  /|         /|
-    // h----------g |
+    // e----------h |
     // | |        | |
     // | |        | |
     // | a--------|-b
     // |/         |/
     // d----------c
+    //
+    //              -z
+    //               ^
+    //         +y   /
+    //          ^  /
+    //          | /
+    //    -x <-- --> +x
+    //         /|
+    //        / v
+    //       / -y
+    //      v
+    //     +z
 
     // positions
     const vec3 minExtent = vec3(-mSideLength / 2);
@@ -54,19 +66,19 @@ std::size_t CubeMesh::WriteVertices(void* buffer) const
 
     const vec3 a = minExtent;
     const vec3 b = minExtent + vec3(mSideLength,0,0);
-    const vec3 c = minExtent + vec3(0,0,mSideLength);
-    const vec3 d = minExtent + vec3(mSideLength,0,mSideLength);
-    const vec3 e = maxExtent - vec3(mSideLength,0,mSideLength);
-    const vec3 f = maxExtent - vec3(0,0,mSideLength);
-    const vec3 g = maxExtent - vec3(mSideLength,0,0);
+    const vec3 c = minExtent + vec3(mSideLength, 0, mSideLength);
+    const vec3 d = minExtent + vec3(0,0,mSideLength);
+    const vec3 e = maxExtent - vec3(mSideLength,0,0);
+    const vec3 f = maxExtent - vec3(mSideLength,0,mSideLength);
+    const vec3 g = maxExtent - vec3(0,0,mSideLength);
     const vec3 h = maxExtent;
 
     const CubeVertex vertexData[][3] = {
         { a, d, c }, { c, b, a }, // bottom
-        { c, d, h }, { h, g, c }, // front
-        { a, e, h }, { h, d, a }, // left
-        { b, f, e }, { e, a, b }, // back
-        { c, g, f }, { f, b, c }, // right
+        { c, d, e }, { e, h, c }, // front
+        { a, f, e }, { e, d, a }, // left
+        { b, g, f }, { f, a, b }, // back
+        { c, h, g }, { g, b, c }, // right
         { h, e, f }, { f, g, h }  // top
     };
 
