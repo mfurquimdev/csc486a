@@ -18,15 +18,16 @@ VertexFormat CubeMesh::GetVertexFormat() const
     return fmt;
 }
 
-std::size_t CubeMesh::GetMaxNumVertices() const
+std::size_t CubeMesh::GetMaxVertexBufferSize() const
 {
     constexpr int NumFaces = 6;
     constexpr int TrianglesPerFace = 2;
     constexpr int VerticesPerTriangle = 3;
-    return NumFaces * TrianglesPerFace * VerticesPerTriangle;
+    constexpr int SizeOfVertex = sizeof(vec3);
+    return NumFaces * TrianglesPerFace * VerticesPerTriangle * SizeOfVertex;
 }
 
-std::size_t CubeMesh::GetMaxNumIndices() const
+std::size_t CubeMesh::GetMaxElementBufferSize() const
 {
     return 0;
 }
@@ -71,7 +72,7 @@ std::size_t CubeMesh::WriteVertices(void* buffer) const
 
     std::memcpy(buffer, vertexData, sizeof(vertexData));
 
-    return GetMaxNumVertices();
+    return 36;
 }
 
 std::size_t CubeMesh::WriteIndices(void*) const

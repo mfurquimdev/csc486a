@@ -26,7 +26,8 @@ public:
                     bool normalized,
                     std::ptrdiff_t stride,
                     std::size_t offset)
-        : Cardinality(cardinality)
+        : Enabled(true)
+        , Cardinality(cardinality)
         , Type(type)
         , Normalized(normalized)
         , Stride(stride)

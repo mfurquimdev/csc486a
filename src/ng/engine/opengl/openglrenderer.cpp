@@ -65,7 +65,7 @@ class OpenGLRenderer : public IRenderer, public std::enable_shared_from_this<Ope
 
         std::unique_ptr<IRendererCommandVisitor> pCommandVisitor =
                 ng::make_unique<OpenGLES2CommandVisitor>(
-                    context, threadData.Window);
+                    *context, *threadData.Window);
 
         std::vector<std::unique_ptr<IRendererCommand>> commands;
 

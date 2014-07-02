@@ -17,8 +17,8 @@ public:
     virtual VertexFormat GetVertexFormat() const = 0;
 
     // upper bounds used to reserve memory.
-    virtual std::size_t GetMaxNumVertices() const = 0;
-    virtual std::size_t GetMaxNumIndices() const = 0;
+    virtual std::size_t GetMaxVertexBufferSize() const = 0;
+    virtual std::size_t GetMaxElementBufferSize() const = 0;
 
     // return the number of vertices/indices actually written.
     virtual std::size_t WriteVertices(void* buffer) const = 0;

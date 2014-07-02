@@ -20,7 +20,6 @@ class A4 : public ng::IApp
     std::shared_ptr<ng::IWindowManager> mWindowManager;
     std::shared_ptr<ng::IWindow> mWindow;
     std::shared_ptr<ng::IRenderer> mRenderer;
-    std::unique_ptr<ng::RenderObject[]> mRenderObjects;
 
 public:
     void Init() override
@@ -41,8 +40,13 @@ public:
             }
         }
 
+        std::unique_ptr<ng::RenderObject[]> renderObjects;
+        renderObjects.reset(new ng::RenderObject[1]);
+
+        renderObjects[0].Mesh = std::make_shared<ng::CubeMesh>(1.0f);
+
         mRenderer->BeginFrame();
-        mRenderer->Render(std::move(mRenderObjects), 0);
+        mRenderer->Render(std::move(renderObjects), 1);
         mRenderer->EndFrame();
 
         return ng::AppStepAction::Continue;

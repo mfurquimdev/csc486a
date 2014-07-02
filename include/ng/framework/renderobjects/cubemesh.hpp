@@ -15,8 +15,8 @@ public:
 
     VertexFormat GetVertexFormat() const override;
 
-    std::size_t GetMaxNumVertices() const override;
-    std::size_t GetMaxNumIndices() const override;
+    std::size_t GetMaxVertexBufferSize() const override;
+    std::size_t GetMaxElementBufferSize() const override;
 
     std::size_t WriteVertices(void* buffer) const override;
     std::size_t WriteIndices(void* buffer) const override;

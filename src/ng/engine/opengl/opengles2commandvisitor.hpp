@@ -3,55 +3,78 @@
 
 #include "ng/engine/opengl/openglcommands.hpp"
 
-#include "ng/engine/window/window.hpp"
-#include "ng/engine/window/glcontext.hpp"
-
 #include <GL/gl.h>
 
 namespace ng
 {
 
+class IGLContext;
+class IWindow;
+
 class OpenGLES2CommandVisitor : public IRendererCommandVisitor
 {
-    std::shared_ptr<IGLContext> mGLContext;
-    std::shared_ptr<IWindow> mWindow;
+    IGLContext* mGLContext;
+    IWindow* mWindow;
 
     bool mShouldQuit = false;
 
+    PFNGLGENBUFFERSPROC glGenBuffers;
+    PFNGLDELETEBUFFERSPROC glDeleteBuffers;
+    PFNGLBINDBUFFERPROC glBindBuffer;
+    PFNGLBUFFERDATAPROC glBufferData;
+    PFNGLMAPBUFFERPROC glMapBuffer;
+    PFNGLUNMAPBUFFERPROC glUnmapBuffer;
+
+    PFNGLGENVERTEXARRAYSPROC glGenVertexArrays;
+    PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays;
+    PFNGLBINDVERTEXARRAYPROC glBindVertexArray;
+    PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer;
+    PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray;
+    PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray;
+
+    PFNGLCREATESHADERPROC glCreateShader;
+    PFNGLDELETESHADERPROC glDeleteShader;
+    PFNGLSHADERSOURCEPROC glShaderSource;
+    PFNGLCOMPILESHADERPROC glCompileShader;
+    PFNGLGETSHADERIVPROC glGetShaderiv;
+    PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog;
+
+    PFNGLCREATEPROGRAMPROC glCreateProgram;
+    PFNGLDELETEPROGRAMPROC glDeleteProgram;
+    PFNGLUSEPROGRAMPROC glUseProgram;
+    PFNGLATTACHSHADERPROC glAttachShader;
+    PFNGLDETACHSHADERPROC glDetachShader;
+    PFNGLLINKPROGRAMPROC glLinkProgram;
+    PFNGLGETPROGRAMIVPROC glGetProgramiv;
+    PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
+    PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation;
+    PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
+    PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv;
+
+    static void* LoadProcOrDie(IGLContext& context, const char* procName);
+
+    using ProgramPtr = std::unique_ptr<GLuint,std::function<void(GLuint*)>>;
+
+    void CompileShader(GLuint handle, const char* src);
+
+    ProgramPtr CompileProgram(const char* vsrc, const char* fsrc);
+
+    ProgramPtr mDebugProgram;
+
 public:
     OpenGLES2CommandVisitor(
-            std::shared_ptr<IGLContext> context,
-            std::shared_ptr<IWindow> window)
-        : mGLContext(std::move(context))
-        , mWindow(std::move(window))
-    { }
+            IGLContext& context,
+            IWindow& window);
 
-    void Visit(BeginFrameCommand&) override
-    {
-        glClear(GL_COLOR_BUFFER_BIT |
-                GL_DEPTH_BUFFER_BIT |
-                GL_STENCIL_BUFFER_BIT);
-    }
+    void Visit(BeginFrameCommand&) override;
 
-    void Visit(EndFrameCommand&) override
-    {
-        mWindow->SwapBuffers();
-    }
+    void Visit(EndFrameCommand&) override;
 
-    void Visit(RenderObjectsCommand&) override
-    {
+    void Visit(RenderObjectsCommand& cmd) override;
 
-    }
+    void Visit(QuitCommand&) override;
 
-    void Visit(QuitCommand&) override
-    {
-        mShouldQuit = true;
-    }
-
-    bool ShouldQuit() override
-    {
-        return mShouldQuit;
-    }
+    bool ShouldQuit() override;
 };
 
 } // end namespace ng
