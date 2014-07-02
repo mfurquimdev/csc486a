@@ -1,31 +1,29 @@
 #ifndef NG_RENDERER_HPP
 #define NG_RENDERER_HPP
 
+#include "ng/engine/rendering/renderobject.hpp"
+
 #include <memory>
 
 namespace ng
 {
 
-class IMesh;
-class IRenderBatch;
 class IWindowManager;
 class IWindow;
-
-class MeshID
-{
-public:
-    const std::uint32_t ID;
-};
 
 class IRenderer
 {
 public:
     virtual ~IRenderer() = default;
 
-    virtual std::shared_ptr<IRenderBatch> CreateRenderBatch() = 0;
+    virtual void BeginFrame() = 0;
 
-    virtual MeshID AddMesh(std::unique_ptr<IMesh> mesh) = 0;
-    virtual void RemoveMesh(MeshID meshID) = 0;
+    // submit a list of objects to render
+    virtual void Render(
+            std::unique_ptr<const RenderObject[]> renderObjects,
+            std::size_t numRenderObjects) = 0;
+
+    virtual void EndFrame() = 0;
 };
 
 std::shared_ptr<IRenderer> CreateRenderer(

@@ -4,11 +4,13 @@
 #include "ng/engine/window/window.hpp"
 #include "ng/engine/window/windowevent.hpp"
 #include "ng/engine/rendering/renderer.hpp"
-#include "ng/engine/rendering/renderbatch.hpp"
 
 #include "ng/engine/util/memory.hpp"
 
+#include "ng/engine/rendering/renderobject.hpp"
 #include "ng/framework/renderobjects/cubemesh.hpp"
+
+#include <vector>
 
 namespace a4
 {
@@ -18,7 +20,7 @@ class A4 : public ng::IApp
     std::shared_ptr<ng::IWindowManager> mWindowManager;
     std::shared_ptr<ng::IWindow> mWindow;
     std::shared_ptr<ng::IRenderer> mRenderer;
-    std::shared_ptr<ng::IRenderBatch> mRenderBatch;
+    std::unique_ptr<ng::RenderObject[]> mRenderObjects;
 
 public:
     void Init() override
@@ -26,11 +28,6 @@ public:
         mWindowManager = ng::CreateWindowManager();
         mWindow = mWindowManager->CreateWindow("a4", 640, 480, 0, 0, ng::VideoFlags());
         mRenderer = ng::CreateRenderer(mWindowManager, mWindow);
-        mRenderBatch = mRenderer->CreateRenderBatch();
-
-        ng::MeshID cubeMesh = mRenderer->AddMesh(ng::make_unique<ng::CubeMesh>(1.0f));
-
-        mRenderBatch->AddMeshInstance(cubeMesh);
     }
 
     ng::AppStepAction Step() override
@@ -44,8 +41,9 @@ public:
             }
         }
 
-        mRenderBatch->SetShouldSwapBuffers(true);
-        mRenderBatch->Commit();
+        mRenderer->BeginFrame();
+        mRenderer->Render(std::move(mRenderObjects), 0);
+        mRenderer->EndFrame();
 
         return ng::AppStepAction::Continue;
     }

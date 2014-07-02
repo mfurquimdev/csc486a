@@ -5,12 +5,19 @@
 #include "ng/engine/window/glcontext.hpp"
 
 #include "ng/engine/rendering/renderer.hpp"
-#include "ng/engine/rendering/renderbatch.hpp"
+
+#include "ng/engine/opengl/opengles2commandvisitor.hpp"
+#include "ng/engine/opengl/openglcommands.hpp"
 
 #include "ng/engine/util/scopeguard.hpp"
+#include "ng/engine/util/memory.hpp"
+
+#include "ng/engine/util/debug.hpp"
 
 #include <thread>
 #include <mutex>
+#include <vector>
+#include <atomic>
 
 namespace ng
 {
@@ -24,96 +31,104 @@ public:
     std::mutex BatchConsumerLock;
     std::mutex BatchProducerLock;
 
-    bool ShouldQuit;
-
-    std::shared_ptr<const IRenderBatch> CurrentBatch;
+    std::vector<std::unique_ptr<IRendererCommand>> CommandQueue;
 
     RenderingThreadData(std::shared_ptr<IWindowManager> windowManager,
                         std::shared_ptr<IWindow> window)
         : WindowManager(std::move(windowManager))
         , Window(std::move(window))
-        , ShouldQuit(false)
     {
+        // make data initially unavailable to the consumer
         BatchConsumerLock.lock();
     }
 };
 
-class OpenGLRendererBase : public IRenderer
-{
-public:
-    virtual RenderingThreadData& GetRenderingThreadData() = 0;
-    virtual const RenderingThreadData& GetRenderingThreadData() const = 0;
-};
-
-static void RenderingThread(RenderingThreadData& threadData);
-
-class OpenGLRenderBatch : public IRenderBatch, public std::enable_shared_from_this<OpenGLRenderBatch>
-{
-    std::shared_ptr<OpenGLRendererBase> mRenderer;
-
-    bool mShouldSwapBuffers = false;
-    bool mShouldSwapBuffersShadow = false;
-
-public:
-    OpenGLRenderBatch(std::shared_ptr<OpenGLRendererBase> renderer)
-        : mRenderer(std::move(renderer))
-    { }
-
-    void Commit() override
-    {
-        // become sole producer for the commit
-        mRenderer->GetRenderingThreadData().BatchProducerLock.lock();
-
-        auto productionScope = make_scope_guard([&]{
-            // give the produced batch to the renderer
-            mRenderer->GetRenderingThreadData().BatchConsumerLock.unlock();
-        });
-
-        // commit changes to the batch
-        mShouldSwapBuffers = mShouldSwapBuffersShadow;
-
-        mRenderer->GetRenderingThreadData().CurrentBatch = shared_from_this();
-    }
-
-    void SetShouldSwapBuffers(bool shouldSwapBuffers) override
-    {
-        mShouldSwapBuffersShadow = shouldSwapBuffers;
-    }
-
-    bool GetShouldSwapBuffers() const override
-    {
-        return mShouldSwapBuffersShadow;
-    }
-
-    bool GetShouldSwapBuffersBack() const
-    {
-        return mShouldSwapBuffers;
-    }
-
-    MeshInstanceID AddMeshInstance(MeshID meshID) override
-    {
-        throw std::runtime_error("OpenGLRenderBatch::AddMeshInstance not implemented");
-    }
-
-    void RemoveMeshInstance(MeshInstanceID meshInstanceID) override
-    {
-        throw std::runtime_error("GLRenderBatch::RemoveMeshInstance");
-    }
-};
-
-class OpenGLRenderer : public OpenGLRendererBase, public std::enable_shared_from_this<OpenGLRenderer>
+class OpenGLRenderer : public IRenderer, public std::enable_shared_from_this<OpenGLRenderer>
 {
     RenderingThreadData mRenderingThreadData;
     std::thread mRenderingThread;
 
-public:
-          RenderingThreadData& GetRenderingThreadData() override { return mRenderingThreadData; }
-    const RenderingThreadData& GetRenderingThreadData() const override { return mRenderingThreadData; }
+    enum class RendererState
+    {
+        InsideFrame,
+        OutsideFrame
+    };
 
+    RendererState mState = RendererState::OutsideFrame;
+    std::mutex mInterfaceMutex;
+
+    static void RenderingThread(RenderingThreadData& threadData)
+    {
+        std::shared_ptr<IGLContext> context = threadData.WindowManager->CreateGLContext(
+                    threadData.Window->GetVideoFlags(), nullptr);
+        threadData.WindowManager->SetCurrentGLContext(threadData.Window, context);
+
+        std::unique_ptr<IRendererCommandVisitor> pCommandVisitor =
+                ng::make_unique<OpenGLES2CommandVisitor>(
+                    context, threadData.Window);
+
+        std::vector<std::unique_ptr<IRendererCommand>> commands;
+
+        bool shouldQuit = false;
+
+        while (!shouldQuit) try
+        {
+            // grab a batch of commands
+            {
+                // wait for a batch to be available to consume.
+                threadData.BatchConsumerLock.lock();
+
+                auto consumptionScope = make_scope_guard([&]{
+                    // allow the producer to submit another batch again.
+                    threadData.BatchProducerLock.unlock();
+                });
+
+                // grab the data
+                commands.swap(threadData.CommandQueue);
+            }
+
+            auto commandClearScope = make_scope_guard([&]{
+                commands.clear();
+            });
+
+            if (pCommandVisitor == nullptr)
+            {
+                continue;
+            }
+
+            IRendererCommandVisitor& commandVisitor = *pCommandVisitor;
+
+            auto quitScope = make_scope_guard([&]{
+                shouldQuit = commandVisitor.ShouldQuit();
+            });
+
+            for (std::unique_ptr<IRendererCommand>& cmd : commands)
+            {
+                if (cmd != nullptr)
+                {
+                    cmd->Accept(commandVisitor);
+                }
+            }
+        }
+        catch (const std::exception& e)
+        {
+            ng::DebugPrintf("RenderingThread error: %s\n", e.what());
+        }
+        catch (...)
+        {
+            ng::DebugPrintf("RenderingThread error: (unknown)\n");
+        }
+    }
+
+public:
     OpenGLRenderer(std::shared_ptr<IWindowManager> windowManager,
                    std::shared_ptr<IWindow> window)
-        : mRenderingThreadData(std::move(windowManager), std::move(window))
-        , mRenderingThread(RenderingThread, std::ref(mRenderingThreadData))
+        : mRenderingThreadData(
+              std::move(windowManager),
+              std::move(window))
+        , mRenderingThread(
+              RenderingThread,
+              std::ref(mRenderingThreadData))
     { }
 
     ~OpenGLRenderer()
@@ -122,7 +137,8 @@ public:
         mRenderingThreadData.BatchProducerLock.lock();
 
         // signal the end of rendering.
-        mRenderingThreadData.ShouldQuit = true;
+        mRenderingThreadData.CommandQueue.push_back(
+                    ng::make_unique<QuitCommand>());
 
         // allow the renderer to quit.
         mRenderingThreadData.BatchConsumerLock.unlock();
@@ -131,63 +147,59 @@ public:
         mRenderingThread.join();
     }
 
-    std::shared_ptr<IRenderBatch> CreateRenderBatch() override
+    void BeginFrame() override
     {
-        return std::make_shared<OpenGLRenderBatch>(shared_from_this());
+        std::lock_guard<std::mutex> interfaceLock(mInterfaceMutex);
+
+        if (mState != RendererState::OutsideFrame)
+        {
+            throw std::logic_error("BeginFrame() called when already in a frame");
+        }
+
+        mState = RendererState::InsideFrame;
+
+        // make sure the rendering thread is done consuming the queued up commands
+        mRenderingThreadData.BatchProducerLock.lock();
+
+        mRenderingThreadData.CommandQueue.push_back(
+                    ng::make_unique<BeginFrameCommand>());
     }
 
-    MeshID AddMesh(std::unique_ptr<IMesh> mesh) override
+    void Render(
+            std::unique_ptr<const RenderObject[]> renderObjects,
+            std::size_t numRenderObjects)
     {
-        throw std::runtime_error("OpenGLRenderer::AddMesh not yet implemented");
+        std::lock_guard<std::mutex> interfaceLock(mInterfaceMutex);
+
+        if (mState != RendererState::InsideFrame)
+        {
+            throw std::logic_error("Render() called when not in a frame");
+        }
+
+        mRenderingThreadData.CommandQueue.push_back(
+                    ng::make_unique<RenderObjectsCommand>(
+                        std::move(renderObjects),
+                        numRenderObjects));
     }
 
-    void RemoveMesh(MeshID meshID) override
+    void EndFrame() override
     {
-        throw std::runtime_error("OpenGLRenderer::RemoveMesh not yet implemented");
+        std::lock_guard<std::mutex> interfaceLock(mInterfaceMutex);
+
+        if (mState != RendererState::InsideFrame)
+        {
+            throw std::logic_error("EndFrame() called when not in a frame");
+        }
+
+        mState = RendererState::OutsideFrame;
+
+        mRenderingThreadData.CommandQueue.push_back(
+                    ng::make_unique<EndFrameCommand>());
+
+        // let the renderer eat up the data
+        mRenderingThreadData.BatchConsumerLock.unlock();
     }
 };
-
-void RenderingThread(RenderingThreadData& threadData)
-{
-    std::shared_ptr<IGLContext> context = threadData.WindowManager->CreateGLContext(
-                threadData.Window->GetVideoFlags(), nullptr);
-    threadData.WindowManager->SetCurrentGLContext(threadData.Window, context);
-
-    while (true)
-    {
-        // wait for a batch to be available to consume.
-        threadData.BatchConsumerLock.lock();
-
-        auto consumptionScope = make_scope_guard([&]{
-            // allow the producer to submit another batch again.
-            threadData.BatchProducerLock.unlock();
-        });
-
-        // grab the batch to render it
-        std::shared_ptr<const OpenGLRenderBatch> batchPtr = std::static_pointer_cast<const OpenGLRenderBatch>(threadData.CurrentBatch);
-        threadData.CurrentBatch = nullptr;
-
-        // check if the renderer requested termination
-        if (threadData.ShouldQuit)
-        {
-            break;
-        }
-
-        // was given nothing to do?
-        if (batchPtr == nullptr)
-        {
-            continue;
-        }
-
-        // do the work requested in the batch
-        const OpenGLRenderBatch& batch = *batchPtr;
-
-        if (batch.GetShouldSwapBuffersBack())
-        {
-            threadData.Window->SwapBuffers();
-        }
-    }
-}
 
 std::shared_ptr<IRenderer> CreateOpenGLRenderer(std::shared_ptr<IWindowManager> windowManager,
                                                 std::shared_ptr<IWindow> window)
