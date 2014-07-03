@@ -32,6 +32,13 @@ public:
         return h;
     }
 
+    float GetAspect() const
+    {
+        int w,h;
+        GetSize(&w,&h);
+        return static_cast<float>(w) / h;
+    }
+
     virtual const VideoFlags& GetVideoFlags() const = 0;
 };
 

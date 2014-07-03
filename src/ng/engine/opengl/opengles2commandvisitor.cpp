@@ -226,122 +226,124 @@ void OpenGLES2CommandVisitor::Visit(RenderBatchCommand& cmd)
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 
-    for (const RenderObject& obj : cmd.Batch.RenderObjects)
+    for (const RenderCamera& cam : cmd.Batch.RenderCameras)
     {
-        if (obj.Mesh == nullptr)
+        mat4 worldView = cam.WorldView;
+        mat4 projection = cam.Projection;
+
+        glViewport(
+                cam.ViewportTopLeft.x, cam.ViewportTopLeft.y,
+                cam.ViewportSize.x, cam.ViewportSize.y);
+
+        for (const RenderObject& obj : cmd.Batch.RenderObjects)
         {
-            continue;
-        }
+            if (obj.Mesh == nullptr)
+            {
+                continue;
+            }
 
-        const IMesh& mesh = *obj.Mesh;
+            const IMesh& mesh = *obj.Mesh;
 
-        GLuint program = *mDebugProgram;
+            GLuint program = *mDebugProgram;
 
-        glUseProgram(program);
+            glUseProgram(program);
 
-        mat4 worldView =
-                LookAt(
-                    vec3(3.0f),
-                    vec3(0.0f),
-                    vec3(0.0f,1.0f,0.0f));
+            mat4 modelView = worldView * obj.WorldTransform;
 
-        mat4 projection = Perspective(70.0f, 4.0f / 3.0f, 0.1f, 1000.0f);
+            VertexFormat fmt = mesh.GetVertexFormat();
 
-        mat4 modelView = worldView * obj.WorldTransform;
+            std::size_t maxVBOSize = mesh.GetMaxVertexBufferSize();
+            std::size_t numVertices = 0;
 
-        VertexFormat fmt = mesh.GetVertexFormat();
+            std::size_t maxEBOSize = mesh.GetMaxElementBufferSize();
+            std::size_t numElements = 0;
 
-        std::size_t maxVBOSize = mesh.GetMaxVertexBufferSize();
-        std::size_t numVertices = 0;
+            if (maxVBOSize > 0)
+            {
+                glBufferData(
+                            GL_ARRAY_BUFFER,
+                            maxVBOSize,
+                            NULL,
+                            GL_STREAM_DRAW);
 
-        std::size_t maxEBOSize = mesh.GetMaxElementBufferSize();
-        std::size_t numElements = 0;
+                void* vertexBuffer =
+                        glMapBuffer(
+                            GL_ARRAY_BUFFER, GL_WRITE_ONLY);
 
-        if (maxVBOSize > 0)
-        {
-            glBufferData(
-                        GL_ARRAY_BUFFER,
-                        maxVBOSize,
-                        NULL,
-                        GL_STREAM_DRAW);
+                auto mapScope = make_scope_guard([&]{
+                    glUnmapBuffer(GL_ARRAY_BUFFER);
+                });
 
-            void* vertexBuffer =
-                    glMapBuffer(
-                        GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+                numVertices = mesh.WriteVertices(vertexBuffer);
+            }
 
-            auto mapScope = make_scope_guard([&]{
-                glUnmapBuffer(GL_ARRAY_BUFFER);
-            });
+            if (maxEBOSize > 0)
+            {
+                glBufferData(
+                            GL_ELEMENT_ARRAY_BUFFER,
+                            maxEBOSize,
+                            NULL,
+                            GL_STREAM_DRAW);
 
-            numVertices = mesh.WriteVertices(vertexBuffer);
-        }
+                void* elementBuffer =
+                        glMapBuffer(
+                            GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
 
-        if (maxEBOSize > 0)
-        {
-            glBufferData(
-                        GL_ELEMENT_ARRAY_BUFFER,
-                        maxEBOSize,
-                        NULL,
-                        GL_STREAM_DRAW);
+                auto mapScope = make_scope_guard([&]{
+                    glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+                });
 
-            void* elementBuffer =
-                    glMapBuffer(
-                        GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
+                numElements = mesh.WriteIndices(elementBuffer);
+            }
 
-            auto mapScope = make_scope_guard([&]{
-                glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
-            });
+            GLuint projectionLoc = glGetUniformLocation(program, "uProjection");
 
-            numElements = mesh.WriteIndices(elementBuffer);
-        }
+            glUniformMatrix4fv(
+                        projectionLoc,
+                        1,
+                        GL_FALSE,
+                        &projection[0][0]);
 
-        GLuint projectionLoc = glGetUniformLocation(program, "uProjection");
+            GLuint modelViewLoc = glGetUniformLocation(program, "uModelView");
 
-        glUniformMatrix4fv(
-                    projectionLoc,
-                    1,
-                    GL_FALSE,
-                    &projection[0][0]);
+            glUniformMatrix4fv(
+                        modelViewLoc,
+                        1,
+                        GL_FALSE,
+                        &modelView[0][0]);
 
-        GLuint modelViewLoc = glGetUniformLocation(program, "uModelView");
+            if (fmt.Position.Enabled)
+            {
+                const VertexAttribute& posAttr = fmt.Position;
 
-        glUniformMatrix4fv(
-                    modelViewLoc,
-                    1,
-                    GL_FALSE,
-                    &modelView[0][0]);
+                GLint posLoc = glGetAttribLocation(program, "iPosition");
 
-        if (fmt.Position.Enabled)
-        {
-            const VertexAttribute& posAttr = fmt.Position;
+                glEnableVertexAttribArray(posLoc);
 
-            GLint posLoc = glGetAttribLocation(program, "iPosition");
+                glVertexAttribPointer(
+                            posLoc,
+                            posAttr.Cardinality,
+                            ToGLArithmeticType(posAttr.Type),
+                            posAttr.Normalized,
+                            posAttr.Stride,
+                            reinterpret_cast<const GLvoid*>(posAttr.Offset));
+            }
 
-            glEnableVertexAttribArray(posLoc);
-
-            glVertexAttribPointer(
-                        posLoc,
-                        posAttr.Cardinality,
-                        ToGLArithmeticType(posAttr.Type),
-                        posAttr.Normalized,
-                        posAttr.Stride,
-                        reinterpret_cast<const GLvoid*>(posAttr.Offset));
-        }
-
-        if (numElements > 0)
-        {
-            glDrawElements(
-                        GL_TRIANGLES,
-                        numElements,
-                        ToGLArithmeticType(fmt.IndexType),
-                        reinterpret_cast<const GLvoid*>(fmt.IndexOffset));
-        }
-        else if (numVertices > 0)
-        {
-            glDrawArrays(
-                        GL_TRIANGLES,
-                        0,
-                        numVertices);
+            if (numElements > 0)
+            {
+                glDrawElements(
+                            GL_TRIANGLES,
+                            numElements,
+                            ToGLArithmeticType(fmt.IndexType),
+                            reinterpret_cast<const GLvoid*>(fmt.IndexOffset));
+            }
+            else if (numVertices > 0)
+            {
+                glDrawArrays(
+                            GL_TRIANGLES,
+                            0,
+                            numVertices);
+            }
         }
     }
 }

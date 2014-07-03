@@ -6,6 +6,7 @@
 #include "ng/engine/rendering/renderer.hpp"
 
 #include "ng/engine/util/memory.hpp"
+#include "ng/engine/util/scopeguard.hpp"
 
 #include "ng/engine/rendering/scenegraph.hpp"
 #include "ng/framework/renderobjects/cubemesh.hpp"
@@ -22,6 +23,7 @@ class A4 : public ng::IApp
     std::shared_ptr<ng::IRenderer> mRenderer;
 
     ng::SceneGraph mScene;
+    std::shared_ptr<ng::SceneGraphCameraNode> mMainCamera;
 
 public:
     void Init() override
@@ -30,12 +32,20 @@ public:
         mWindow = mWindowManager->CreateWindow("a4", 640, 480, 0, 0, ng::VideoFlags());
         mRenderer = ng::CreateRenderer(mWindowManager, mWindow);
 
-        std::shared_ptr<ng::SceneGraphNode> root =
-                           std::make_shared<ng::SceneGraphNode>();
+        std::shared_ptr<ng::SceneGraphNode> rootNode =
+                    std::make_shared<ng::SceneGraphNode>();
+        mScene.Root = rootNode;
 
-        root->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
+        std::shared_ptr<ng::SceneGraphNode> cubeNode =
+                    std::make_shared<ng::SceneGraphNode>();
 
-        mScene.Root = std::move(root);
+        cubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
+        rootNode->Children.push_back(cubeNode);
+
+        mMainCamera = std::make_shared<ng::SceneGraphCameraNode>();
+        rootNode->Children.push_back(mMainCamera);
+        mScene.ActiveCameras.push_back(mMainCamera);
+        mMainCamera->Transform = ng::Translate(0.0f,0.0f,3.0f);
     }
 
     ng::AppStepAction Step() override
@@ -49,9 +59,23 @@ public:
             }
         }
 
-        mRenderer->BeginFrame();
-        mRenderer->Render(mScene);
-        mRenderer->EndFrame();
+        mMainCamera->Projection =
+            ng::Perspective(
+                    70.0f,
+                    mWindow->GetAspect(),
+                    0.1f, 1000.0f);
+        mMainCamera->ViewportTopLeft = ng::ivec2(0,0);
+        mMainCamera->ViewportSize = ng::ivec2(
+                mWindow->GetWidth(), mWindow->GetHeight());
+
+        {
+            mRenderer->BeginFrame();
+            auto endFrameScope = ng::make_scope_guard([&]{
+                mRenderer->EndFrame();
+            });
+
+            mRenderer->Render(mScene);
+        }
 
         return ng::AppStepAction::Continue;
     }
