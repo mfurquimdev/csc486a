@@ -66,13 +66,13 @@ public:
             IGLContext& context,
             IWindow& window);
 
-    void Visit(BeginFrameCommand&) override;
+    void Visit(BeginFrameCommand& cmd) override;
 
-    void Visit(EndFrameCommand&) override;
+    void Visit(EndFrameCommand& cmd) override;
 
-    void Visit(RenderObjectsCommand& cmd) override;
+    void Visit(RenderBatchCommand& cmd) override;
 
-    void Visit(QuitCommand&) override;
+    void Visit(QuitCommand& cmd) override;
 
     bool ShouldQuit() override;
 };

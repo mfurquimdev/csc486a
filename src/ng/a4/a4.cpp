@@ -7,7 +7,7 @@
 
 #include "ng/engine/util/memory.hpp"
 
-#include "ng/engine/rendering/renderobject.hpp"
+#include "ng/engine/rendering/scenegraph.hpp"
 #include "ng/framework/renderobjects/cubemesh.hpp"
 
 #include <vector>
@@ -21,12 +21,21 @@ class A4 : public ng::IApp
     std::shared_ptr<ng::IWindow> mWindow;
     std::shared_ptr<ng::IRenderer> mRenderer;
 
+    ng::SceneGraph mScene;
+
 public:
     void Init() override
     {
         mWindowManager = ng::CreateWindowManager();
         mWindow = mWindowManager->CreateWindow("a4", 640, 480, 0, 0, ng::VideoFlags());
         mRenderer = ng::CreateRenderer(mWindowManager, mWindow);
+
+        std::shared_ptr<ng::SceneGraphNode> root =
+                           std::make_shared<ng::SceneGraphNode>();
+
+        root->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
+
+        mScene.Root = std::move(root);
     }
 
     ng::AppStepAction Step() override
@@ -40,13 +49,8 @@ public:
             }
         }
 
-        std::unique_ptr<ng::RenderObject[]> renderObjects;
-        renderObjects.reset(new ng::RenderObject[1]);
-
-        renderObjects[0].Mesh = std::make_shared<ng::CubeMesh>(1.0f);
-
         mRenderer->BeginFrame();
-        mRenderer->Render(std::move(renderObjects), 1);
+        mRenderer->Render(mScene);
         mRenderer->EndFrame();
 
         return ng::AppStepAction::Continue;

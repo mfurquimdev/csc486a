@@ -5,6 +5,7 @@
 #include "ng/engine/window/glcontext.hpp"
 
 #include "ng/engine/rendering/renderer.hpp"
+#include "ng/engine/rendering/scenegraph.hpp"
 
 #include "ng/engine/opengl/opengles2commandvisitor.hpp"
 #include "ng/engine/opengl/openglcommands.hpp"
@@ -165,9 +166,7 @@ public:
                     ng::make_unique<BeginFrameCommand>());
     }
 
-    void Render(
-            std::unique_ptr<const RenderObject[]> renderObjects,
-            std::size_t numRenderObjects)
+    void Render(const SceneGraph& scene) override
     {
         std::lock_guard<std::mutex> interfaceLock(mInterfaceMutex);
 
@@ -177,9 +176,8 @@ public:
         }
 
         mRenderingThreadData.CommandQueue.push_back(
-                    ng::make_unique<RenderObjectsCommand>(
-                        std::move(renderObjects),
-                        numRenderObjects));
+                    ng::make_unique<RenderBatchCommand>(
+                        RenderBatch::FromScene(scene)));
     }
 
     void EndFrame() override

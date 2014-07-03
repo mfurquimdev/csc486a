@@ -200,7 +200,7 @@ void OpenGLES2CommandVisitor::Visit(EndFrameCommand&)
     mWindow->SwapBuffers();
 }
 
-void OpenGLES2CommandVisitor::Visit(RenderObjectsCommand& cmd)
+void OpenGLES2CommandVisitor::Visit(RenderBatchCommand& cmd)
 {
     glEnable(GL_DEPTH_TEST);
 
@@ -226,10 +226,15 @@ void OpenGLES2CommandVisitor::Visit(RenderObjectsCommand& cmd)
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 
-    for (std::size_t i = 0; i < cmd.NumRenderObjects; i++)
+    for (const RenderObject& obj : cmd.Batch.RenderObjects)
     {
-        const RenderObject& obj = cmd.RenderObjects[i];
+        if (obj.Mesh == nullptr)
+        {
+            continue;
+        }
+
         const IMesh& mesh = *obj.Mesh;
+
         GLuint program = *mDebugProgram;
 
         glUseProgram(program);

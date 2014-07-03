@@ -13,8 +13,18 @@ if(NG_USE_EMSCRIPTEN)
     endif()
 endif()
 
-file(GLOB COMMON_SOURCES
-    *.cpp *.hpp)
+set(COMMON_DIRS
+    .
+    util
+    window
+    rendering)
+
+foreach(common_dir ${COMMON_DIRS})
+    file(GLOB sources
+        ${common_dir}/*.cpp
+        ${common_dir}/*.hpp)
+    set(COMMON_SOURCES ${COMMON_SOURCES} ${sources})
+endforeach()
 
 file(GLOB_RECURSE X11_SOURCES
     x11/**.cpp x11/**.hpp)

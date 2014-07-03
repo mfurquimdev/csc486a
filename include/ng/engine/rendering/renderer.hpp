@@ -1,8 +1,6 @@
 #ifndef NG_RENDERER_HPP
 #define NG_RENDERER_HPP
 
-#include "ng/engine/rendering/renderobject.hpp"
-
 #include <memory>
 
 namespace ng
@@ -10,6 +8,7 @@ namespace ng
 
 class IWindowManager;
 class IWindow;
+class SceneGraph;
 
 class IRenderer
 {
@@ -19,9 +18,7 @@ public:
     virtual void BeginFrame() = 0;
 
     // submit a list of objects to render
-    virtual void Render(
-            std::unique_ptr<const RenderObject[]> renderObjects,
-            std::size_t numRenderObjects) = 0;
+    virtual void Render(const SceneGraph& scene) = 0;
 
     virtual void EndFrame() = 0;
 };
