@@ -400,7 +400,8 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                             numVertices);
             }
         }
-    }}
+    }
+}
 
 void OpenGLES2CommandVisitor::Visit(RenderBatchCommand& cmd)
 {
