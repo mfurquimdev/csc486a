@@ -74,12 +74,12 @@ std::size_t CubeMesh::WriteVertices(void* buffer) const
     const vec3 h = maxExtent;
 
     const CubeVertex vertexData[][3] = {
-        { a, d, c }, { c, b, a }, // bottom
-        { c, d, e }, { e, h, c }, // front
-        { a, f, e }, { e, d, a }, // left
-        { b, g, f }, { f, a, b }, // back
-        { c, h, g }, { g, b, c }, // right
-        { h, e, f }, { f, g, h }  // top
+        { a, b, c }, { c, d, a }, // bottom
+        { c, h, e }, { e, d, c }, // front
+        { a, d, e }, { e, f, a }, // left
+        { b, a, f }, { f, g, b }, // back
+        { c, b, g }, { g, h, c }, // right
+        { h, g, f }, { f, e, h }  // top
     };
 
     std::memcpy(buffer, vertexData, sizeof(vertexData));

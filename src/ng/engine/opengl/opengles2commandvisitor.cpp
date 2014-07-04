@@ -171,16 +171,20 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
             "uniform highp mat4 uModelView;\n"
 
             "attribute highp vec4 iPosition;\n"
+            "varying highp vec4 fPosition;\n"
 
             "void main() {\n"
             " gl_Position = uProjection * uModelView * iPosition;\n"
+            " fPosition = iPosition;\n"
             "}\n";
 
     static const char* debug_fsrc =
             "#version 100\n"
 
+            "varying highp vec4 fPosition;\n"
+
             "void main() {\n"
-            " gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
+            " gl_FragColor = vec4(fPosition.xyz,1.0);\n"
             "}\n";
 
     mDebugProgram = CompileProgram(debug_vsrc, debug_fsrc);
@@ -203,6 +207,7 @@ void OpenGLES2CommandVisitor::Visit(EndFrameCommand&)
 void OpenGLES2CommandVisitor::Visit(RenderBatchCommand& cmd)
 {
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
 
     GLuint vbo;
     glGenBuffers(1, &vbo);
