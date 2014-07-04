@@ -11,7 +11,10 @@
 #include "ng/engine/rendering/scenegraph.hpp"
 #include "ng/framework/renderobjects/cubemesh.hpp"
 
+#include "ng/framework/util/fixedstepupdate.hpp"
+
 #include <vector>
+#include <chrono>
 
 namespace a4
 {
@@ -24,6 +27,8 @@ class A4 : public ng::IApp
 
     ng::SceneGraph mScene;
     std::shared_ptr<ng::SceneGraphCameraNode> mMainCamera;
+
+    ng::FixedStepUpdate mFixedStepUpdate{std::chrono::milliseconds(1000/60)};
 
 public:
     void Init() override
@@ -48,8 +53,29 @@ public:
         mMainCamera->Transform = ng::Translate(0.0f,0.0f,3.0f);
     }
 
+    void UpdateCameraToWindow()
+    {
+        mMainCamera->Projection =
+            ng::Perspective(
+                    70.0f,
+                    mWindow->GetAspect(),
+                    0.1f, 1000.0f);
+
+        mMainCamera->ViewportTopLeft = ng::ivec2(0,0);
+
+        mMainCamera->ViewportSize = ng::ivec2(
+                mWindow->GetWidth(), mWindow->GetHeight());
+    }
+
+    void Update(std::chrono::milliseconds dt)
+    {
+
+    }
+
     ng::AppStepAction Step() override
     {
+        mFixedStepUpdate.QueuePendingSteps();
+
         ng::WindowEvent we;
         while (mWindowManager->PollEvent(we))
         {
@@ -59,14 +85,13 @@ public:
             }
         }
 
-        mMainCamera->Projection =
-            ng::Perspective(
-                    70.0f,
-                    mWindow->GetAspect(),
-                    0.1f, 1000.0f);
-        mMainCamera->ViewportTopLeft = ng::ivec2(0,0);
-        mMainCamera->ViewportSize = ng::ivec2(
-                mWindow->GetWidth(), mWindow->GetHeight());
+        UpdateCameraToWindow();
+
+        while (mFixedStepUpdate.GetNumPendingSteps() > 0)
+        {
+            Update(mFixedStepUpdate.GetStepDuration());
+            mFixedStepUpdate.Step();
+        }
 
         {
             mRenderer->BeginFrame();
