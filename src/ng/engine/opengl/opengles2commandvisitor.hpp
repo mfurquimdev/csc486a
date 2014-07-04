@@ -5,6 +5,8 @@
 
 #include <GL/gl.h>
 
+#include <functional>
+
 namespace ng
 {
 

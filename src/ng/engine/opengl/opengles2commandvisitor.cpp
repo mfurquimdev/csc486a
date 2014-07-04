@@ -9,6 +9,8 @@
 
 #include "ng/engine/util/scopeguard.hpp"
 
+#include <string>
+
 namespace ng
 {
 
@@ -120,10 +122,15 @@ OpenGLES2CommandVisitor::ProgramPtr OpenGLES2CommandVisitor::CompileProgram(
 #endif
 
 // loads a single extension
-#define GetGLExtension(context, ExtensionFunctionName) \
+#define GetGLExtensionOrDie(context, ExtensionFunctionName) \
     ExtensionFunctionName = \
         reinterpret_cast<decltype(ExtensionFunctionName)>( \
             LoadProcOrDie(context, STRINGIFY(ExtensionFunctionName)))
+
+#define TryGetGLExtension(context, ExtensionFunctionName) \
+    ExtensionFunctionName = \
+        reinterpret_cast<decltype(ExtensionFunctionName)>( \
+            context.GetProcAddress(STRINGIFY(ExtensionFunctionName)))
 
 OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
         IGLContext& context,
@@ -131,38 +138,38 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
     : mGLContext(&context)
     , mWindow(&window)
 {
-    GetGLExtension(context, glGenBuffers);
-    GetGLExtension(context, glDeleteBuffers);
-    GetGLExtension(context, glBindBuffer);
-    GetGLExtension(context, glBufferData);
-    GetGLExtension(context, glMapBuffer);
-    GetGLExtension(context, glUnmapBuffer);
+    GetGLExtensionOrDie(context, glGenBuffers);
+    GetGLExtensionOrDie(context, glDeleteBuffers);
+    GetGLExtensionOrDie(context, glBindBuffer);
+    GetGLExtensionOrDie(context, glBufferData);
+    TryGetGLExtension(context, glMapBuffer);
+    TryGetGLExtension(context, glUnmapBuffer);
 
-    GetGLExtension(context, glGenVertexArrays);
-    GetGLExtension(context, glDeleteVertexArrays);
-    GetGLExtension(context, glBindVertexArray);
-    GetGLExtension(context, glVertexAttribPointer);
-    GetGLExtension(context, glEnableVertexAttribArray);
-    GetGLExtension(context, glDisableVertexAttribArray);
+    GetGLExtensionOrDie(context, glGenVertexArrays);
+    GetGLExtensionOrDie(context, glDeleteVertexArrays);
+    GetGLExtensionOrDie(context, glBindVertexArray);
+    GetGLExtensionOrDie(context, glVertexAttribPointer);
+    GetGLExtensionOrDie(context, glEnableVertexAttribArray);
+    GetGLExtensionOrDie(context, glDisableVertexAttribArray);
 
-    GetGLExtension(context, glCreateShader);
-    GetGLExtension(context, glDeleteShader);
-    GetGLExtension(context, glShaderSource);
-    GetGLExtension(context, glCompileShader);
-    GetGLExtension(context, glGetShaderiv);
-    GetGLExtension(context, glGetShaderInfoLog);
+    GetGLExtensionOrDie(context, glCreateShader);
+    GetGLExtensionOrDie(context, glDeleteShader);
+    GetGLExtensionOrDie(context, glShaderSource);
+    GetGLExtensionOrDie(context, glCompileShader);
+    GetGLExtensionOrDie(context, glGetShaderiv);
+    GetGLExtensionOrDie(context, glGetShaderInfoLog);
 
-    GetGLExtension(context, glCreateProgram);
-    GetGLExtension(context, glDeleteProgram);
-    GetGLExtension(context, glUseProgram);
-    GetGLExtension(context, glAttachShader);
-    GetGLExtension(context, glDetachShader);
-    GetGLExtension(context, glLinkProgram);
-    GetGLExtension(context, glGetProgramiv);
-    GetGLExtension(context, glGetProgramInfoLog);
-    GetGLExtension(context, glGetAttribLocation);
-    GetGLExtension(context, glGetUniformLocation);
-    GetGLExtension(context, glUniformMatrix4fv);
+    GetGLExtensionOrDie(context, glCreateProgram);
+    GetGLExtensionOrDie(context, glDeleteProgram);
+    GetGLExtensionOrDie(context, glUseProgram);
+    GetGLExtensionOrDie(context, glAttachShader);
+    GetGLExtensionOrDie(context, glDetachShader);
+    GetGLExtensionOrDie(context, glLinkProgram);
+    GetGLExtensionOrDie(context, glGetProgramiv);
+    GetGLExtensionOrDie(context, glGetProgramInfoLog);
+    GetGLExtensionOrDie(context, glGetAttribLocation);
+    GetGLExtensionOrDie(context, glGetUniformLocation);
+    GetGLExtensionOrDie(context, glUniformMatrix4fv);
 
     static const char* debug_vsrc =
             "#version 100\n"
@@ -265,40 +272,66 @@ void OpenGLES2CommandVisitor::Visit(RenderBatchCommand& cmd)
 
             if (maxVBOSize > 0)
             {
-                glBufferData(
-                            GL_ARRAY_BUFFER,
-                            maxVBOSize,
-                            NULL,
-                            GL_STREAM_DRAW);
+                if (glMapBuffer != nullptr)
+                {
+                    glBufferData(
+                                GL_ARRAY_BUFFER,
+                                maxVBOSize,
+                                NULL,
+                                GL_STREAM_DRAW);
 
-                void* vertexBuffer =
-                        glMapBuffer(
-                            GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+                    void* vertexBuffer =
+                            glMapBuffer(
+                                GL_ARRAY_BUFFER, GL_WRITE_ONLY);
 
-                auto mapScope = make_scope_guard([&]{
-                    glUnmapBuffer(GL_ARRAY_BUFFER);
-                });
+                    auto mapScope = make_scope_guard([&]{
+                        glUnmapBuffer(GL_ARRAY_BUFFER);
+                    });
 
-                numVertices = mesh.WriteVertices(vertexBuffer);
+                    numVertices = mesh.WriteVertices(vertexBuffer);
+                }
+                else
+                {
+                    std::unique_ptr<char[]> vertexBuffer(new char[maxVBOSize]);
+                    numVertices = mesh.WriteVertices(vertexBuffer.get());
+                    glBufferData(
+                                GL_ARRAY_BUFFER,
+                                maxVBOSize,
+                                vertexBuffer.get(),
+                                GL_STREAM_DRAW);
+                }
             }
 
             if (maxEBOSize > 0)
             {
-                glBufferData(
-                            GL_ELEMENT_ARRAY_BUFFER,
-                            maxEBOSize,
-                            NULL,
-                            GL_STREAM_DRAW);
+                if (glMapBuffer != nullptr)
+                {
+                    glBufferData(
+                                GL_ELEMENT_ARRAY_BUFFER,
+                                maxEBOSize,
+                                NULL,
+                                GL_STREAM_DRAW);
 
-                void* elementBuffer =
-                        glMapBuffer(
-                            GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
+                    void* elementBuffer =
+                            glMapBuffer(
+                                GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
 
-                auto mapScope = make_scope_guard([&]{
-                    glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
-                });
+                    auto mapScope = make_scope_guard([&]{
+                        glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+                    });
 
-                numElements = mesh.WriteIndices(elementBuffer);
+                    numElements = mesh.WriteIndices(elementBuffer);
+                }
+                else
+                {
+                    std::unique_ptr<char[]> elementBuffer(new char[maxEBOSize]);
+                    numElements = mesh.WriteIndices(elementBuffer.get());
+                    glBufferData(
+                                GL_ARRAY_BUFFER,
+                                maxVBOSize,
+                                elementBuffer.get(),
+                                GL_STREAM_DRAW);
+                }
             }
 
             GLuint projectionLoc = glGetUniformLocation(program, "uProjection");

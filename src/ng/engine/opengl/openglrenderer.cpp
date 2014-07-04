@@ -29,6 +29,14 @@ public:
     const std::shared_ptr<IWindowManager> WindowManager;
     const std::shared_ptr<IWindow> Window;
 
+    using CommandVisitorFactory =
+        std::function<
+            std::shared_ptr<IRendererCommandVisitor>(
+                IGLContext& context, IWindow& window)>;
+
+    CommandVisitorFactory VisitorFactory;
+    std::shared_ptr<IRendererCommandVisitor> Visitor;
+
     std::mutex BatchConsumerLock;
     std::mutex BatchProducerLock;
 
@@ -47,6 +55,8 @@ public:
 class OpenGLRenderer : public IRenderer, public std::enable_shared_from_this<OpenGLRenderer>
 {
     RenderingThreadData mRenderingThreadData;
+
+    bool mUseRenderingThread;
     std::thread mRenderingThread;
 
     enum class RendererState
@@ -58,15 +68,23 @@ class OpenGLRenderer : public IRenderer, public std::enable_shared_from_this<Ope
     RendererState mState = RendererState::OutsideFrame;
     std::mutex mInterfaceMutex;
 
-    static void RenderingThread(RenderingThreadData& threadData)
+    static void SetupGLContextAndVisitor(RenderingThreadData& threadData)
     {
-        std::shared_ptr<IGLContext> context = threadData.WindowManager->CreateGLContext(
+        std::shared_ptr<IGLContext> context =
+                threadData.WindowManager->CreateGLContext(
                     threadData.Window->GetVideoFlags(), nullptr);
+
         threadData.WindowManager->SetCurrentGLContext(threadData.Window, context);
 
-        std::unique_ptr<IRendererCommandVisitor> pCommandVisitor =
-                ng::make_unique<OpenGLES2CommandVisitor>(
-                    *context, *threadData.Window);
+        threadData.Visitor =
+                threadData.VisitorFactory(
+                    *context,
+                    *threadData.Window);
+    }
+
+    static void RenderingThread(RenderingThreadData& threadData)
+    {
+        SetupGLContextAndVisitor(threadData);
 
         std::vector<std::unique_ptr<IRendererCommand>> commands;
 
@@ -92,12 +110,12 @@ class OpenGLRenderer : public IRenderer, public std::enable_shared_from_this<Ope
                 commands.clear();
             });
 
-            if (pCommandVisitor == nullptr)
+            if (threadData.Visitor == nullptr)
             {
                 continue;
             }
 
-            IRendererCommandVisitor& commandVisitor = *pCommandVisitor;
+            IRendererCommandVisitor& commandVisitor = *threadData.Visitor;
 
             auto quitScope = make_scope_guard([&]{
                 shouldQuit = commandVisitor.ShouldQuit();
@@ -123,34 +141,62 @@ class OpenGLRenderer : public IRenderer, public std::enable_shared_from_this<Ope
 
 public:
     OpenGLRenderer(std::shared_ptr<IWindowManager> windowManager,
-                   std::shared_ptr<IWindow> window)
+                   std::shared_ptr<IWindow> window,
+                   bool useRenderingThread)
         : mRenderingThreadData(
               std::move(windowManager),
               std::move(window))
-        , mRenderingThread(
-              RenderingThread,
-              std::ref(mRenderingThreadData))
-    { }
+        , mUseRenderingThread(useRenderingThread)
+    {
+        mRenderingThreadData.VisitorFactory =
+                [](IGLContext& context, IWindow& window)
+        {
+            return std::make_shared<OpenGLES2CommandVisitor>(
+                        context, window);
+        };
+
+        if (mUseRenderingThread)
+        {
+            mRenderingThread =
+                    std::thread(
+                        RenderingThread,
+                        std::ref(mRenderingThreadData));
+        }
+        else
+        {
+            SetupGLContextAndVisitor(mRenderingThreadData);
+        }
+    }
 
     ~OpenGLRenderer()
     {
-        // wait for the current batch to finish processing.
-        mRenderingThreadData.BatchProducerLock.lock();
+        if (mUseRenderingThread)
+        {
+            // wait for the current batch to finish processing.
+            mRenderingThreadData.BatchProducerLock.lock();
 
-        // signal the end of rendering.
-        mRenderingThreadData.CommandQueue.push_back(
-                    ng::make_unique<QuitCommand>());
+            // signal the end of rendering.
+            mRenderingThreadData.CommandQueue.push_back(
+                        ng::make_unique<QuitCommand>());
 
-        // allow the renderer to quit.
-        mRenderingThreadData.BatchConsumerLock.unlock();
+            // allow the renderer to quit.
+            mRenderingThreadData.BatchConsumerLock.unlock();
 
-        // join the now quit rendering thread.
-        mRenderingThread.join();
+            // join the now quit rendering thread.
+            mRenderingThread.join();
+        }
     }
 
     void BeginFrame() override
     {
-        std::lock_guard<std::mutex> interfaceLock(mInterfaceMutex);
+        std::unique_lock<std::mutex> interfaceLock(
+                    mInterfaceMutex,
+                    std::defer_lock);
+
+        if (mUseRenderingThread)
+        {
+            interfaceLock.lock();
+        }
 
         if (mState != RendererState::OutsideFrame)
         {
@@ -159,8 +205,11 @@ public:
 
         mState = RendererState::InsideFrame;
 
-        // make sure the rendering thread is done consuming the queued up commands
-        mRenderingThreadData.BatchProducerLock.lock();
+        if (mUseRenderingThread)
+        {
+            // make sure the rendering thread is done consuming the queued up commands
+            mRenderingThreadData.BatchProducerLock.lock();
+        }
 
         mRenderingThreadData.CommandQueue.push_back(
                     ng::make_unique<BeginFrameCommand>());
@@ -168,7 +217,14 @@ public:
 
     void Render(const SceneGraph& scene) override
     {
-        std::lock_guard<std::mutex> interfaceLock(mInterfaceMutex);
+        std::unique_lock<std::mutex> interfaceLock(
+                    mInterfaceMutex,
+                    std::defer_lock);
+
+        if (mUseRenderingThread)
+        {
+            interfaceLock.lock();
+        }
 
         if (mState != RendererState::InsideFrame)
         {
@@ -182,7 +238,14 @@ public:
 
     void EndFrame() override
     {
-        std::lock_guard<std::mutex> interfaceLock(mInterfaceMutex);
+        std::unique_lock<std::mutex> interfaceLock(
+                    mInterfaceMutex,
+                    std::defer_lock);
+
+        if (mUseRenderingThread)
+        {
+            interfaceLock.lock();
+        }
 
         if (mState != RendererState::InsideFrame)
         {
@@ -194,15 +257,40 @@ public:
         mRenderingThreadData.CommandQueue.push_back(
                     ng::make_unique<EndFrameCommand>());
 
-        // let the renderer eat up the data
-        mRenderingThreadData.BatchConsumerLock.unlock();
+        if (mUseRenderingThread)
+        {
+            // let the renderer eat up the data
+            mRenderingThreadData.BatchConsumerLock.unlock();
+        }
+        else
+        {
+            if (mRenderingThreadData.Visitor != nullptr)
+            {
+                IRendererCommandVisitor& visitor =
+                        *mRenderingThreadData.Visitor;
+
+                for (std::unique_ptr<IRendererCommand>& cmd
+                     : mRenderingThreadData.CommandQueue)
+                {
+                    if (cmd != nullptr)
+                    {
+                        cmd->Accept(visitor);
+                    }
+                }
+            }
+        }
     }
 };
 
-std::shared_ptr<IRenderer> CreateOpenGLRenderer(std::shared_ptr<IWindowManager> windowManager,
-                                                std::shared_ptr<IWindow> window)
+std::shared_ptr<IRenderer> CreateOpenGLRenderer(
+        std::shared_ptr<IWindowManager> windowManager,
+        std::shared_ptr<IWindow> window,
+        bool useRenderingThread)
 {
-    return std::make_shared<OpenGLRenderer>(std::move(windowManager), std::move(window));
+    return std::make_shared<OpenGLRenderer>(
+                std::move(windowManager),
+                std::move(window),
+                useRenderingThread);
 }
 
 } // end namespace ng
