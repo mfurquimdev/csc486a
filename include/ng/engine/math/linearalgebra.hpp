@@ -825,7 +825,7 @@ mat<T,4,4>>::type rotate(T angle, T x, T y, T z)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-mat<T,4,4>>::type lookat(vec<T,3> eye, vec<T,3> center, vec<T,3> up)
+mat<T,4,4>>::type lookAt(vec<T,3> eye, vec<T,3> center, vec<T,3> up)
 {
     auto f = normalize(center - eye);
     auto u = normalize(up);
@@ -839,6 +839,30 @@ mat<T,4,4>>::type lookat(vec<T,3> eye, vec<T,3> center, vec<T,3> up)
         { -dot(s,eye), -dot(u,eye), dot(f,eye), 1 }
     };
 }
+
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,4,4>>::type ortho(T left, T right, T bottom, T top, T nearVal, T farVal)
+{
+    auto tx = - (right + left) / (right - left);
+    auto ty = - (top + bottom) / (top - bottom);
+    auto tz = - (farVal + nearVal) / (farVal - nearVal);
+    return {
+        { 2 / (right - left), 0, 0, 0 },
+        { 0, 2 / (top - bottom), 0, 0 },
+        { 0, 0, -2 / (farVal - nearVal), 0 },
+        { tx, ty, tz, 1 }
+    };
+}
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,4,4>>::type ortho2D(T left, T right, T bottom, T top)
+{
+    return ortho(left, right, bottom, top, T(-1), T(1));
+}
+
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
@@ -855,7 +879,7 @@ mat<T,4,4>>::type perspective(T fovy, T aspect, T zNear, T zFar)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-vec<T,3>>::type unproject(vec<T,3> windowCoordinate,
+vec<T,3>>::type unProject(vec<T,3> windowCoordinate,
                       mat<T,4,4> modelView, mat<T,4,4> projection,
                       ivec4 viewport)
 {

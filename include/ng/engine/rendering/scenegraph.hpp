@@ -32,8 +32,10 @@ class SceneGraph
 {
 public:
     std::shared_ptr<SceneGraphNode> Root;
-
     std::vector<std::shared_ptr<SceneGraphCameraNode>> ActiveCameras;
+
+    std::shared_ptr<SceneGraphNode> OverlayRoot;
+    std::vector<std::shared_ptr<SceneGraphCameraNode>> OverlayActiveCameras;
 };
 
 } // end namespace ng

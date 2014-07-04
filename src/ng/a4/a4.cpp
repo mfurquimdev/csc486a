@@ -4,12 +4,13 @@
 #include "ng/engine/window/window.hpp"
 #include "ng/engine/window/windowevent.hpp"
 #include "ng/engine/rendering/renderer.hpp"
+#include "ng/engine/rendering/scenegraph.hpp"
 
 #include "ng/engine/util/memory.hpp"
 #include "ng/engine/util/scopeguard.hpp"
 
-#include "ng/engine/rendering/scenegraph.hpp"
-#include "ng/framework/renderobjects/cubemesh.hpp"
+#include "ng/framework/meshes/cubemesh.hpp"
+#include "ng/framework/meshes/squaremesh.hpp"
 
 #include "ng/framework/util/fixedstepupdate.hpp"
 
@@ -28,6 +29,8 @@ class A4 : public ng::IApp
     ng::SceneGraph mScene;
     std::shared_ptr<ng::SceneGraphCameraNode> mMainCamera;
 
+    std::shared_ptr<ng::SceneGraphCameraNode> mOverlayCamera;
+
     ng::FixedStepUpdate mFixedStepUpdate{std::chrono::milliseconds(1000/60)};
 
 public:
@@ -37,12 +40,13 @@ public:
         mWindow = mWindowManager->CreateWindow("a4", 640, 480, 0, 0, ng::VideoFlags());
         mRenderer = ng::CreateRenderer(mWindowManager, mWindow);
 
+        // setup scene
         std::shared_ptr<ng::SceneGraphNode> rootNode =
-                    std::make_shared<ng::SceneGraphNode>();
+                std::make_shared<ng::SceneGraphNode>();
         mScene.Root = rootNode;
 
         std::shared_ptr<ng::SceneGraphNode> cubeNode =
-                    std::make_shared<ng::SceneGraphNode>();
+                std::make_shared<ng::SceneGraphNode>();
 
         cubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
         rootNode->Children.push_back(cubeNode);
@@ -50,6 +54,22 @@ public:
         mMainCamera = std::make_shared<ng::SceneGraphCameraNode>();
         rootNode->Children.push_back(mMainCamera);
         mScene.ActiveCameras.push_back(mMainCamera);
+
+        // setup overlay
+        std::shared_ptr<ng::SceneGraphNode> overlayRootNode =
+                std::make_shared<ng::SceneGraphNode>();
+        mScene.OverlayRoot = overlayRootNode;
+
+        std::shared_ptr<ng::SceneGraphNode> squareNode =
+                std::make_shared<ng::SceneGraphNode>();
+
+        squareNode->Mesh = std::make_shared<ng::SquareMesh>(100.0f);
+        squareNode->Transform = ng::translate(100.0f, 100.0f, 0.0f);
+        overlayRootNode->Children.push_back(squareNode);
+
+        mOverlayCamera = std::make_shared<ng::SceneGraphCameraNode>();
+        overlayRootNode->Children.push_back(mOverlayCamera);
+        mScene.OverlayActiveCameras.push_back(mOverlayCamera);
     }
 
     ng::AppStepAction Step() override
@@ -99,7 +119,7 @@ private:
     void UpdateCameraToWindow()
     {
         mMainCamera->Projection =
-            ng::perspective(
+                ng::perspective(
                     70.0f,
                     mWindow->GetAspect(),
                     0.1f, 1000.0f);
@@ -107,7 +127,14 @@ private:
         mMainCamera->ViewportTopLeft = ng::ivec2(0,0);
 
         mMainCamera->ViewportSize = ng::ivec2(
-                mWindow->GetWidth(), mWindow->GetHeight());
+                    mWindow->GetWidth(), mWindow->GetHeight());
+
+        mOverlayCamera->Projection =
+                ng::ortho2D(0.0f, (float) mWindow->GetWidth(),
+                            (float) mWindow->GetHeight(), 0.0f);
+        mOverlayCamera->ViewportTopLeft - ng::ivec2(0,0);
+        mOverlayCamera->ViewportSize = ng::ivec2(
+                    mWindow->GetWidth(), mWindow->GetHeight());
     }
 
     void UpdateCameraTransform(std::chrono::milliseconds dt)
@@ -116,7 +143,7 @@ private:
                                               0.0f, 1.0f, 0.0f)
                                  * ng::vec4(mCameraPosition,1.0f));
 
-        mMainCamera->Transform = inverse(ng::lookat(mCameraPosition,
+        mMainCamera->Transform = inverse(ng::lookAt(mCameraPosition,
                                                     mCameraTarget,
                                                     ng::vec3(0.0f,1.0f,0.0f)));
     }

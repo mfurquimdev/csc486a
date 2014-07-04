@@ -32,10 +32,13 @@ public:
 class RenderBatch
 {
 public:
+    static RenderBatch FromScene(const SceneGraph& scene);
+
     std::vector<RenderObject> RenderObjects;
     std::vector<RenderCamera> RenderCameras;
 
-    static RenderBatch FromScene(const SceneGraph& scene);
+    std::vector<RenderObject> OverlayRenderObjects;
+    std::vector<RenderCamera> OverlayRenderCameras;
 };
 
 } // end namespace ng

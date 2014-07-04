@@ -1,4 +1,4 @@
-#include "ng/framework/renderobjects/cubemesh.hpp"
+#include "ng/framework/meshes/cubemesh.hpp"
 
 #include "ng/engine/math/linearalgebra.hpp"
 
@@ -23,7 +23,7 @@ std::size_t CubeMesh::GetMaxVertexBufferSize() const
     constexpr int NumFaces = 6;
     constexpr int TrianglesPerFace = 2;
     constexpr int VerticesPerTriangle = 3;
-    constexpr int SizeOfVertex = sizeof(vec3);
+    constexpr std::size_t SizeOfVertex = sizeof(vec3);
     return NumFaces * TrianglesPerFace * VerticesPerTriangle * SizeOfVertex;
 }
 

@@ -178,20 +178,21 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
             "uniform highp mat4 uModelView;\n"
 
             "attribute highp vec4 iPosition;\n"
-            "varying highp vec4 fPosition;\n"
+            // "varying highp vec4 fPosition;\n"
 
             "void main() {\n"
             " gl_Position = uProjection * uModelView * iPosition;\n"
-            " fPosition = iPosition;\n"
+            // " fPosition = iPosition;\n"
             "}\n";
 
     static const char* debug_fsrc =
             "#version 100\n"
 
-            "varying highp vec4 fPosition;\n"
+            // "varying highp vec4 fPosition;\n"
 
             "void main() {\n"
-            " gl_FragColor = vec4(fPosition.xyz,1.0);\n"
+            // " gl_FragColor = vec4(fPosition.xyz,1.0);\n"
+            "    gl_FragColor = vec4(1,0,0,1);"
             "}\n";
 
     mDebugProgram = CompileProgram(debug_vsrc, debug_fsrc);
@@ -211,10 +212,17 @@ void OpenGLES2CommandVisitor::Visit(EndFrameCommand&)
     mWindow->SwapBuffers();
 }
 
-void OpenGLES2CommandVisitor::Visit(RenderBatchCommand& cmd)
+void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
 {
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
+    for (GLenum flag : pass.FlagsToEnable)
+    {
+        glEnable(flag);
+    }
+
+    for (GLenum flag : pass.FlagsToDisable)
+    {
+        glDisable(flag);
+    }
 
     GLuint vbo;
     glGenBuffers(1, &vbo);
@@ -238,7 +246,7 @@ void OpenGLES2CommandVisitor::Visit(RenderBatchCommand& cmd)
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 
-    for (const RenderCamera& cam : cmd.Batch.RenderCameras)
+    for (const RenderCamera& cam : pass.RenderCameras)
     {
         mat4 worldView = cam.WorldView;
         mat4 projection = cam.Projection;
@@ -247,7 +255,7 @@ void OpenGLES2CommandVisitor::Visit(RenderBatchCommand& cmd)
                 cam.ViewportTopLeft.x, cam.ViewportTopLeft.y,
                 cam.ViewportSize.x, cam.ViewportSize.y);
 
-        for (const RenderObject& obj : cmd.Batch.RenderObjects)
+        for (const RenderObject& obj : pass.RenderObjects)
         {
             if (obj.Mesh == nullptr)
             {
@@ -334,21 +342,27 @@ void OpenGLES2CommandVisitor::Visit(RenderBatchCommand& cmd)
                 }
             }
 
-            GLuint projectionLoc = glGetUniformLocation(program, "uProjection");
+            GLint projectionLoc = glGetUniformLocation(program, "uProjection");
 
-            glUniformMatrix4fv(
-                        projectionLoc,
-                        1,
-                        GL_FALSE,
-                        &projection[0][0]);
+            if (projectionLoc != -1)
+            {
+                glUniformMatrix4fv(
+                            projectionLoc,
+                            1,
+                            GL_FALSE,
+                            &projection[0][0]);
+            }
 
-            GLuint modelViewLoc = glGetUniformLocation(program, "uModelView");
+            GLint modelViewLoc = glGetUniformLocation(program, "uModelView");
 
-            glUniformMatrix4fv(
-                        modelViewLoc,
-                        1,
-                        GL_FALSE,
-                        &modelView[0][0]);
+            if (modelViewLoc != -1)
+            {
+                glUniformMatrix4fv(
+                            modelViewLoc,
+                            1,
+                            GL_FALSE,
+                            &modelView[0][0]);
+            }
 
             if (fmt.Position.Enabled)
             {
@@ -356,15 +370,18 @@ void OpenGLES2CommandVisitor::Visit(RenderBatchCommand& cmd)
 
                 GLint posLoc = glGetAttribLocation(program, "iPosition");
 
-                glEnableVertexAttribArray(posLoc);
+                if (posLoc != -1)
+                {
+                    glEnableVertexAttribArray(posLoc);
 
-                glVertexAttribPointer(
-                            posLoc,
-                            posAttr.Cardinality,
-                            ToGLArithmeticType(posAttr.Type),
-                            posAttr.Normalized,
-                            posAttr.Stride,
-                            reinterpret_cast<const GLvoid*>(posAttr.Offset));
+                    glVertexAttribPointer(
+                                posLoc,
+                                posAttr.Cardinality,
+                                ToGLArithmeticType(posAttr.Type),
+                                posAttr.Normalized,
+                                posAttr.Stride,
+                                reinterpret_cast<const GLvoid*>(posAttr.Offset));
+                }
             }
 
             if (numElements > 0)
@@ -383,7 +400,35 @@ void OpenGLES2CommandVisitor::Visit(RenderBatchCommand& cmd)
                             numVertices);
             }
         }
-    }
+    }}
+
+void OpenGLES2CommandVisitor::Visit(RenderBatchCommand& cmd)
+{
+    Pass scenePass{
+        cmd.Batch.RenderObjects,
+        cmd.Batch.RenderCameras,
+        { GL_DEPTH_TEST },
+        { }
+    };
+
+    Pass overlayPass{
+        cmd.Batch.OverlayRenderObjects,
+        cmd.Batch.OverlayRenderCameras,
+        { },
+        { GL_DEPTH_TEST }
+    };
+
+    // sort overlay back-to-front, assuming everything is flat.
+    std::sort(overlayPass.RenderObjects.begin(),
+              overlayPass.RenderObjects.end(),
+              [](const RenderObject& a, const RenderObject& b)
+    {
+        return (a.WorldTransform * vec4(0,0,0,1)).z <
+               (b.WorldTransform * vec4(0,0,0,1)).z;
+    });
+
+    RenderPass(scenePass);
+    RenderPass(overlayPass);
 }
 
 void OpenGLES2CommandVisitor::Visit(QuitCommand&)

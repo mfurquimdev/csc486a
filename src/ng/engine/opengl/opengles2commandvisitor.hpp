@@ -61,6 +61,18 @@ class OpenGLES2CommandVisitor : public IRendererCommandVisitor
 
     ProgramPtr CompileProgram(const char* vsrc, const char* fsrc);
 
+    class Pass
+    {
+    public:
+        std::vector<RenderObject>& RenderObjects;
+        std::vector<RenderCamera>& RenderCameras;
+
+        std::vector<GLenum> FlagsToEnable;
+        std::vector<GLenum> FlagsToDisable;
+    };
+
+    void RenderPass(const Pass& pass);
+
     ProgramPtr mDebugProgram;
 
 public:
