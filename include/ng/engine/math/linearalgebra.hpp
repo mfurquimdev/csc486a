@@ -780,7 +780,7 @@ mat<T,4,4>>::type inverse(mat<T,4,4> m)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-mat<T,4,4>>::type Translate(T x, T y, T z)
+mat<T,4,4>>::type translate(T x, T y, T z)
 {
     return {
         { 1, 0, 0, 0 },
@@ -792,14 +792,14 @@ mat<T,4,4>>::type Translate(T x, T y, T z)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-mat<T,4,4>>::type Translate(vec<T,3> v)
+mat<T,4,4>>::type translate(vec<T,3> v)
 {
-   return Translate(v.x, v.y, v.z);
+   return translate(v.x, v.y, v.z);
 }
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-mat<T,4,4>>::type Rotate(T angle, vec<T,3> v)
+mat<T,4,4>>::type rotate(T angle, vec<T,3> v)
 {
     T c = std::cos(angle);
     T s = std::sin(angle);
@@ -817,15 +817,15 @@ mat<T,4,4>>::type Rotate(T angle, vec<T,3> v)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-mat<T,4,4>>::type Rotate(T angle, T x, T y, T z)
+mat<T,4,4>>::type rotate(T angle, T x, T y, T z)
 {
-    return Rotate(angle, { x, y, z });
+    return rotate(angle, { x, y, z });
 }
 
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-mat<T,4,4>>::type LookAt(vec<T,3> eye, vec<T,3> center, vec<T,3> up)
+mat<T,4,4>>::type lookat(vec<T,3> eye, vec<T,3> center, vec<T,3> up)
 {
     auto f = normalize(center - eye);
     auto u = normalize(up);
@@ -842,7 +842,7 @@ mat<T,4,4>>::type LookAt(vec<T,3> eye, vec<T,3> center, vec<T,3> up)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-mat<T,4,4>>::type Perspective(T fovy, T aspect, T zNear, T zFar)
+mat<T,4,4>>::type perspective(T fovy, T aspect, T zNear, T zFar)
 {
     auto f = 1 / std::tan(fovy / 2);
     return {
@@ -855,7 +855,7 @@ mat<T,4,4>>::type Perspective(T fovy, T aspect, T zNear, T zFar)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-vec<T,3>>::type UnProject(vec<T,3> windowCoordinate,
+vec<T,3>>::type unproject(vec<T,3> windowCoordinate,
                       mat<T,4,4> modelView, mat<T,4,4> projection,
                       ivec4 viewport)
 {

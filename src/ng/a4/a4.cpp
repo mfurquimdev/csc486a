@@ -50,45 +50,27 @@ public:
         mMainCamera = std::make_shared<ng::SceneGraphCameraNode>();
         rootNode->Children.push_back(mMainCamera);
         mScene.ActiveCameras.push_back(mMainCamera);
-        mMainCamera->Transform = ng::Translate(0.0f,0.0f,3.0f);
-    }
-
-    void UpdateCameraToWindow()
-    {
-        mMainCamera->Projection =
-            ng::Perspective(
-                    70.0f,
-                    mWindow->GetAspect(),
-                    0.1f, 1000.0f);
-
-        mMainCamera->ViewportTopLeft = ng::ivec2(0,0);
-
-        mMainCamera->ViewportSize = ng::ivec2(
-                mWindow->GetWidth(), mWindow->GetHeight());
-    }
-
-    void Update(std::chrono::milliseconds dt)
-    {
-
     }
 
     ng::AppStepAction Step() override
     {
         mFixedStepUpdate.QueuePendingSteps();
 
-        ng::WindowEvent we;
-        while (mWindowManager->PollEvent(we))
-        {
-            if (we.Type == ng::WindowEventType::Quit)
-            {
-                return ng::AppStepAction::Quit;
-            }
-        }
-
-        UpdateCameraToWindow();
-
         while (mFixedStepUpdate.GetNumPendingSteps() > 0)
         {
+            ng::WindowEvent we;
+            while (mWindowManager->PollEvent(we))
+            {
+                if (we.Type == ng::WindowEventType::Quit)
+                {
+                    return ng::AppStepAction::Quit;
+                }
+                else
+                {
+                    HandleEvent(we);
+                }
+            }
+
             Update(mFixedStepUpdate.GetStepDuration());
             mFixedStepUpdate.Step();
         }
@@ -103,6 +85,46 @@ public:
         }
 
         return ng::AppStepAction::Continue;
+    }
+
+private:
+    ng::vec3 mCameraPosition{0.0f,3.0f,3.0f};
+    ng::vec3 mCameraTarget{0.0f,0.0f,0.0f};
+
+    void HandleEvent(const ng::WindowEvent& we)
+    {
+
+    }
+
+    void UpdateCameraToWindow()
+    {
+        mMainCamera->Projection =
+            ng::perspective(
+                    70.0f,
+                    mWindow->GetAspect(),
+                    0.1f, 1000.0f);
+
+        mMainCamera->ViewportTopLeft = ng::ivec2(0,0);
+
+        mMainCamera->ViewportSize = ng::ivec2(
+                mWindow->GetWidth(), mWindow->GetHeight());
+    }
+
+    void UpdateCameraTransform(std::chrono::milliseconds dt)
+    {
+        mCameraPosition = ng::vec3(ng::rotate(3.14f * dt.count() / 1000,
+                                              0.0f, 1.0f, 0.0f)
+                                 * ng::vec4(mCameraPosition,1.0f));
+
+        mMainCamera->Transform = inverse(ng::lookat(mCameraPosition,
+                                                    mCameraTarget,
+                                                    ng::vec3(0.0f,1.0f,0.0f)));
+    }
+
+    void Update(std::chrono::milliseconds dt)
+    {
+        UpdateCameraToWindow();
+        UpdateCameraTransform(dt);
     }
 };
 
