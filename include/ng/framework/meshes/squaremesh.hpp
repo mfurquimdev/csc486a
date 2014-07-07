@@ -3,6 +3,8 @@
 
 #include "ng/engine/rendering/mesh.hpp"
 
+#include "ng/engine/math/linearalgebra.hpp"
+
 namespace ng
 {
 
@@ -11,6 +13,12 @@ class SquareMesh : public IMesh
     float mSideLength;
 
 public:
+    struct Vertex
+    {
+        vec2 Position;
+        vec3 Normal;
+    };
+
     SquareMesh(float sideLength);
 
     VertexFormat GetVertexFormat() const override;

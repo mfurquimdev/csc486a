@@ -57,7 +57,7 @@ void OpenGLES2CommandVisitor::CompileShader(GLuint handle, const char* src)
 }
 
 OpenGLES2CommandVisitor::ProgramPtr OpenGLES2CommandVisitor::CompileProgram(
-        const char *vsrc, const char *fsrc)
+        const char* vsrc, const char* fsrc)
 {
     ProgramPtr program;
 
@@ -191,7 +191,7 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
             "uniform lowp vec3 uTint;\n"
 
             "void main() {\n"
-            "    gl_FragColor = vec4(uTint,1.0);\n"
+             "    gl_FragColor = vec4(uTint,1.0);\n"
             "}\n";
 
     mDebugProgram = CompileProgram(debug_vsrc, debug_fsrc);
@@ -367,14 +367,17 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                             &modelView[0][0]);
             }
 
-            GLint tintLoc = glGetUniformLocation(program, "uTint");
-
-            if (tintLoc != -1)
+            if (mat.Type == MaterialType::Colored)
             {
-                glUniform3fv(
-                            tintLoc,
-                            1,
-                            &mat.Tint[0]);
+                GLint tintLoc = glGetUniformLocation(program, "uTint");
+
+                if (tintLoc != -1)
+                {
+                    glUniform3fv(
+                                tintLoc,
+                                1,
+                                &mat.Colored.Tint[0]);
+                }
             }
 
             if (fmt.Position.Enabled)
@@ -394,6 +397,26 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                                 posAttr.Normalized,
                                 posAttr.Stride,
                                 reinterpret_cast<const GLvoid*>(posAttr.Offset));
+                }
+            }
+
+            if (fmt.Normal.Enabled)
+            {
+                const VertexAttribute& nAttr = fmt.Normal;
+
+                GLint nLoc = glGetAttribLocation(program, "iNormal");
+
+                if (nLoc != -1)
+                {
+                    glEnableVertexAttribArray(nLoc);
+
+                    glVertexAttribPointer(
+                                nLoc,
+                                nAttr.Cardinality,
+                                ToGLArithmeticType(nAttr.Type),
+                                nAttr.Normalized,
+                                nAttr.Stride,
+                                reinterpret_cast<const GLvoid*>(nAttr.Offset));
                 }
             }
 

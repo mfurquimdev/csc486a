@@ -6,10 +6,34 @@
 namespace ng
 {
 
+enum class MaterialType
+{
+    Null,
+    Colored
+};
+
+struct NullMaterial
+{
+};
+
+struct ColoredMaterial
+{
+    vec3 Tint;
+};
+
 class Material
 {
 public:
-    vec3 Tint = vec3(1,1,1);
+    MaterialType Type = MaterialType::Null;
+
+    union {
+        NullMaterial Null;
+        ColoredMaterial Colored;
+    };
+
+    Material()
+        : Null()
+    { }
 };
 
 } // end namespace ng

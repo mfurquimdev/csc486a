@@ -3,6 +3,7 @@
 #include "ng/engine/math/linearalgebra.hpp"
 
 #include <cstring>
+#include <cstddef>
 
 namespace ng
 {
@@ -14,7 +15,21 @@ SquareMesh::SquareMesh(float sideLength)
 VertexFormat SquareMesh::GetVertexFormat() const
 {
     VertexFormat fmt;
-    fmt.Position = VertexAttribute(2, ArithmeticType::Float, false, 0, 0);
+
+    fmt.Position = VertexAttribute(
+                2,
+                ArithmeticType::Float,
+                false,
+                sizeof(SquareMesh::Vertex),
+                offsetof(SquareMesh::Vertex, Position));
+
+    fmt.Normal = VertexAttribute(
+                3,
+                ArithmeticType::Float,
+                false,
+                sizeof(SquareMesh::Vertex),
+                offsetof(SquareMesh::Vertex, Normal));
+
     return fmt;
 }
 
@@ -22,7 +37,7 @@ std::size_t SquareMesh::GetMaxVertexBufferSize() const
 {
     constexpr int VerticesPerTriangle = 3;
     constexpr int NumTriangles = 2;
-    constexpr std::size_t SizeOfVertex = sizeof(vec2);
+    constexpr std::size_t SizeOfVertex = sizeof(SquareMesh::Vertex);
     return VerticesPerTriangle * NumTriangles * SizeOfVertex;
 }
 
@@ -33,11 +48,6 @@ std::size_t SquareMesh::GetMaxElementBufferSize() const
 
 std::size_t SquareMesh::WriteVertices(void* buffer) const
 {
-    struct SquareVertex
-    {
-        vec2 Position;
-    };
-
     // a ---- d
     // | \    |
     // |  \   |
@@ -53,8 +63,11 @@ std::size_t SquareMesh::WriteVertices(void* buffer) const
     vec2 c = minExtent + vec2(mSideLength,0);
     vec2 d = maxExtent;
 
-    const SquareVertex vertexData[][3] = {
-        { a, b, c }, { c, d, a }
+    vec3 n = vec3(0,0,1);
+
+    const SquareMesh::Vertex vertexData[][3] = {
+        { { a, n }, { b, n }, { c, n } }, // bottom left
+        { { c, n }, { d, n }, { a, n } }  // top right
     };
 
     std::memcpy(buffer, vertexData, sizeof(vertexData));
