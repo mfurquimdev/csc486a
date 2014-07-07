@@ -196,7 +196,10 @@ bool operator!=(vec<T,N> lhs, vec<T,N> rhs)
 template<class T>
 struct genType_storage<T,1>
 {
-    T x;
+    union {
+        T x;
+        T r;
+    };
 
     constexpr genType_storage()
         : x(0)
@@ -220,7 +223,14 @@ struct genType_storage<T,1>
 template<class T>
 struct genType_storage<T,2>
 {
-    T x,y;
+    union {
+        struct {
+            T x,y;
+        };
+        struct {
+            T r,g;
+        };
+    };
 
     constexpr genType_storage()
         : x(0), y(0)
@@ -238,7 +248,14 @@ struct genType_storage<T,2>
 template<class T>
 struct genType_storage<T,3>
 {
-    T x,y,z;
+    union {
+        struct {
+            T x,y,z;
+        };
+        struct {
+            T r,g,b;
+        };
+    };
 
     constexpr genType_storage()
         : x(0), y(0), z(0)
@@ -264,7 +281,14 @@ struct genType_storage<T,3>
 template<class T>
 struct genType_storage<T,4>
 {
-    T x,y,z,w;
+    union {
+        struct {
+            T x,y,z,w;
+        };
+        struct {
+            T r,g,b,a;
+        };
+    };
 
     constexpr genType_storage()
         : x(0), y(0), z(0), w(1)

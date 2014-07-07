@@ -187,7 +187,7 @@ public:
         }
     }
 
-    void BeginFrame() override
+    void BeginFrame(vec3 clearColor) override
     {
         std::unique_lock<std::mutex> interfaceLock(
                     mInterfaceMutex,
@@ -212,7 +212,7 @@ public:
         }
 
         mRenderingThreadData.CommandQueue.push_back(
-                    ng::make_unique<BeginFrameCommand>());
+                    ng::make_unique<BeginFrameCommand>(clearColor));
     }
 
     void Render(const SceneGraph& scene) override

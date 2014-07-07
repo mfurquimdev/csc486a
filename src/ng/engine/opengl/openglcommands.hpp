@@ -21,6 +21,10 @@ public:
 class BeginFrameCommand : public IRendererCommand
 {
 public:
+    vec3 ClearColor;
+
+    BeginFrameCommand(vec3 clearColor);
+
     void Accept(IRendererCommandVisitor& visitor) override;
 };
 

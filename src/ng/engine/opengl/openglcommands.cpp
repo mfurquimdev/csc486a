@@ -3,6 +3,10 @@
 namespace ng
 {
 
+BeginFrameCommand::BeginFrameCommand(vec3 clearColor)
+    : ClearColor(clearColor)
+{ }
+
 void BeginFrameCommand::Accept(IRendererCommandVisitor& visitor)
 {
     visitor.Visit(*this);

@@ -4,6 +4,7 @@
 #include "ng/engine/window/glcontext.hpp"
 
 #include "ng/engine/rendering/mesh.hpp"
+#include "ng/engine/rendering/material.hpp"
 
 #include "ng/engine/opengl/openglenumconversion.hpp"
 
@@ -169,6 +170,7 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
     GetGLExtensionOrDie(context, glGetProgramInfoLog);
     GetGLExtensionOrDie(context, glGetAttribLocation);
     GetGLExtensionOrDie(context, glGetUniformLocation);
+    GetGLExtensionOrDie(context, glUniform3fv);
     GetGLExtensionOrDie(context, glUniformMatrix4fv);
 
     static const char* debug_vsrc =
@@ -178,21 +180,18 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
             "uniform highp mat4 uModelView;\n"
 
             "attribute highp vec4 iPosition;\n"
-             "varying highp vec4 fPosition;\n"
 
             "void main() {\n"
-            " gl_Position = uProjection * uModelView * iPosition;\n"
-             " fPosition = iPosition;\n"
+            "    gl_Position = uProjection * uModelView * iPosition;\n"
             "}\n";
 
     static const char* debug_fsrc =
             "#version 100\n"
 
-             "varying highp vec4 fPosition;\n"
+            "uniform lowp vec3 uTint;\n"
 
             "void main() {\n"
-             " gl_FragColor = vec4(fPosition.xyz,1.0);\n"
-//            "    gl_FragColor = vec4(1,0,0,1);"
+            "    gl_FragColor = vec4(uTint,1.0);\n"
             "}\n";
 
     mDebugProgram = CompileProgram(debug_vsrc, debug_fsrc);
@@ -200,8 +199,11 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
 
 #undef GetGLExtension
 
-void OpenGLES2CommandVisitor::Visit(BeginFrameCommand&)
+void OpenGLES2CommandVisitor::Visit(BeginFrameCommand& cmd)
 {
+    vec3 clear = cmd.ClearColor;
+    glClearColor(clear.r, clear.g, clear.b, 1.0f);
+
     glClear(GL_COLOR_BUFFER_BIT  |
             GL_DEPTH_BUFFER_BIT  |
             GL_STENCIL_BUFFER_BIT);
@@ -257,12 +259,13 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
 
         for (const RenderObject& obj : pass.RenderObjects)
         {
-            if (obj.Mesh == nullptr)
+            if (obj.Mesh == nullptr || obj.Material == nullptr)
             {
                 continue;
             }
 
             const IMesh& mesh = *obj.Mesh;
+            const Material& mat = *obj.Material;
 
             GLuint program = *mDebugProgram;
 
@@ -362,6 +365,16 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                             1,
                             GL_FALSE,
                             &modelView[0][0]);
+            }
+
+            GLint tintLoc = glGetUniformLocation(program, "uTint");
+
+            if (tintLoc != -1)
+            {
+                glUniform3fv(
+                            tintLoc,
+                            1,
+                            &mat.Tint[0]);
             }
 
             if (fmt.Position.Enabled)

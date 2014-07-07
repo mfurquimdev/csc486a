@@ -10,12 +10,14 @@ namespace ng
 {
 
 class IMesh;
+class Material;
 class SceneGraph;
 
 class RenderObject
 {
 public:
     std::shared_ptr<IMesh> Mesh;
+    std::shared_ptr<ng::Material> Material;
     mat4 WorldTransform;
 };
 

@@ -1,6 +1,8 @@
 #ifndef NG_RENDERER_HPP
 #define NG_RENDERER_HPP
 
+#include "ng/engine/math/linearalgebra.hpp"
+
 #include <memory>
 
 namespace ng
@@ -15,7 +17,7 @@ class IRenderer
 public:
     virtual ~IRenderer() = default;
 
-    virtual void BeginFrame() = 0;
+    virtual void BeginFrame(vec3 clearColor) = 0;
 
     // submit a list of objects to render
     virtual void Render(const SceneGraph& scene) = 0;

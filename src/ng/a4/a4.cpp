@@ -5,6 +5,7 @@
 #include "ng/engine/window/windowevent.hpp"
 #include "ng/engine/rendering/renderer.hpp"
 #include "ng/engine/rendering/scenegraph.hpp"
+#include "ng/engine/rendering/material.hpp"
 
 #include "ng/engine/util/memory.hpp"
 #include "ng/engine/util/scopeguard.hpp"
@@ -40,6 +41,11 @@ public:
         mWindow = mWindowManager->CreateWindow("a4", 640, 480, 0, 0, ng::VideoFlags());
         mRenderer = ng::CreateRenderer(mWindowManager, mWindow);
 
+        // setup materials
+        std::shared_ptr<ng::Material> redMaterial =
+                std::make_shared<ng::Material>();
+        redMaterial->Tint = ng::vec3(1,0,0);
+
         // setup scene
         std::shared_ptr<ng::SceneGraphNode> rootNode =
                 std::make_shared<ng::SceneGraphNode>();
@@ -49,6 +55,7 @@ public:
                 std::make_shared<ng::SceneGraphNode>();
 
         cubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
+        cubeNode->Material = redMaterial;
         rootNode->Children.push_back(cubeNode);
 
         mMainCamera = std::make_shared<ng::SceneGraphCameraNode>();
@@ -64,6 +71,7 @@ public:
                 std::make_shared<ng::SceneGraphNode>();
 
         squareNode->Mesh = std::make_shared<ng::SquareMesh>(100.0f);
+        squareNode->Material = redMaterial;
         squareNode->Transform = ng::translate(100.0f, 100.0f, 0.0f);
         overlayRootNode->Children.push_back(squareNode);
 
@@ -96,7 +104,12 @@ public:
         }
 
         {
-            mRenderer->BeginFrame();
+            const ng::vec3 cornflowerBlue(
+                        100.0f / 255.0f,
+                        149.0f / 255.0f,
+                        237.0f / 255.0f);
+
+            mRenderer->BeginFrame(cornflowerBlue);
             auto endFrameScope = ng::make_scope_guard([&]{
                 mRenderer->EndFrame();
             });

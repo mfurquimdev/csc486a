@@ -31,6 +31,7 @@ static void ConvertToRenderBatch(
         renderObjects.push_back(
                     RenderObject{
                         node->Mesh,
+                        node->Material,
                         mvstack.back()});
     }
 
