@@ -9,7 +9,8 @@ namespace ng
 enum class MaterialType
 {
     Null,
-    Colored
+    Colored,
+    NormalColored
 };
 
 struct NullMaterial
@@ -21,6 +22,10 @@ struct ColoredMaterial
     vec3 Tint;
 };
 
+struct NormalColoredMaterial
+{
+};
+
 class Material
 {
 public:
@@ -29,6 +34,7 @@ public:
     union {
         NullMaterial Null;
         ColoredMaterial Colored;
+        NormalColoredMaterial NormalColored;
     };
 
     Material()

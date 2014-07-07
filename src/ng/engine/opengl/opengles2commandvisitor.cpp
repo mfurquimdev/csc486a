@@ -171,9 +171,10 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
     GetGLExtensionOrDie(context, glGetAttribLocation);
     GetGLExtensionOrDie(context, glGetUniformLocation);
     GetGLExtensionOrDie(context, glUniform3fv);
+    GetGLExtensionOrDie(context, glUniformMatrix3fv);
     GetGLExtensionOrDie(context, glUniformMatrix4fv);
 
-    static const char* debug_vsrc =
+    static const char* coloredVSrc =
             "#version 100\n"
 
             "uniform highp mat4 uProjection;\n"
@@ -185,7 +186,7 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
             "    gl_Position = uProjection * uModelView * iPosition;\n"
             "}\n";
 
-    static const char* debug_fsrc =
+    static const char* coloredFSrc =
             "#version 100\n"
 
             "uniform lowp vec3 uTint;\n"
@@ -194,7 +195,38 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
              "    gl_FragColor = vec4(uTint,1.0);\n"
             "}\n";
 
-    mDebugProgram = CompileProgram(debug_vsrc, debug_fsrc);
+    mColoredProgram = CompileProgram(
+                coloredVSrc, coloredFSrc);
+
+
+    static const char* normalColoredVSrc =
+            "#version 100\n"
+
+            "uniform highp mat4 uProjection;\n"
+            "uniform highp mat4 uModelView;\n"
+            "uniform highp mat3 uModelWorldNormalMatrix;\n"
+
+            "attribute highp vec4 iPosition;\n"
+            "attribute highp vec3 iNormal;\n"
+
+            "varying lowp vec3 fViewNormal;\n"
+
+            "void main() {\n"
+            "    gl_Position = uProjection * uModelView * iPosition;\n"
+            "    fViewNormal = uModelWorldNormalMatrix * iNormal;\n"
+            "}\n";
+
+    static const char* normalColoredFSrc =
+            "#version 100\n"
+
+            "varying lowp vec3 fViewNormal;\n"
+
+            "void main() {\n"
+            "    gl_FragColor = vec4((fViewNormal + vec3(1)) / vec3(2), 1.0);\n"
+            "}\n";
+
+    mNormalColoredProgram = CompileProgram(
+                normalColoredVSrc, normalColoredFSrc);
 }
 
 #undef GetGLExtension
@@ -267,11 +299,22 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
             const IMesh& mesh = *obj.Mesh;
             const Material& mat = *obj.Material;
 
-            GLuint program = *mDebugProgram;
+            GLuint program = 0;
+            if (mat.Type == MaterialType::Colored)
+            {
+                program = *mColoredProgram;
+            }
+            else if (mat.Type == MaterialType::NormalColored)
+            {
+                program = *mNormalColoredProgram;
+            }
 
             glUseProgram(program);
 
             mat4 modelView = worldView * obj.WorldTransform;
+
+            mat3 modelWorldNormalMatrix = mat3(transpose(inverse(obj.WorldTransform)));
+            mat3 normalMatrix = mat3(transpose(inverse(modelView)));
 
             VertexFormat fmt = mesh.GetVertexFormat();
 
@@ -365,6 +408,28 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                             1,
                             GL_FALSE,
                             &modelView[0][0]);
+            }
+
+            GLint normalMatrixLoc = glGetUniformLocation(program, "uNormalMatrix");
+
+            if (normalMatrixLoc != -1)
+            {
+                glUniformMatrix3fv(
+                            normalMatrixLoc,
+                            1,
+                            GL_FALSE,
+                            &normalMatrix[0][0]);
+            }
+
+            GLint modelWorldNormalMatrixLoc = glGetUniformLocation(program, "uModelWorldNormalMatrix");
+
+            if (modelWorldNormalMatrixLoc != -1)
+            {
+                glUniformMatrix3fv(
+                            modelWorldNormalMatrixLoc,
+                            1,
+                            GL_FALSE,
+                            &modelWorldNormalMatrix[0][0]);
             }
 
             if (mat.Type == MaterialType::Colored)

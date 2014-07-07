@@ -44,8 +44,8 @@ public:
         // setup materials
         std::shared_ptr<ng::Material> redMaterial =
                 std::make_shared<ng::Material>();
-        redMaterial->Type = ng::MaterialType::Colored;
-        redMaterial->Colored.Tint = ng::vec3(0.8,0.3,0);
+        redMaterial->Type = ng::MaterialType::NormalColored;
+        // redMaterial->Colored.Tint = ng::vec3(0.8,0.3,0);
 
         // setup scene
         std::shared_ptr<ng::SceneGraphNode> rootNode =

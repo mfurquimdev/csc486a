@@ -52,6 +52,7 @@ class OpenGLES2CommandVisitor : public IRendererCommandVisitor
     PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation;
     PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
     PFNGLUNIFORM3FVPROC glUniform3fv;
+    PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix3fv;
     PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv;
 
     static void* LoadProcOrDie(IGLContext& context, const char* procName);
@@ -74,7 +75,8 @@ class OpenGLES2CommandVisitor : public IRendererCommandVisitor
 
     void RenderPass(const Pass& pass);
 
-    ProgramPtr mDebugProgram;
+    ProgramPtr mColoredProgram;
+    ProgramPtr mNormalColoredProgram;
 
 public:
     OpenGLES2CommandVisitor(
