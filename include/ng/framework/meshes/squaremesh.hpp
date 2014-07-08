@@ -13,8 +13,9 @@ class SquareMesh : public IMesh
     float mSideLength;
 
 public:
-    struct Vertex
+    class Vertex
     {
+    public:
         vec2 Position;
         vec3 Normal;
     };

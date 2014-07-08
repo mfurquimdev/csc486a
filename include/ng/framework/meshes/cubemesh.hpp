@@ -13,8 +13,9 @@ class CubeMesh : public IMesh
     float mSideLength;
 
 public:
-    struct Vertex
+    class Vertex
     {
+    public:
         vec3 Position;
         vec3 Normal;
     };

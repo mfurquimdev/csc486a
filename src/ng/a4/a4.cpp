@@ -12,6 +12,7 @@
 
 #include "ng/framework/meshes/cubemesh.hpp"
 #include "ng/framework/meshes/squaremesh.hpp"
+#include "ng/framework/meshes/implicitsurfacemesh.hpp"
 
 #include "ng/framework/util/fixedstepupdate.hpp"
 
@@ -42,9 +43,9 @@ public:
         mRenderer = ng::CreateRenderer(mWindowManager, mWindow);
 
         // setup materials
-        std::shared_ptr<ng::Material> redMaterial =
+        std::shared_ptr<ng::Material> normalColoredMaterial =
                 std::make_shared<ng::Material>();
-        redMaterial->Type = ng::MaterialType::NormalColored;
+        normalColoredMaterial->Type = ng::MaterialType::NormalColored;
         // redMaterial->Colored.Tint = ng::vec3(0.8,0.3,0);
 
         // setup scene
@@ -56,12 +57,29 @@ public:
                 std::make_shared<ng::SceneGraphNode>();
 
         cubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
-        cubeNode->Material = redMaterial;
+        cubeNode->Material = normalColoredMaterial;
         rootNode->Children.push_back(cubeNode);
 
         mMainCamera = std::make_shared<ng::SceneGraphCameraNode>();
         rootNode->Children.push_back(mMainCamera);
         mScene.ActiveCameras.push_back(mMainCamera);
+
+        std::shared_ptr<ng::SceneGraphNode> implicitNode =
+                std::make_shared<ng::SceneGraphNode>();
+
+        std::vector<ng::ImplicitSurfacePrimitive> implicitPrimitives;
+        implicitPrimitives.emplace_back(ng::Sphere<float>({0,0,0},0), ng::WyvillFilter(5.0f));
+        implicitPrimitives.emplace_back(ng::Sphere<float>({3,0,0},0), ng::WyvillFilter(3.0f));
+        implicitPrimitives.emplace_back(ng::Sphere<float>({0,3,0},0), ng::WyvillFilter(2.0f));
+
+        implicitNode->Mesh = std::make_shared<ng::ImplicitSurfaceMesh>(
+                    std::move(implicitPrimitives),
+                    0.3f,
+                    0.7f);
+
+        implicitNode->Material = normalColoredMaterial;
+
+        rootNode->Children.push_back(implicitNode);
 
         // setup overlay
         std::shared_ptr<ng::SceneGraphNode> overlayRootNode =
@@ -72,7 +90,7 @@ public:
                 std::make_shared<ng::SceneGraphNode>();
 
         squareNode->Mesh = std::make_shared<ng::SquareMesh>(100.0f);
-        squareNode->Material = redMaterial;
+        squareNode->Material = normalColoredMaterial;
         squareNode->Transform = ng::translate(100.0f, 100.0f, 0.0f);
         overlayRootNode->Children.push_back(squareNode);
 
@@ -122,7 +140,7 @@ public:
     }
 
 private:
-    ng::vec3 mCameraPosition{0.0f,3.0f,3.0f};
+    ng::vec3 mCameraPosition{0.0f,10.0f,10.0f};
     ng::vec3 mCameraTarget{0.0f,0.0f,0.0f};
 
     void HandleEvent(const ng::WindowEvent& we)
