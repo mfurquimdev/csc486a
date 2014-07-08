@@ -9,8 +9,9 @@ namespace ng
 {
 
 template<class T>
-struct Ray
+class Ray
 {
+public:
     // Ray equation: p = Origin + Direction * t
 
     vec<T,3> Origin;
@@ -24,8 +25,9 @@ struct Ray
 };
 
 template<class T>
-struct Plane
+class Plane
 {
+public:
     // Plane equation: Normal.x * x + Normal.y * y + Normal.z * z + d = 0
     vec<T,3> Normal;
     T D = 0;
@@ -44,8 +46,9 @@ struct Plane
 };
 
 template<class T>
-struct AxisAlignedBoundingBox
+class AxisAlignedBoundingBox
 {
+public:
     vec<T,3> Minimum;
     vec<T,3> Maximum;
 
@@ -78,8 +81,9 @@ struct AxisAlignedBoundingBox
 };
 
 template<class T>
-struct Sphere
+class Sphere
 {
+public:
     vec<T,3> Center;
     T Radius = 0;
 
@@ -88,6 +92,19 @@ struct Sphere
     Sphere(vec<T,3> center, T radius)
         : Center(center)
         , Radius(radius)
+    { }
+};
+
+template<class T>
+class Point
+{
+public:
+    vec<T,3> Position;
+
+    Point() = default;
+
+    explicit Point(vec<T,3> position)
+        : Position(position)
     { }
 };
 

@@ -7,6 +7,8 @@
 #include "ng/engine/rendering/scenegraph.hpp"
 #include "ng/engine/rendering/material.hpp"
 
+#include "ng/engine/math/constants.hpp"
+
 #include "ng/engine/util/memory.hpp"
 #include "ng/engine/util/scopeguard.hpp"
 
@@ -34,6 +36,8 @@ class A4 : public ng::IApp
     std::shared_ptr<ng::SceneGraphCameraNode> mOverlayCamera;
 
     ng::FixedStepUpdate mFixedStepUpdate{std::chrono::milliseconds(1000/60)};
+
+    std::shared_ptr<ng::SceneGraphNode> mImplicitNode;
 
 public:
     void Init() override
@@ -64,22 +68,9 @@ public:
         rootNode->Children.push_back(mMainCamera);
         mScene.ActiveCameras.push_back(mMainCamera);
 
-        std::shared_ptr<ng::SceneGraphNode> implicitNode =
-                std::make_shared<ng::SceneGraphNode>();
-
-        std::vector<ng::ImplicitSurfacePrimitive> implicitPrimitives;
-        implicitPrimitives.emplace_back(ng::Sphere<float>({0,0,0},0), ng::WyvillFilter(5.0f));
-        implicitPrimitives.emplace_back(ng::Sphere<float>({3,0,0},0), ng::WyvillFilter(3.0f));
-        implicitPrimitives.emplace_back(ng::Sphere<float>({0,3,0},0), ng::WyvillFilter(2.0f));
-
-        implicitNode->Mesh = std::make_shared<ng::ImplicitSurfaceMesh>(
-                    std::move(implicitPrimitives),
-                    0.3f,
-                    0.7f);
-
-        implicitNode->Material = normalColoredMaterial;
-
-        rootNode->Children.push_back(implicitNode);
+        mImplicitNode = std::make_shared<ng::SceneGraphNode>();
+        mImplicitNode->Material = normalColoredMaterial;
+        rootNode->Children.push_back(mImplicitNode);
 
         // setup overlay
         std::shared_ptr<ng::SceneGraphNode> overlayRootNode =
@@ -143,7 +134,7 @@ private:
     ng::vec3 mCameraPosition{0.0f,10.0f,10.0f};
     ng::vec3 mCameraTarget{0.0f,0.0f,0.0f};
 
-    void HandleEvent(const ng::WindowEvent& we)
+    void HandleEvent(const ng::WindowEvent&)
     {
 
     }
@@ -171,6 +162,8 @@ private:
 
     void UpdateCameraTransform(std::chrono::milliseconds dt)
     {
+        dt = std::chrono::milliseconds(0);
+
         mCameraPosition = ng::vec3(ng::rotate(3.14f * dt.count() / 1000,
                                               0.0f, 1.0f, 0.0f)
                                  * ng::vec4(mCameraPosition,1.0f));
@@ -180,10 +173,39 @@ private:
                                                     ng::vec3(0.0f,1.0f,0.0f)));
     }
 
+    ng::vec3 mBallPos;
+    std::chrono::milliseconds mTotalTime{0};
+
     void Update(std::chrono::milliseconds dt)
     {
         UpdateCameraToWindow();
         UpdateCameraTransform(dt);
+
+        mTotalTime += dt;
+
+        float fTime = static_cast<float>(mTotalTime.count())/1000.0f;
+        float xHz = 1.0f, yHz = 1.0f, zHz = 1.0f;
+
+        mBallPos = ng::vec3(
+                    5 * std::sin(fTime * 2 * ng::pi<float>::value * xHz),
+                    4 * std::sin(fTime) * std::cos(fTime * 2 * ng::pi<float>::value * yHz),
+                    3 * std::cos(fTime * 2 * ng::pi<float>::value * yHz));
+
+        std::vector<ng::ImplicitSurfacePrimitive> implicitPrimitives;
+
+        implicitPrimitives.emplace_back(
+                    ng::Point<float>({0,0,0}), ng::WyvillFilter(5.0f));
+
+        implicitPrimitives.emplace_back(
+                    ng::Point<float>({0,5*std::sin(0.5*fTime * 2 * ng::pi<float>::value),0}), ng::WyvillFilter(2.0f));
+
+        implicitPrimitives.emplace_back(
+                    ng::Point<float>(mBallPos), ng::WyvillFilter(3.0f));
+
+        mImplicitNode->Mesh = std::make_shared<ng::ImplicitSurfaceMesh>(
+                    std::move(implicitPrimitives),
+                    0.3f,
+                    0.3f);
     }
 };
 

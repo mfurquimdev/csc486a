@@ -156,16 +156,16 @@ public:
 };
 
 template<class T>
-float DistanceSquaredToSkeleton(const Sphere<T>& sph, vec3 position)
+float DistanceSquaredToSkeleton(const Point<T>& pt, vec3 position)
 {
-    vec3 diff = position - sph.Center;
+    vec3 diff = position - pt.Position;
     return dot(diff,diff);
 }
 
 template<class T>
-vec3 PointOnSkeleton(const Sphere<T>& sph)
+vec3 PointOnSkeleton(const Point<T>& pt)
 {
-    return sph.Center;
+    return pt.Position;
 }
 
 class ImplicitSurfaceMesh : public IMesh
