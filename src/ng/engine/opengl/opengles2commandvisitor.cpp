@@ -321,7 +321,7 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
             std::size_t maxVBOSize = mesh.GetMaxVertexBufferSize();
             std::size_t numVertices = 0;
 
-            std::size_t maxEBOSize = mesh.GetMaxElementBufferSize();
+            std::size_t maxEBOSize = mesh.GetMaxIndexBufferSize();
             std::size_t numElements = 0;
 
             if (maxVBOSize > 0)

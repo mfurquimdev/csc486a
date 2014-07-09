@@ -41,7 +41,7 @@ std::size_t SquareMesh::GetMaxVertexBufferSize() const
     return VerticesPerTriangle * NumTriangles * SizeOfVertex;
 }
 
-std::size_t SquareMesh::GetMaxElementBufferSize() const
+std::size_t SquareMesh::GetMaxIndexBufferSize() const
 {
     return 0;
 }

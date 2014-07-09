@@ -42,7 +42,7 @@ std::size_t CubeMesh::GetMaxVertexBufferSize() const
     return NumFaces * TrianglesPerFace * VerticesPerTriangle * SizeOfVertex;
 }
 
-std::size_t CubeMesh::GetMaxElementBufferSize() const
+std::size_t CubeMesh::GetMaxIndexBufferSize() const
 {
     return 0;
 }

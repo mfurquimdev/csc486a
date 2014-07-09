@@ -18,7 +18,7 @@ public:
 
     // upper bounds used to reserve memory.
     virtual std::size_t GetMaxVertexBufferSize() const = 0;
-    virtual std::size_t GetMaxElementBufferSize() const = 0;
+    virtual std::size_t GetMaxIndexBufferSize() const = 0;
 
     // return the number of vertices/indices actually written.
     virtual std::size_t WriteVertices(void* buffer) const = 0;

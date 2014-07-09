@@ -43,7 +43,7 @@ std::size_t ImplicitSurfaceMesh::GetMaxVertexBufferSize() const
     return numVertices * sizeof(ImplicitSurfaceMesh::Vertex);
 }
 
-std::size_t ImplicitSurfaceMesh::GetMaxElementBufferSize() const
+std::size_t ImplicitSurfaceMesh::GetMaxIndexBufferSize() const
 {
     return 0;
 }
