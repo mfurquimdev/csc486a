@@ -16,7 +16,8 @@ void Profiler::Start()
 
 void Profiler::Stop()
 {
-    mTimeSpent += std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - mLastStart);
+    mTimeSpent += std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::high_resolution_clock::now() - mLastStart);
     mNumSamples++;
 }
 

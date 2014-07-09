@@ -21,10 +21,7 @@
 #include <vector>
 #include <chrono>
 
-namespace a4
-{
-
-class A4 : public ng::IApp
+class A2 : public ng::IApp
 {
     std::shared_ptr<ng::IWindowManager> mWindowManager;
     std::shared_ptr<ng::IWindow> mWindow;
@@ -32,8 +29,6 @@ class A4 : public ng::IApp
 
     ng::SceneGraph mScene;
     std::shared_ptr<ng::SceneGraphCameraNode> mMainCamera;
-
-    std::shared_ptr<ng::SceneGraphCameraNode> mOverlayCamera;
 
     ng::FixedStepUpdate mFixedStepUpdate{std::chrono::milliseconds(1000/60)};
 
@@ -50,7 +45,6 @@ public:
         std::shared_ptr<ng::Material> normalColoredMaterial =
                 std::make_shared<ng::Material>();
         normalColoredMaterial->Type = ng::MaterialType::NormalColored;
-        // redMaterial->Colored.Tint = ng::vec3(0.8,0.3,0);
 
         // setup scene
         std::shared_ptr<ng::SceneGraphNode> rootNode =
@@ -71,23 +65,6 @@ public:
         mImplicitNode = std::make_shared<ng::SceneGraphNode>();
         mImplicitNode->Material = normalColoredMaterial;
         rootNode->Children.push_back(mImplicitNode);
-
-        // setup overlay
-        std::shared_ptr<ng::SceneGraphNode> overlayRootNode =
-                std::make_shared<ng::SceneGraphNode>();
-        mScene.OverlayRoot = overlayRootNode;
-
-        std::shared_ptr<ng::SceneGraphNode> squareNode =
-                std::make_shared<ng::SceneGraphNode>();
-
-        squareNode->Mesh = std::make_shared<ng::SquareMesh>(100.0f);
-        squareNode->Material = normalColoredMaterial;
-        squareNode->Transform = ng::translate(100.0f, 100.0f, 0.0f);
-        overlayRootNode->Children.push_back(squareNode);
-
-        mOverlayCamera = std::make_shared<ng::SceneGraphCameraNode>();
-        overlayRootNode->Children.push_back(mOverlayCamera);
-        mScene.OverlayActiveCameras.push_back(mOverlayCamera);
     }
 
     ng::AppStepAction Step() override
@@ -151,13 +128,6 @@ private:
 
         mMainCamera->ViewportSize = ng::ivec2(
                     mWindow->GetWidth(), mWindow->GetHeight());
-
-        mOverlayCamera->Projection =
-                ng::ortho2D(0.0f, (float) mWindow->GetWidth(),
-                            (float) mWindow->GetHeight(), 0.0f);
-        mOverlayCamera->ViewportTopLeft - ng::ivec2(0,0);
-        mOverlayCamera->ViewportSize = ng::ivec2(
-                    mWindow->GetWidth(), mWindow->GetHeight());
     }
 
     void UpdateCameraTransform(std::chrono::milliseconds dt)
@@ -209,14 +179,12 @@ private:
     }
 };
 
-} // end namespace a4
-
 namespace ng
 {
 
 std::shared_ptr<IApp> CreateApp()
 {
-    return std::shared_ptr<IApp>(new a4::A4());
+    return std::shared_ptr<IApp>(new A2());
 }
 
 } // end namespace ng

@@ -264,6 +264,10 @@ public:
         }
         else
         {
+            auto clearCommandScope = make_scope_guard([&]{
+                mRenderingThreadData.CommandQueue.clear();
+            });
+
             if (mRenderingThreadData.Visitor != nullptr)
             {
                 IRendererCommandVisitor& visitor =
