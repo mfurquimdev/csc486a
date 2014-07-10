@@ -10,7 +10,7 @@ namespace ng
 static void ConvertToRenderBatch(
         const std::shared_ptr<const SceneGraphNode>& node,
         const std::vector<std::shared_ptr<SceneGraphCameraNode>>& cameras,
-        std::vector<mat4>& mvstack,
+        mat4 modelView,
         std::vector<RenderObject>& renderObjects,
         std::vector<RenderCamera>& renderCameras)
 {
@@ -21,10 +21,7 @@ static void ConvertToRenderBatch(
         return;
     }
 
-    mvstack.push_back(mvstack.back() * node->Transform);
-    auto mvstackScope = make_scope_guard([&]{
-        mvstack.pop_back();
-    });
+    modelView = modelView * node->Transform;
 
     if (node->Mesh != nullptr)
     {
@@ -32,7 +29,7 @@ static void ConvertToRenderBatch(
                     RenderObject{
                         node->Mesh,
                         node->Material,
-                        mvstack.back()});
+                        modelView});
     }
 
     // check if we're visiting a camera
@@ -64,7 +61,7 @@ static void ConvertToRenderBatch(
         ConvertToRenderBatch(
                     child,
                     cameras,
-                    mvstack,
+                    modelView,
                     renderObjects,
                     renderCameras);
     }
@@ -72,16 +69,13 @@ static void ConvertToRenderBatch(
 
 RenderBatch RenderBatch::FromScene(const SceneGraph& scene)
 {
-    // start with identity
-    std::vector<mat4> mvstack{mat4()};
-
     RenderBatch batch;
 
     // get the 3D scene
     ConvertToRenderBatch(
                 scene.Root,
                 scene.ActiveCameras,
-                mvstack,
+                mat4(),
                 batch.RenderObjects,
                 batch.RenderCameras);
 
@@ -89,7 +83,7 @@ RenderBatch RenderBatch::FromScene(const SceneGraph& scene)
     ConvertToRenderBatch(
                 scene.OverlayRoot,
                 scene.OverlayActiveCameras,
-                mvstack,
+                mat4(),
                 batch.OverlayRenderObjects,
                 batch.OverlayRenderCameras);
 

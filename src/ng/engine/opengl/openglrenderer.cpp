@@ -29,18 +29,26 @@ public:
     const std::shared_ptr<IWindowManager> WindowManager;
     const std::shared_ptr<IWindow> Window;
 
-    using CommandVisitorFactory =
+    using CommandVisitorFactoryType =
         std::function<
             std::shared_ptr<IRendererCommandVisitor>(
                 IGLContext& context, IWindow& window)>;
 
-    CommandVisitorFactory VisitorFactory;
+    using CommandQueueType =
+        std::vector<
+            std::unique_ptr<IRendererCommand>>;
+
+    CommandVisitorFactoryType VisitorFactory;
     std::shared_ptr<IRendererCommandVisitor> Visitor;
 
     std::mutex BatchConsumerLock;
     std::mutex BatchProducerLock;
 
-    std::vector<std::unique_ptr<IRendererCommand>> CommandQueue;
+    std::mutex RendererReady;
+
+    std::atomic<bool> RendererDied{false};
+
+    CommandQueueType CommandQueue;
 
     RenderingThreadData(std::shared_ptr<IWindowManager> windowManager,
                         std::shared_ptr<IWindow> window)
@@ -49,6 +57,9 @@ public:
     {
         // make data initially unavailable to the consumer
         BatchConsumerLock.lock();
+
+        // renderer is initially not ready
+        RendererReady.lock();
     }
 };
 
@@ -82,11 +93,23 @@ class OpenGLRenderer : public IRenderer, public std::enable_shared_from_this<Ope
                     *threadData.Window);
     }
 
-    static void RenderingThread(RenderingThreadData& threadData)
+    static void RenderingThread(RenderingThreadData& threadData) try
     {
-        SetupGLContextAndVisitor(threadData);
+        auto setFlagOnDeath = make_scope_guard([&]{
+            threadData.RendererDied = true;
+        });
 
-        std::vector<std::unique_ptr<IRendererCommand>> commands;
+        std::unique_ptr<RenderingThreadData::CommandQueueType> commandQueue;
+
+        {
+            auto readyScope = make_scope_guard([&]{
+               threadData.RendererReady.unlock();
+            });
+
+            SetupGLContextAndVisitor(threadData);
+
+            commandQueue.reset(new RenderingThreadData::CommandQueueType);
+        }
 
         bool shouldQuit = false;
 
@@ -103,11 +126,11 @@ class OpenGLRenderer : public IRenderer, public std::enable_shared_from_this<Ope
                 });
 
                 // grab the data
-                commands.swap(threadData.CommandQueue);
+                commandQueue->swap(threadData.CommandQueue);
             }
 
             auto commandClearScope = make_scope_guard([&]{
-                commands.clear();
+                commandQueue->clear();
             });
 
             if (threadData.Visitor == nullptr)
@@ -121,7 +144,7 @@ class OpenGLRenderer : public IRenderer, public std::enable_shared_from_this<Ope
                 shouldQuit = commandVisitor.ShouldQuit();
             });
 
-            for (std::unique_ptr<IRendererCommand>& cmd : commands)
+            for (std::unique_ptr<IRendererCommand>& cmd : *commandQueue)
             {
                 if (cmd != nullptr)
                 {
@@ -131,12 +154,20 @@ class OpenGLRenderer : public IRenderer, public std::enable_shared_from_this<Ope
         }
         catch (const std::exception& e)
         {
-            ng::DebugPrintf("RenderingThread error: %s\n", e.what());
+            ng::DebugPrintf("RenderingThread loop error: %s\n", e.what());
         }
         catch (...)
         {
-            ng::DebugPrintf("RenderingThread error: (unknown)\n");
+            ng::DebugPrintf("RenderingThread loop error: (unknown)\n");
         }
+    }
+    catch (const std::exception& e)
+    {
+        ng::DebugPrintf("RenderingThread error: %s\n", e.what());
+    }
+    catch (...)
+    {
+        ng::DebugPrintf("RenderingThread error: (unknown)\n");
     }
 
 public:
@@ -161,6 +192,15 @@ public:
                     std::thread(
                         RenderingThread,
                         std::ref(mRenderingThreadData));
+
+            // wait until the renderer is ready
+            mRenderingThreadData.RendererReady.lock();
+
+            if (mRenderingThreadData.RendererDied)
+            {
+                mRenderingThread.join();
+                throw std::runtime_error("Failed to initialize rendering thread.");
+            }
         }
         else
         {
