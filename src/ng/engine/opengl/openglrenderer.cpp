@@ -99,7 +99,7 @@ class OpenGLRenderer : public IRenderer, public std::enable_shared_from_this<Ope
             threadData.RendererDied = true;
         });
 
-        std::unique_ptr<RenderingThreadData::CommandQueueType> commandQueue;
+        RenderingThreadData::CommandQueueType commandQueue;
 
         {
             auto readyScope = make_scope_guard([&]{
@@ -107,8 +107,6 @@ class OpenGLRenderer : public IRenderer, public std::enable_shared_from_this<Ope
             });
 
             SetupGLContextAndVisitor(threadData);
-
-            commandQueue.reset(new RenderingThreadData::CommandQueueType);
         }
 
         bool shouldQuit = false;
@@ -126,11 +124,11 @@ class OpenGLRenderer : public IRenderer, public std::enable_shared_from_this<Ope
                 });
 
                 // grab the data
-                commandQueue->swap(threadData.CommandQueue);
+                commandQueue.swap(threadData.CommandQueue);
             }
 
             auto commandClearScope = make_scope_guard([&]{
-                commandQueue->clear();
+                commandQueue.clear();
             });
 
             if (threadData.Visitor == nullptr)
@@ -144,7 +142,7 @@ class OpenGLRenderer : public IRenderer, public std::enable_shared_from_this<Ope
                 shouldQuit = commandVisitor.ShouldQuit();
             });
 
-            for (std::unique_ptr<IRendererCommand>& cmd : *commandQueue)
+            for (std::unique_ptr<IRendererCommand>& cmd : commandQueue)
             {
                 if (cmd != nullptr)
                 {
