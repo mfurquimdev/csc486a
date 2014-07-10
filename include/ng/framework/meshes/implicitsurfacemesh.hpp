@@ -170,9 +170,9 @@ vec3 PointOnSkeleton(const Point<T>& pt)
 
 class ImplicitSurfaceMesh : public IMesh
 {
-    std::vector<ImplicitSurfacePrimitive> mPrimitives;
-    float mIsoValue;
-    float mVoxelSize;
+    const std::vector<ImplicitSurfacePrimitive> mPrimitives;
+    const float mIsoValue;
+    const float mVoxelSize;
 
 public:
     class Vertex
