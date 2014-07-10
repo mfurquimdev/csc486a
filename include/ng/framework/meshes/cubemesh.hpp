@@ -10,7 +10,7 @@ namespace ng
 
 class CubeMesh : public IMesh
 {
-    float mSideLength;
+    const float mSideLength;
 
 public:
     class Vertex
