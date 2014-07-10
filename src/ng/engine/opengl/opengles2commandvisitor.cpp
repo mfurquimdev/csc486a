@@ -71,7 +71,7 @@ OpenGLES2CommandVisitor::ProgramPtr OpenGLES2CommandVisitor::CompileProgram(
        glDeleteShader(fshader);
     });
 
-    program.get_deleter() = [&](GLuint* prog){
+    program.get_deleter() = [vshader, fshader, this](GLuint* prog){
         if (prog && *prog)
         {
             glDetachShader(*prog, vshader);
