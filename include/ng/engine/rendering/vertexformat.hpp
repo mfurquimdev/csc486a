@@ -40,7 +40,7 @@ class VertexFormat
 public:
     VertexAttribute Position;
     VertexAttribute Normal;
-    std::array<VertexAttribute,8> TexCoords;
+    VertexAttribute TexCoord0;
 
     bool IsIndexed = false;
     ArithmeticType IndexType;
