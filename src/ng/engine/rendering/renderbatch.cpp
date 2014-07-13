@@ -29,8 +29,7 @@ static void ConvertToRenderBatch(
     {
         renderObjects.push_back(
                     RenderObject{
-                        std::make_shared<LoopSubdivisionMesh>(
-                            node->Mesh, 0),
+                        std::make_shared<LoopSubdivisionMesh>(node->Mesh),
                         node->Material,
                         modelView});
     }

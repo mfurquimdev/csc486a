@@ -9,11 +9,9 @@ namespace ng
 {
 
 LoopSubdivisionMesh::LoopSubdivisionMesh(
-        std::shared_ptr<IMesh> meshToSubdivide,
-        int numSubdivisions)
+        std::shared_ptr<IMesh> meshToSubdivide)
     :
-      mMeshToSubdivide(std::move(meshToSubdivide)),
-      mNumSubdivisions(numSubdivisions)
+      mMeshToSubdivide(std::move(meshToSubdivide))
 {
     if (mMeshToSubdivide == nullptr)
     {
@@ -79,7 +77,7 @@ std::size_t LoopSubdivisionMesh::GetMaxVertexBufferSize() const
         baseNumVertices = mMeshToSubdivide->WriteVertices(nullptr);
     }
 
-    baseNumVertices *= std::pow(4, mNumSubdivisions);
+    baseNumVertices *= 4;
 
     VertexFormat fmt = GetVertexFormat();
 
@@ -180,7 +178,7 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
     }
 
     return (numBaseIndices > 0 ?
-            numBaseIndices : numBaseVertices) * std::pow(4, mNumSubdivisions);
+            numBaseIndices : numBaseVertices) * 4;
 }
 
 std::size_t LoopSubdivisionMesh::WriteIndices(void*) const
