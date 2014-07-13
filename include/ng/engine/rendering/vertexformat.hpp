@@ -3,8 +3,6 @@
 
 #include "ng/engine/util/arithmetictype.hpp"
 
-#include <array>
-
 namespace ng
 {
 
@@ -40,7 +38,7 @@ class VertexFormat
 public:
     VertexAttribute Position;
     VertexAttribute Normal;
-    VertexAttribute TexCoord0;
+    VertexAttribute TexCoord;
 
     bool IsIndexed = false;
     ArithmeticType IndexType;
