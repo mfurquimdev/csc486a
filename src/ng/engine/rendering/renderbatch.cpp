@@ -2,6 +2,8 @@
 
 #include "ng/engine/rendering/scenegraph.hpp"
 
+#include "ng/engine/rendering/loopsubdivisionmesh.hpp"
+
 #include "ng/engine/util/scopeguard.hpp"
 
 namespace ng
@@ -27,7 +29,8 @@ static void ConvertToRenderBatch(
     {
         renderObjects.push_back(
                     RenderObject{
-                        node->Mesh,
+                        std::make_shared<LoopSubdivisionMesh>(
+                            node->Mesh, 0),
                         node->Material,
                         modelView});
     }
