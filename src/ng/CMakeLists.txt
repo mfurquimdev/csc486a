@@ -16,5 +16,7 @@ endif()
 
 add_subdirectory(engine)
 add_subdirectory(framework)
+
 add_subdirectory(a2)
+add_subdirectory(a3)
 add_subdirectory(a4)

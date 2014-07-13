@@ -48,29 +48,32 @@ std::size_t SquareMesh::GetMaxIndexBufferSize() const
 
 std::size_t SquareMesh::WriteVertices(void* buffer) const
 {
-    // a ---- d
-    // | \    |
-    // |  \   |
-    // |   \  |
-    // |    \ |
-    // b ---- c
+    if (buffer)
+    {
+        // a ---- d
+        // | \    |
+        // |  \   |
+        // |   \  |
+        // |    \ |
+        // b ---- c
 
-    vec2 minExtent(-mSideLength/2);
-    vec2 maxExtent(mSideLength/2);
+        vec2 minExtent(-mSideLength/2);
+        vec2 maxExtent(mSideLength/2);
 
-    vec2 a = minExtent + vec2(0,mSideLength);
-    vec2 b = minExtent;
-    vec2 c = minExtent + vec2(mSideLength,0);
-    vec2 d = maxExtent;
+        vec2 a = minExtent + vec2(0,mSideLength);
+        vec2 b = minExtent;
+        vec2 c = minExtent + vec2(mSideLength,0);
+        vec2 d = maxExtent;
 
-    vec3 n = vec3(0,0,1);
+        vec3 n = vec3(0,0,1);
 
-    const SquareMesh::Vertex vertexData[][3] = {
-        { { a, n }, { b, n }, { c, n } }, // bottom left
-        { { c, n }, { d, n }, { a, n } }  // top right
-    };
+        const SquareMesh::Vertex vertexData[][3] = {
+            { { a, n }, { b, n }, { c, n } }, // bottom left
+            { { c, n }, { d, n }, { a, n } }  // top right
+        };
 
-    std::memcpy(buffer, vertexData, sizeof(vertexData));
+        std::memcpy(buffer, vertexData, sizeof(vertexData));
+    }
 
     return 6;
 }
