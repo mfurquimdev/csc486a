@@ -14,6 +14,7 @@
 
 #include "ng/framework/meshes/cubemesh.hpp"
 #include "ng/framework/meshes/loopsubdivisionmesh.hpp"
+#include "ng/framework/meshes/implicitsurfacemesh.hpp"
 
 #include "ng/framework/util/fixedstepupdate.hpp"
 
@@ -30,17 +31,21 @@ class A3 : public ng::IApp
 
     ng::FixedStepUpdate mFixedStepUpdate{std::chrono::milliseconds(1000/60)};
 
+    std::shared_ptr<ng::SceneGraphNode> mCubeNode;
+    std::vector<std::shared_ptr<ng::IMesh>> mCubeSubdivisionStack;
+
 public:
     void Init() override
     {
         mWindowManager = ng::CreateWindowManager();
-        mWindow = mWindowManager->CreateWindow("a4", 640, 480, 0, 0, ng::VideoFlags());
+        mWindow = mWindowManager->CreateWindow("a3", 640, 480, 0, 0, ng::VideoFlags());
         mRenderer = ng::CreateRenderer(mWindowManager, mWindow);
 
         // setup materials
-//        std::shared_ptr<ng::Material> normalColoredMaterial =
-//                std::make_shared<ng::Material>();
-//        normalColoredMaterial->Type = ng::MaterialType::NormalColored;
+        std::shared_ptr<ng::Material> normalColoredMaterial =
+                std::make_shared<ng::Material>();
+        normalColoredMaterial->Type = ng::MaterialType::NormalColored;
+
         std::shared_ptr<ng::Material> wireframeMaterial =
                 std::make_shared<ng::Material>();
         wireframeMaterial->Type = ng::MaterialType::Wireframe;
@@ -50,15 +55,23 @@ public:
                 std::make_shared<ng::SceneGraphNode>();
         mScene.Root = rootNode;
 
-        std::shared_ptr<ng::SceneGraphNode> cubeNode =
-                std::make_shared<ng::SceneGraphNode>();
+        mCubeNode = std::make_shared<ng::SceneGraphNode>();
 
-        cubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
-        cubeNode->Mesh =
-                std::make_shared<ng::LoopSubdivisionMesh>(cubeNode->Mesh, 1);
-        cubeNode->Material = wireframeMaterial;
-        // cubeNode->Material = normalColoredMaterial;
-        rootNode->Children.push_back(cubeNode);
+//        std::vector<ng::ImplicitSurfacePrimitive> implicitPrimitives;
+
+//        implicitPrimitives.emplace_back(
+//                    ng::Point<float>({0,0,0}), ng::WyvillFilter(5.0f));
+
+//        mCubeNode->Mesh = std::make_shared<ng::ImplicitSurfaceMesh>(
+//                    std::move(implicitPrimitives),
+//                    0.3f,
+//                    2.0f);
+
+         mCubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
+        mCubeNode->Material = wireframeMaterial;
+        rootNode->Children.push_back(mCubeNode);
+
+        mCubeSubdivisionStack.push_back(mCubeNode->Mesh);
 
         mMainCamera = std::make_shared<ng::SceneGraphCameraNode>();
         rootNode->Children.push_back(mMainCamera);
@@ -109,9 +122,26 @@ private:
     ng::vec3 mCameraPosition{3.0f,3.0f,3.0f};
     ng::vec3 mCameraTarget{0.0f,0.0f,0.0f};
 
-    void HandleEvent(const ng::WindowEvent&)
+    void HandleEvent(const ng::WindowEvent& we)
     {
-
+        if (we.Type == ng::WindowEventType::KeyPress)
+        {
+            if (we.KeyPress.Scancode == ng::Scancode::UpArrow)
+            {
+                std::shared_ptr<ng::IMesh> curr = mCubeSubdivisionStack.back();
+                mCubeSubdivisionStack.push_back(
+                    std::make_shared<ng::LoopSubdivisionMesh>(curr));
+                mCubeNode->Mesh = mCubeSubdivisionStack.back();
+            }
+            else if (we.KeyPress.Scancode == ng::Scancode::DownArrow)
+            {
+                if (mCubeSubdivisionStack.size() > 1)
+                {
+                    mCubeSubdivisionStack.pop_back();
+                    mCubeNode->Mesh = mCubeSubdivisionStack.back();
+                }
+            }
+        }
     }
 
     void UpdateCameraToWindow()
@@ -130,6 +160,8 @@ private:
 
     void UpdateCameraTransform(std::chrono::milliseconds dt)
     {
+        // dt = std::chrono::milliseconds(0);
+
         mCameraPosition = ng::vec3(ng::rotate(3.14f * dt.count() / 1000,
                                               0.0f, 1.0f, 0.0f)
                                  * ng::vec4(mCameraPosition,1.0f));

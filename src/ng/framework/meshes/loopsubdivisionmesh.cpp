@@ -6,25 +6,20 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <map>
+#include <set>
 
 namespace ng
 {
 
 LoopSubdivisionMesh::LoopSubdivisionMesh(
-        std::shared_ptr<IMesh> meshToSubdivide,
-        int numSubdivisions)
+        std::shared_ptr<IMesh> meshToSubdivide)
     :
-      mMeshToSubdivide(std::move(meshToSubdivide)),
-      mNumSubdivisons(numSubdivisions)
+      mMeshToSubdivide(std::move(meshToSubdivide))
 {
     if (mMeshToSubdivide == nullptr)
     {
         throw std::logic_error("Cannot subdivide null mesh");
-    }
-
-    if (mNumSubdivisons < 0)
-    {
-        throw std::logic_error("number of subdivisions must be >= 0");
     }
 }
 
@@ -86,7 +81,7 @@ std::size_t LoopSubdivisionMesh::GetMaxVertexBufferSize() const
         baseNumVertices = mMeshToSubdivide->WriteVertices(nullptr);
     }
 
-    baseNumVertices *= std::pow(4, mNumSubdivisons);
+    baseNumVertices *= 4;
 
     VertexFormat fmt = GetVertexFormat();
 
@@ -108,6 +103,17 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
 {
     VertexFormat fmt = GetVertexFormat();
     VertexFormat baseFmt = mMeshToSubdivide->GetVertexFormat();
+
+    if (baseFmt.Position.Enabled == false)
+    {
+        throw std::logic_error("Cannot subdivide mesh without position");
+    }
+
+    if (baseFmt.Position.Cardinality > 3)
+    {
+        throw std::logic_error(
+            "Can only subdivide with position cardinality <= 3");
+    }
 
     std::unique_ptr<char[]> baseVertices;
     std::size_t numBaseVertices = 0;
@@ -198,6 +204,68 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
             vertexSize += attrib.Cardinality * SizeOfArithmeticType(attrib.Type);
         }
 
+        // build neighbor map
+        struct VectorCompare
+        {
+            bool operator()(vec3 x, vec3 y) const
+            {
+                // the lowered precision will cause lookup errors
+                // if the subdivision is increased too much.
+                // however, without it, there are tears in the models.
+                // ideally,the precision should somehow be chosen dynamically.
+                constexpr float Precision = 0.000001f;
+
+                return std::lexicographical_compare(
+                    &x[0], &x[0] + 3, &y[0], &y[0] + 3,
+                    [](float a, float b) {
+                        return b - a > Precision;
+                    });
+            }
+        };
+
+        using VectorSet = std::set<vec3,VectorCompare>;
+        std::map<vec3,VectorSet,VectorCompare> neighbors;
+
+        for (std::size_t faceIdx = 0; faceIdx < numFaces; faceIdx++)
+        {
+            sizevec3 face = getFaceVertices(faceIdx);
+
+            std::array<vec3,3> positions;
+            for (std::size_t vertexIdx = 0; vertexIdx < 3; vertexIdx++)
+            {
+                float* posAttrib =
+                    reinterpret_cast<float*>(
+                        baseVertices.get()
+                      + baseFmt.Position.Offset
+                      + baseFmt.Position.Stride * face[vertexIdx]);
+
+                for (std::size_t elem = 0;
+                     elem < baseFmt.Position.Cardinality && elem < 3;
+                     elem++)
+                {
+                    positions[vertexIdx][elem] = posAttrib[elem];
+                }
+            }
+
+            for (std::size_t vertexIdx = 0; vertexIdx < 3; vertexIdx++)
+            {
+                VectorSet& neighborSet =
+                    neighbors.emplace(
+                        positions[vertexIdx],
+                        VectorSet()).first->second;
+
+                for (std::size_t neighborIdx = 0;
+                     neighborIdx < 3;
+                     neighborIdx++)
+                {
+                    if (neighborIdx != vertexIdx)
+                    {
+                        neighborSet.insert(positions[neighborIdx]);
+                    }
+                }
+            }
+        }
+
         //          v2           //
         //          / \          //
         //         /   \         //
@@ -283,12 +351,61 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
                                 "for types other than float.");
                         }
                     }
+                }
 
+                // alter the original positions if present
+                if (&baseFmt.Position == &attrib)
+                {
+                    for (std::size_t v = 0; v < vertexData.size(); v++)
+                    {
+                        float* posAttrib =
+                            reinterpret_cast<float*>(
+                                vertexData[v].get() + offsets[v]);
+
+                        vec3 pos;
+                        for (std::size_t elem = 0;
+                             elem < attrib.Cardinality && elem < 3;
+                             elem++)
+                        {
+                            pos[elem] = posAttrib[elem];
+                        }
+
+                        // look up the position's neighbors
+                        const VectorSet& neighborSet = neighbors.at(pos);
+
+                        std::size_t n = neighborSet.size();
+
+                        // calculate B coefficient for weight
+                        float B = n == 3 ?
+                                   3.0f / 16.0f
+                                 : 3.0f / (8.0f * n);
+
+                        vec3 newpos = (1 - n * B) * pos
+                                    + std::accumulate(neighborSet.begin(),
+                                                      neighborSet.end(),
+                                                      vec3(0),
+                                                      [B](vec3 x, vec3 y) {
+                                                        return x + y * B;
+                                                      });
+
+                        // write back the new position
+                        for (std::size_t elem = 0;
+                             elem < attrib.Cardinality && elem < 3;
+                             elem++)
+                        {
+                            posAttrib[elem] = newpos[elem];
+                        }
+                    }
+                }
+
+                // update offsets of vertex data
+                for (std::size_t e = 0; e < edgeData.size(); e++)
+                {
                     offsets[e] += attribSize;
                 }
             }
 
-            // now that the data for each edge has been created,
+            // now that the data for each vertex and edge has been created,
             // can write the subdivided triangles.
 
             char* cbuffer = static_cast<char*>(buffer);
@@ -336,7 +453,7 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
     }
 
     return (numBaseIndices > 0 ?
-            numBaseIndices : numBaseVertices) * std::pow(4, mNumSubdivisons);
+            numBaseIndices : numBaseVertices) * 4;
 }
 
 std::size_t LoopSubdivisionMesh::WriteIndices(void*) const

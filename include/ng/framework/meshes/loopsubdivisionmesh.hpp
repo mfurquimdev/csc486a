@@ -11,12 +11,9 @@ namespace ng
 class LoopSubdivisionMesh : public IMesh
 {
     const std::shared_ptr<const IMesh> mMeshToSubdivide;
-    int mNumSubdivisons;
 
 public:
-    LoopSubdivisionMesh(
-            std::shared_ptr<IMesh> meshToSubdivide,
-            int numSubdivisions);
+    LoopSubdivisionMesh(std::shared_ptr<IMesh> meshToSubdivide);
 
     VertexFormat GetVertexFormat() const override;
 
