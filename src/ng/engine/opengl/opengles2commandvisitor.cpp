@@ -300,7 +300,8 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
             const Material& mat = *obj.Material;
 
             GLuint program = 0;
-            if (mat.Type == MaterialType::Colored)
+            if (mat.Type == MaterialType::Colored ||
+                mat.Type == MaterialType::Wireframe)
             {
                 program = *mColoredProgram;
             }
@@ -421,7 +422,9 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                             &normalMatrix[0][0]);
             }
 
-            GLint modelWorldNormalMatrixLoc = glGetUniformLocation(program, "uModelWorldNormalMatrix");
+            GLint modelWorldNormalMatrixLoc = glGetUniformLocation(
+                        program,
+                        "uModelWorldNormalMatrix");
 
             if (modelWorldNormalMatrixLoc != -1)
             {
@@ -432,17 +435,16 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                             &modelWorldNormalMatrix[0][0]);
             }
 
-            if (mat.Type == MaterialType::Colored)
-            {
-                GLint tintLoc = glGetUniformLocation(program, "uTint");
+            GLint tintLoc = glGetUniformLocation(program, "uTint");
 
-                if (tintLoc != -1)
-                {
-                    glUniform3fv(
-                                tintLoc,
-                                1,
-                                &mat.Colored.Tint[0]);
-                }
+            if (tintLoc != -1)
+            {
+                vec3 tint =
+                        mat.Type == MaterialType::Colored ? mat.Colored.Tint
+                      : mat.Type == MaterialType::Wireframe ? mat.Wireframe.Tint
+                      : vec3(0,0,0);
+
+                glUniform3fv(tintLoc, 1, &tint[0]);
             }
 
             if (fmt.Position.Enabled)
@@ -461,7 +463,8 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                                 ToGLArithmeticType(posAttr.Type),
                                 posAttr.Normalized,
                                 posAttr.Stride,
-                                reinterpret_cast<const GLvoid*>(posAttr.Offset));
+                                reinterpret_cast<const GLvoid*>(
+                                    posAttr.Offset));
                 }
             }
 
@@ -484,6 +487,18 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                                 reinterpret_cast<const GLvoid*>(nAttr.Offset));
                 }
             }
+
+            // glPolygonMode not supported in GLES
+#ifndef NG_USE_EMSCRIPTEN
+            if (mat.Type == MaterialType::Wireframe)
+            {
+                glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            }
+            else
+            {
+                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            }
+#endif
 
             if (numElements > 0)
             {

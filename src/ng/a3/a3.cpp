@@ -13,6 +13,7 @@
 #include "ng/engine/util/scopeguard.hpp"
 
 #include "ng/framework/meshes/cubemesh.hpp"
+#include "ng/framework/meshes/loopsubdivisionmesh.hpp"
 
 #include "ng/framework/util/fixedstepupdate.hpp"
 
@@ -37,9 +38,12 @@ public:
         mRenderer = ng::CreateRenderer(mWindowManager, mWindow);
 
         // setup materials
-        std::shared_ptr<ng::Material> normalColoredMaterial =
+//        std::shared_ptr<ng::Material> normalColoredMaterial =
+//                std::make_shared<ng::Material>();
+//        normalColoredMaterial->Type = ng::MaterialType::NormalColored;
+        std::shared_ptr<ng::Material> wireframeMaterial =
                 std::make_shared<ng::Material>();
-        normalColoredMaterial->Type = ng::MaterialType::NormalColored;
+        wireframeMaterial->Type = ng::MaterialType::Wireframe;
 
         // setup scene
         std::shared_ptr<ng::SceneGraphNode> rootNode =
@@ -50,7 +54,10 @@ public:
                 std::make_shared<ng::SceneGraphNode>();
 
         cubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
-        cubeNode->Material = normalColoredMaterial;
+        cubeNode->Mesh =
+                std::make_shared<ng::LoopSubdivisionMesh>(cubeNode->Mesh, 1);
+        cubeNode->Material = wireframeMaterial;
+        // cubeNode->Material = normalColoredMaterial;
         rootNode->Children.push_back(cubeNode);
 
         mMainCamera = std::make_shared<ng::SceneGraphCameraNode>();
@@ -123,8 +130,6 @@ private:
 
     void UpdateCameraTransform(std::chrono::milliseconds dt)
     {
-        dt = std::chrono::milliseconds(0);
-
         mCameraPosition = ng::vec3(ng::rotate(3.14f * dt.count() / 1000,
                                               0.0f, 1.0f, 0.0f)
                                  * ng::vec4(mCameraPosition,1.0f));

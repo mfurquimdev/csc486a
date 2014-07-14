@@ -10,7 +10,8 @@ enum class MaterialType
 {
     Null,
     Colored,
-    NormalColored
+    NormalColored,
+    Wireframe
 };
 
 struct NullMaterial
@@ -26,6 +27,11 @@ struct NormalColoredMaterial
 {
 };
 
+struct WireframeMaterial
+{
+    vec3 Tint;
+};
+
 class Material
 {
 public:
@@ -35,6 +41,7 @@ public:
         NullMaterial Null;
         ColoredMaterial Colored;
         NormalColoredMaterial NormalColored;
+        WireframeMaterial Wireframe;
     };
 
     Material()

@@ -95,8 +95,8 @@ std::size_t CubeMesh::WriteVertices(void* buffer) const
         const CubeMesh::Vertex vertexData[][3] = {
             { { a, bottom }, { b, bottom }, { c, bottom } }, // bottom tri 1
             { { c, bottom }, { d, bottom }, { a, bottom } }, // bottom tri 2
-            { { c, front  }, { h, front  }, { e, front  } }, // front tri 1
-            { { e, front  }, { d, front  }, { c, front  } }, // front tri 2
+            { { d, front  }, { c, front  }, { h, front  } }, // front tri 1
+            { { h, front  }, { e, front  }, { d, front  } }, // front tri 2
             { { a, left   }, { d, left   }, { e, left   } }, // left tri 1
             { { e, left   }, { f, left   }, { a, left   } }, // left tri 2
             { { b, back   }, { a, back   }, { f, back   } }, // back tri 1
