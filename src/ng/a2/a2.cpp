@@ -38,7 +38,7 @@ public:
     void Init() override
     {
         mWindowManager = ng::CreateWindowManager();
-        mWindow = mWindowManager->CreateWindow("a4", 640, 480, 0, 0, ng::VideoFlags());
+        mWindow = mWindowManager->CreateWindow("a2", 640, 480, 0, 0, ng::VideoFlags());
         mRenderer = ng::CreateRenderer(mWindowManager, mWindow);
 
         // setup materials
