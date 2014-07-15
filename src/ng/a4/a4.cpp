@@ -54,7 +54,7 @@ public:
         ng::Material checkeredMaterial(ng::MaterialType::Textured);
         checkeredMaterial.Texture0 =
             std::make_shared<ng::CheckerboardTexture>(
-                2, 2, 1,
+                5, 5, 1,
                 ng::vec4(1), ng::vec4(0));
         checkeredMaterial.Sampler0.MinFilter = ng::TextureFilter::Nearest;
         checkeredMaterial.Sampler0.MagFilter = ng::TextureFilter::Nearest;
