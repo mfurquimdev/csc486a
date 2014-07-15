@@ -42,9 +42,7 @@ public:
         mRenderer = ng::CreateRenderer(mWindowManager, mWindow);
 
         // setup materials
-        std::shared_ptr<ng::Material> normalColoredMaterial =
-                std::make_shared<ng::Material>();
-        normalColoredMaterial->Type = ng::MaterialType::NormalColored;
+        ng::Material normalColoredMaterial(ng::MaterialType::NormalColored);
 
         // setup scene
         std::shared_ptr<ng::SceneGraphNode> rootNode =

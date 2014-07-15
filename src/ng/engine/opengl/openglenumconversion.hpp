@@ -1,6 +1,8 @@
 #ifndef NG_OPENGLENUMCONVERSION_HPP
 #define NG_OPENGLENUMCONVERSION_HPP
 
+#include "ng/engine/rendering/sampler.hpp"
+
 #include "ng/engine/util/arithmetictype.hpp"
 
 #include <GL/gl.h>
@@ -21,6 +23,20 @@ constexpr GLenum ToGLArithmeticType(ArithmeticType at)
          : at == ArithmeticType::Float ? GL_FLOAT
          : at == ArithmeticType::Double ? GL_DOUBLE
          : throw std::logic_error("No GL equivalent to this ArithmeticType");
+}
+
+constexpr GLenum ToGLTextureFilter(TextureFilter f)
+{
+    return f == TextureFilter::Linear ? GL_LINEAR
+         : f == TextureFilter::Nearest ? GL_NEAREST
+         : throw std::logic_error("No GL equivalent to this TextureFilter");
+}
+
+constexpr GLenum ToGLTextureWrap(TextureWrap w)
+{
+    return w == TextureWrap::Repeat ? GL_REPEAT
+         : w == TextureWrap::ClampToEdge ? GL_CLAMP_TO_EDGE
+         : throw std::logic_error("No GL equivalent to this TextureWrap");
 }
 
 } // end namespace ng

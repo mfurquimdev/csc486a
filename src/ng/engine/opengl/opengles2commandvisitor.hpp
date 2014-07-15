@@ -51,6 +51,7 @@ class OpenGLES2CommandVisitor : public IRendererCommandVisitor
     PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
     PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation;
     PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
+    PFNGLUNIFORM1IPROC glUniform1i;
     PFNGLUNIFORM3FVPROC glUniform3fv;
     PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix3fv;
     PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv;
@@ -77,6 +78,7 @@ class OpenGLES2CommandVisitor : public IRendererCommandVisitor
 
     ProgramPtr mColoredProgram;
     ProgramPtr mNormalColoredProgram;
+    ProgramPtr mTexturedProgram;
 
 public:
     OpenGLES2CommandVisitor(

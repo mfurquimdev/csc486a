@@ -7,13 +7,7 @@ namespace ng
 enum class TextureType
 {
     Invalid,
-    Texture1D,
-    Texture1DArray,
     Texture2D,
-    Texture2DArray,
-    Texture3D,
-    TextureCubeMap,
-    TextureCubeMapArray
 };
 
 enum class ImageFormat
@@ -29,9 +23,9 @@ public:
 
     TextureType Type = TextureType::Invalid;
 
-    int Width;
-    int Height;
-    int Depth;
+    int Width = 1;
+    int Height = 1;
+    int Depth = 1;
 
     bool EnableMipMapping = false;
 };

@@ -17,6 +17,7 @@ public:
     {
     public:
         vec2 Position;
+        vec2 Texcoord;
         vec3 Normal;
     };
 

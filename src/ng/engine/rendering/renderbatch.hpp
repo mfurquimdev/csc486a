@@ -1,6 +1,8 @@
 #ifndef NG_RENDERBATCH_HPP
 #define NG_RENDERBATCH_HPP
 
+#include "ng/engine/rendering/material.hpp"
+
 #include "ng/engine/math/linearalgebra.hpp"
 
 #include <memory>
@@ -10,14 +12,13 @@ namespace ng
 {
 
 class IMesh;
-class Material;
 class SceneGraph;
 
 class RenderObject
 {
 public:
     std::shared_ptr<IMesh> Mesh;
-    std::shared_ptr<ng::Material> Material;
+    ng::Material Material;
     mat4 WorldTransform;
 };
 

@@ -38,7 +38,7 @@ class VertexFormat
 public:
     VertexAttribute Position;
     VertexAttribute Normal;
-    VertexAttribute TexCoord;
+    VertexAttribute TexCoord0;
 
     bool IsIndexed = false;
     ArithmeticType IndexType;

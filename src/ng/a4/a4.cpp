@@ -14,7 +14,8 @@
 
 #include "ng/framework/meshes/cubemesh.hpp"
 #include "ng/framework/meshes/squaremesh.hpp"
-#include "ng/framework/meshes/implicitsurfacemesh.hpp"
+
+#include "ng/framework/textures/checkerboardtexture.hpp"
 
 #include "ng/framework/util/fixedstepupdate.hpp"
 
@@ -37,20 +38,28 @@ class A4 : public ng::IApp
 
     ng::FixedStepUpdate mFixedStepUpdate{std::chrono::milliseconds(1000/60)};
 
-    std::shared_ptr<ng::SceneGraphNode> mImplicitNode;
-
 public:
     void Init() override
     {
         mWindowManager = ng::CreateWindowManager();
-        mWindow = mWindowManager->CreateWindow("a4", 640, 480, 0, 0, ng::VideoFlags());
+
+        mWindow = mWindowManager->CreateWindow(
+            "a4", 640, 480, 0, 0, ng::VideoFlags());
+
         mRenderer = ng::CreateRenderer(mWindowManager, mWindow);
 
         // setup materials
-        std::shared_ptr<ng::Material> normalColoredMaterial =
-                std::make_shared<ng::Material>();
-        normalColoredMaterial->Type = ng::MaterialType::NormalColored;
-        // redMaterial->Colored.Tint = ng::vec3(0.8,0.3,0);
+        ng::Material normalColoredMaterial(ng::MaterialType::NormalColored);
+
+        ng::Material checkeredMaterial(ng::MaterialType::Textured);
+        checkeredMaterial.Texture0 =
+            std::make_shared<ng::CheckerboardTexture>(
+                2, 2, 1,
+                ng::vec4(1), ng::vec4(0));
+        checkeredMaterial.Sampler0.MinFilter = ng::TextureFilter::Nearest;
+        checkeredMaterial.Sampler0.MagFilter = ng::TextureFilter::Nearest;
+        checkeredMaterial.Sampler0.WrapX = ng::TextureWrap::ClampToEdge;
+        checkeredMaterial.Sampler0.WrapY = ng::TextureWrap::ClampToEdge;
 
         // setup scene
         std::shared_ptr<ng::SceneGraphNode> rootNode =
@@ -68,10 +77,6 @@ public:
         rootNode->Children.push_back(mMainCamera);
         mScene.ActiveCameras.push_back(mMainCamera);
 
-        mImplicitNode = std::make_shared<ng::SceneGraphNode>();
-        mImplicitNode->Material = normalColoredMaterial;
-        rootNode->Children.push_back(mImplicitNode);
-
         // setup overlay
         std::shared_ptr<ng::SceneGraphNode> overlayRootNode =
                 std::make_shared<ng::SceneGraphNode>();
@@ -81,7 +86,7 @@ public:
                 std::make_shared<ng::SceneGraphNode>();
 
         squareNode->Mesh = std::make_shared<ng::SquareMesh>(100.0f);
-        squareNode->Material = normalColoredMaterial;
+        squareNode->Material = checkeredMaterial;
         squareNode->Transform = ng::translate(100.0f, 100.0f, 0.0f);
         overlayRootNode->Children.push_back(squareNode);
 
@@ -131,7 +136,7 @@ public:
     }
 
 private:
-    ng::vec3 mCameraPosition{0.0f,10.0f,10.0f};
+    ng::vec3 mCameraPosition{4.0f,4.0f,4.0f};
     ng::vec3 mCameraTarget{0.0f,0.0f,0.0f};
 
     void HandleEvent(const ng::WindowEvent&)
@@ -154,7 +159,7 @@ private:
 
         mOverlayCamera->Projection =
                 ng::ortho2D(0.0f, (float) mWindow->GetWidth(),
-                            (float) mWindow->GetHeight(), 0.0f);
+                            0.0f, (float) mWindow->GetHeight());
         mOverlayCamera->ViewportTopLeft - ng::ivec2(0,0);
         mOverlayCamera->ViewportSize = ng::ivec2(
                     mWindow->GetWidth(), mWindow->GetHeight());
@@ -173,39 +178,10 @@ private:
                                                     ng::vec3(0.0f,1.0f,0.0f)));
     }
 
-    ng::vec3 mBallPos;
-    std::chrono::milliseconds mTotalTime{0};
-
     void Update(std::chrono::milliseconds dt)
     {
         UpdateCameraToWindow();
         UpdateCameraTransform(dt);
-
-        mTotalTime += dt;
-
-        float fTime = static_cast<float>(mTotalTime.count())/1000.0f;
-        float xHz = 1.0f, yHz = 1.0f, zHz = 1.0f;
-
-        mBallPos = ng::vec3(
-                    5 * std::sin(fTime * 2 * ng::pi<float>::value * xHz),
-                    4 * std::sin(fTime) * std::cos(fTime * 2 * ng::pi<float>::value * yHz),
-                    3 * std::cos(fTime * 2 * ng::pi<float>::value * zHz));
-
-        std::vector<ng::ImplicitSurfacePrimitive> implicitPrimitives;
-
-        implicitPrimitives.emplace_back(
-                    ng::Point<float>({0,0,0}), ng::WyvillFilter(5.0f));
-
-        implicitPrimitives.emplace_back(
-                    ng::Point<float>({0,5*std::sin(0.5f*fTime * 2 * ng::pi<float>::value),0}), ng::WyvillFilter(2.0f));
-
-        implicitPrimitives.emplace_back(
-                    ng::Point<float>(mBallPos), ng::WyvillFilter(3.0f));
-
-        mImplicitNode->Mesh = std::make_shared<ng::ImplicitSurfaceMesh>(
-                    std::move(implicitPrimitives),
-                    0.3f,
-                    0.7f);
     }
 };
 

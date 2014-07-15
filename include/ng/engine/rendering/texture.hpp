@@ -3,15 +3,19 @@
 
 #include "ng/engine/rendering/textureformat.hpp"
 
+#include <cstddef>
+
 namespace ng
 {
 
 class ITexture
 {
 public:
+    virtual ~ITexture() = default;
+
     virtual TextureFormat GetTextureFormat() const = 0;
 
-    virtual void WriteTextureData(void* buffer) const = 0;
+    virtual std::size_t WriteTextureData(void* buffer) const = 0;
 };
 
 } // end namespace ng

@@ -36,9 +36,9 @@ static std::vector<std::reference_wrapper<VertexAttribute>>
     {
         attribs.push_back(fmt.Normal);
     }
-    if (fmt.TexCoord.Enabled)
+    if (fmt.TexCoord0.Enabled)
     {
-        attribs.push_back(fmt.TexCoord);
+        attribs.push_back(fmt.TexCoord0);
     }
 
     return attribs;

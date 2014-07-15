@@ -1,6 +1,8 @@
 #ifndef NG_SCENEGRAPH_HPP
 #define NG_SCENEGRAPH_HPP
 
+#include "ng/engine/rendering/material.hpp"
+
 #include "ng/engine/math/linearalgebra.hpp"
 
 #include <vector>
@@ -10,14 +12,13 @@ namespace ng
 {
 
 class IMesh;
-class Material;
 
 class SceneGraphNode
 {
 public:
     mat4 Transform;
     std::shared_ptr<IMesh> Mesh;
-    std::shared_ptr<ng::Material> Material;
+    ng::Material Material;
     std::vector<std::shared_ptr<SceneGraphNode>> Children;
 };
 

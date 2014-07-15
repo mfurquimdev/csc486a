@@ -5,10 +5,12 @@
 
 #include "ng/engine/rendering/mesh.hpp"
 #include "ng/engine/rendering/material.hpp"
+#include "ng/engine/rendering/texture.hpp"
 
 #include "ng/engine/opengl/openglenumconversion.hpp"
 
 #include "ng/engine/util/scopeguard.hpp"
+#include "ng/engine/util/debug.hpp"
 
 #include <string>
 
@@ -170,6 +172,7 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
     GetGLExtensionOrDie(context, glGetProgramInfoLog);
     GetGLExtensionOrDie(context, glGetAttribLocation);
     GetGLExtensionOrDie(context, glGetUniformLocation);
+    GetGLExtensionOrDie(context, glUniform1i);
     GetGLExtensionOrDie(context, glUniform3fv);
     GetGLExtensionOrDie(context, glUniformMatrix3fv);
     GetGLExtensionOrDie(context, glUniformMatrix4fv);
@@ -197,7 +200,6 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
 
     mColoredProgram = CompileProgram(
                 coloredVSrc, coloredFSrc);
-
 
     static const char* normalColoredVSrc =
             "#version 100\n"
@@ -227,6 +229,36 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
 
     mNormalColoredProgram = CompileProgram(
                 normalColoredVSrc, normalColoredFSrc);
+
+    static const char* texturedVSrc =
+            "#version 100\n"
+
+            "uniform highp mat4 uProjection;\n"
+            "uniform highp mat4 uModelView;\n"
+
+            "attribute highp vec4 iPosition;\n"
+            "attribute highp vec2 iTexcoord0;\n"
+
+            "varying highp vec2 fTexcoord0;\n"
+
+            "void main() {\n"
+            "    gl_Position = uProjection * uModelView * iPosition;\n"
+            "    fTexcoord0 = iTexcoord0;\n"
+            "}\n";
+
+    static const char* texturedFSrc =
+            "#version 100\n"
+
+            "uniform sampler2D uTexture0;\n"
+
+            "varying highp vec2 fTexcoord0;\n"
+
+            "void main() {\n"
+            "    gl_FragColor = texture2D(uTexture0, fTexcoord0);\n"
+            "}\n";
+
+    mTexturedProgram = CompileProgram(
+                texturedVSrc, texturedFSrc);
 }
 
 #undef GetGLExtension
@@ -258,6 +290,8 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
         glDisable(flag);
     }
 
+    glEnable(GL_TEXTURE_2D);
+
     GLuint vbo;
     glGenBuffers(1, &vbo);
     auto vertexBufferScope = make_scope_guard([&]{
@@ -276,9 +310,16 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
        glDeleteVertexArrays(1, &vao);
     });
 
+    GLuint texture0;
+    glGenTextures(1, &texture0);
+    auto texture0Scope = make_scope_guard([&]{
+        glDeleteTextures(1, &texture0);
+    });
+
     glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBindTexture(GL_TEXTURE_2D, texture0);
 
     for (const RenderCamera& cam : pass.RenderCameras)
     {
@@ -291,13 +332,13 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
 
         for (const RenderObject& obj : pass.RenderObjects)
         {
-            if (obj.Mesh == nullptr || obj.Material == nullptr)
+            if (obj.Mesh == nullptr || obj.Material.Type == MaterialType::Null)
             {
                 continue;
             }
 
             const IMesh& mesh = *obj.Mesh;
-            const Material& mat = *obj.Material;
+            const Material& mat = obj.Material;
 
             GLuint program = 0;
             if (mat.Type == MaterialType::Colored ||
@@ -309,12 +350,18 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
             {
                 program = *mNormalColoredProgram;
             }
+            else if (mat.Type == MaterialType::Textured)
+            {
+                program = *mTexturedProgram;
+            }
 
             glUseProgram(program);
 
             mat4 modelView = worldView * obj.WorldTransform;
 
-            mat3 modelWorldNormalMatrix = mat3(transpose(inverse(obj.WorldTransform)));
+            mat3 modelWorldNormalMatrix =
+                mat3(transpose(inverse(obj.WorldTransform)));
+
             mat3 normalMatrix = mat3(transpose(inverse(modelView)));
 
             VertexFormat fmt = mesh.GetVertexFormat();
@@ -411,7 +458,8 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                             &modelView[0][0]);
             }
 
-            GLint normalMatrixLoc = glGetUniformLocation(program, "uNormalMatrix");
+            GLint normalMatrixLoc =
+                glGetUniformLocation(program, "uNormalMatrix");
 
             if (normalMatrixLoc != -1)
             {
@@ -422,9 +470,8 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                             &normalMatrix[0][0]);
             }
 
-            GLint modelWorldNormalMatrixLoc = glGetUniformLocation(
-                        program,
-                        "uModelWorldNormalMatrix");
+            GLint modelWorldNormalMatrixLoc =
+                glGetUniformLocation(program, "uModelWorldNormalMatrix");
 
             if (modelWorldNormalMatrixLoc != -1)
             {
@@ -439,12 +486,67 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
 
             if (tintLoc != -1)
             {
-                vec3 tint =
-                        mat.Type == MaterialType::Colored ? mat.Colored.Tint
-                      : mat.Type == MaterialType::Wireframe ? mat.Wireframe.Tint
-                      : vec3(0,0,0);
+                glUniform3fv(tintLoc, 1, &mat.Tint[0]);
+            }
 
-                glUniform3fv(tintLoc, 1, &tint[0]);
+            GLint texture0Loc = glGetUniformLocation(program, "uTexture0");
+
+            if (texture0Loc != -1)
+            {
+                glUniform1i(texture0Loc, 0);
+
+                const ITexture& tex = *mat.Texture0;
+
+                TextureFormat fmt = tex.GetTextureFormat();
+
+                if (fmt.Format == ImageFormat::Invalid)
+                {
+                    throw std::logic_error("Invalid texture ImageFormat");
+                }
+
+                if (fmt.Type == TextureType::Invalid)
+                {
+                    throw std::logic_error("Invalid TextureType");
+                }
+
+                const Sampler& sampler = mat.Sampler0;
+
+                if (sampler.MinFilter == TextureFilter::Invalid ||
+                    sampler.MagFilter == TextureFilter::Invalid)
+                {
+                    throw std::logic_error("Invalid TextureFilter");
+                }
+
+                if (sampler.WrapX == TextureWrap::Invalid ||
+                    sampler.WrapY == TextureWrap::Invalid)
+                {
+                    throw std::logic_error("Invalid TextureWrap");
+                }
+
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                    ToGLTextureFilter(sampler.MinFilter));
+
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
+                    ToGLTextureFilter(sampler.MagFilter));
+
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                    ToGLTextureWrap(sampler.WrapX));
+
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
+                    ToGLTextureWrap(sampler.WrapY));
+
+                std::unique_ptr<char[]> texData(
+                    new char[fmt.Width * fmt.Height * fmt.Depth * 4]);
+
+                tex.WriteTextureData(texData.get());
+
+                glTexImage2D(GL_TEXTURE_2D, 0,
+                    GL_RGBA8, fmt.Width, fmt.Height,
+                    0,
+                    GL_RGBA, GL_UNSIGNED_BYTE, texData.get());
             }
 
             if (fmt.Position.Enabled)
@@ -485,6 +587,26 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                                 nAttr.Normalized,
                                 nAttr.Stride,
                                 reinterpret_cast<const GLvoid*>(nAttr.Offset));
+                }
+            }
+
+            if (fmt.TexCoord0.Enabled)
+            {
+                const VertexAttribute& tAttr = fmt.TexCoord0;
+
+                GLint tLoc = glGetAttribLocation(program, "iTexcoord0");
+
+                if (tLoc != -1)
+                {
+                    glEnableVertexAttribArray(tLoc);
+
+                    glVertexAttribPointer(
+                                tLoc,
+                                tAttr.Cardinality,
+                                ToGLArithmeticType(tAttr.Type),
+                                tAttr.Normalized,
+                                tAttr.Stride,
+                                reinterpret_cast<const GLvoid*>(tAttr.Offset));
                 }
             }
 

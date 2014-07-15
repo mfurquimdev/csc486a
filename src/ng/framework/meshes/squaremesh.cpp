@@ -23,6 +23,13 @@ VertexFormat SquareMesh::GetVertexFormat() const
                 sizeof(SquareMesh::Vertex),
                 offsetof(SquareMesh::Vertex, Position));
 
+    fmt.TexCoord0 = VertexAttribute(
+                2,
+                ArithmeticType::Float,
+                false,
+                sizeof(SquareMesh::Vertex),
+                offsetof(SquareMesh::Vertex, Texcoord));
+
     fmt.Normal = VertexAttribute(
                 3,
                 ArithmeticType::Float,
@@ -65,11 +72,16 @@ std::size_t SquareMesh::WriteVertices(void* buffer) const
         vec2 c = minExtent + vec2(mSideLength,0);
         vec2 d = maxExtent;
 
+        vec2 ta(0.0f, 1.0f);
+        vec2 tb(0.0f, 0.0f);
+        vec2 tc(1.0f, 0.0f);
+        vec2 td(1.0f, 1.0f);
+
         vec3 n = vec3(0,0,1);
 
         const SquareMesh::Vertex vertexData[][3] = {
-            { { a, n }, { b, n }, { c, n } }, // bottom left
-            { { c, n }, { d, n }, { a, n } }  // top right
+            { { a, ta, n }, { b, tb, n }, { c, tc, n } }, // bottom left
+            { { c, tc, n }, { d, td, n }, { a, ta, n } }  // top right
         };
 
         std::memcpy(buffer, vertexData, sizeof(vertexData));

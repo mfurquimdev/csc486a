@@ -1,51 +1,42 @@
 #ifndef NG_MATERIAL_HPP
 #define NG_MATERIAL_HPP
 
+#include "ng/engine/rendering/sampler.hpp"
+
 #include "ng/engine/math/linearalgebra.hpp"
+
+#include <memory>
 
 namespace ng
 {
+
+class ITexture;
 
 enum class MaterialType
 {
     Null,
     Colored,
     NormalColored,
+    Textured,
     Wireframe
-};
-
-struct NullMaterial
-{
-};
-
-struct ColoredMaterial
-{
-    vec3 Tint;
-};
-
-struct NormalColoredMaterial
-{
-};
-
-struct WireframeMaterial
-{
-    vec3 Tint;
 };
 
 class Material
 {
 public:
-    MaterialType Type = MaterialType::Null;
+    MaterialType Type;
 
-    union {
-        NullMaterial Null;
-        ColoredMaterial Colored;
-        NormalColoredMaterial NormalColored;
-        WireframeMaterial Wireframe;
-    };
+    vec3 Tint;
+
+    std::shared_ptr<ITexture> Texture0;
+    Sampler Sampler0;
 
     Material()
-        : Null()
+        : Type(MaterialType::Null)
+    { }
+
+    Material(MaterialType type)
+        : Type(type)
     { }
 };
 
