@@ -14,6 +14,7 @@
 
 #include "ng/framework/meshes/cubemesh.hpp"
 #include "ng/framework/meshes/squaremesh.hpp"
+#include "ng/framework/meshes/loopsubdivisionmesh.hpp"
 
 #include "ng/framework/textures/checkerboardtexture.hpp"
 
@@ -54,8 +55,7 @@ public:
         ng::Material checkeredMaterial(ng::MaterialType::Textured);
         checkeredMaterial.Texture0 =
             std::make_shared<ng::CheckerboardTexture>(
-                5, 5, 1,
-                ng::vec4(1), ng::vec4(0));
+                4*4, 3*4, 1, ng::vec4(1), ng::vec4(0));
         checkeredMaterial.Sampler0.MinFilter = ng::TextureFilter::Nearest;
         checkeredMaterial.Sampler0.MagFilter = ng::TextureFilter::Nearest;
         checkeredMaterial.Sampler0.WrapX = ng::TextureWrap::ClampToEdge;
@@ -70,7 +70,8 @@ public:
                 std::make_shared<ng::SceneGraphNode>();
 
         cubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
-        cubeNode->Material = normalColoredMaterial;
+        // cubeNode->Material = normalColoredMaterial;
+        cubeNode->Material = checkeredMaterial;
         rootNode->Children.push_back(cubeNode);
 
         mMainCamera = std::make_shared<ng::SceneGraphCameraNode>();
@@ -86,6 +87,7 @@ public:
                 std::make_shared<ng::SceneGraphNode>();
 
         squareNode->Mesh = std::make_shared<ng::SquareMesh>(100.0f);
+        squareNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(squareNode->Mesh);
         squareNode->Material = checkeredMaterial;
         squareNode->Transform = ng::translate(100.0f, 100.0f, 0.0f);
         overlayRootNode->Children.push_back(squareNode);
@@ -167,7 +169,7 @@ private:
 
     void UpdateCameraTransform(std::chrono::milliseconds dt)
     {
-        dt = std::chrono::milliseconds(0);
+        // dt = std::chrono::milliseconds(0);
 
         mCameraPosition = ng::vec3(ng::rotate(3.14f * dt.count() / 1000,
                                               0.0f, 1.0f, 0.0f)

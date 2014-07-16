@@ -18,6 +18,7 @@ public:
     public:
         vec3 Position;
         vec3 Normal;
+        vec2 Texcoord;
     };
 
     CubeMesh(float sideLength);

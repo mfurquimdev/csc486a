@@ -30,6 +30,13 @@ VertexFormat CubeMesh::GetVertexFormat() const
                 sizeof(CubeMesh::Vertex),
                 offsetof(CubeMesh::Vertex, Normal));
 
+    fmt.TexCoord0 = VertexAttribute(
+                2,
+                ArithmeticType::Float,
+                false,
+                sizeof(CubeMesh::Vertex),
+                offsetof(CubeMesh::Vertex, Texcoord));
+
     return fmt;
 }
 
@@ -72,6 +79,19 @@ std::size_t CubeMesh::WriteVertices(void* buffer) const
         //      v
         //     +z
 
+        // texcoords
+        //
+        //       * - - *
+        //       |  +  |
+        //       |  y  |
+        // * - - * - - * - - * - - *
+        // |  -  |  +  |  +  |  -  |
+        // |  x  |  z  |  x  |  z  |
+        // * - - * - - * - - * - - *
+        //       |  -  |
+        //       |  y  |
+        //       * - - *
+
         // positions
         const vec3 minExtent = vec3(-mSideLength / 2);
         const vec3 maxExtent = vec3( mSideLength / 2);
@@ -92,19 +112,42 @@ std::size_t CubeMesh::WriteVertices(void* buffer) const
         const vec3  front( 0, 0, 1);
         const vec3   back( 0, 0,-1);
 
+        const vec2 tx(
+                    1.0f / 4.0f,
+                    0.0f);
+        const vec2 ty(
+                    0.0f,
+                    1.0f / 3.0f);
+
+        // column, row. 0-indexed
+        const vec2 t10 = tx * 1.0f + ty * 0.0f;
+        const vec2 t20 = tx * 2.0f + ty * 0.0f;
+        const vec2 t01 = tx * 0.0f + ty * 1.0f;
+        const vec2 t11 = tx * 1.0f + ty * 1.0f;
+        const vec2 t21 = tx * 2.0f + ty * 1.0f;
+        const vec2 t31 = tx * 3.0f + ty * 1.0f;
+        const vec2 t41 = tx * 4.0f + ty * 1.0f;
+        const vec2 t02 = tx * 0.0f + ty * 2.0f;
+        const vec2 t12 = tx * 1.0f + ty * 2.0f;
+        const vec2 t22 = tx * 2.0f + ty * 2.0f;
+        const vec2 t32 = tx * 3.0f + ty * 2.0f;
+        const vec2 t42 = tx * 4.0f + ty * 2.0f;
+        const vec2 t13 = tx * 1.0f + ty * 3.0f;
+        const vec2 t23 = tx * 2.0f + ty * 3.0f;
+
         const CubeMesh::Vertex vertexData[][3] = {
-            { { a, bottom }, { b, bottom }, { c, bottom } }, // bottom tri 1
-            { { c, bottom }, { d, bottom }, { a, bottom } }, // bottom tri 2
-            { { d, front  }, { c, front  }, { h, front  } }, // front tri 1
-            { { h, front  }, { e, front  }, { d, front  } }, // front tri 2
-            { { a, left   }, { d, left   }, { e, left   } }, // left tri 1
-            { { e, left   }, { f, left   }, { a, left   } }, // left tri 2
-            { { b, back   }, { a, back   }, { f, back   } }, // back tri 1
-            { { f, back   }, { g, back   }, { b, back   } }, // back tri 2
-            { { c, right  }, { b, right  }, { g, right  } }, // right tri 1
-            { { g, right  }, { h, right  }, { c, right  } }, // right tri 2
-            { { h, top    }, { g, top    }, { f, top    } }, // top tri 1
-            { { f, top    }, { e, top    }, { h, top    } }  // top tri 2
+            { { a, bottom, t10 }, { b, bottom, t20 }, { c, bottom, t21 } }, // bottom tri 1
+            { { c, bottom, t21 }, { d, bottom, t11 }, { a, bottom, t10 } }, // bottom tri 2
+            { { d, front,  t11 }, { c, front,  t21 }, { h, front,  t22 } }, // front tri 1
+            { { h, front,  t22 }, { e, front,  t12 }, { d, front,  t11 } }, // front tri 2
+            { { a, left,   t01 }, { d, left,   t11 }, { e, left,   t12 } }, // left tri 1
+            { { e, left,   t12 }, { f, left,   t02 }, { a, left,   t01 } }, // left tri 2
+            { { b, back,   t31 }, { a, back,   t41 }, { f, back,   t42 } }, // back tri 1
+            { { f, back,   t42 }, { g, back,   t32 }, { b, back,   t31 } }, // back tri 2
+            { { c, right,  t21 }, { b, right,  t31 }, { g, right,  t32 } }, // right tri 1
+            { { g, right,  t32 }, { h, right,  t22 }, { c, right,  t21 } }, // right tri 2
+            { { h, top,    t22 }, { g, top,    t23 }, { f, top,    t13 } }, // top tri 1
+            { { f, top,    t13 }, { e, top,    t12 }, { h, top,    t22 } }  // top tri 2
         };
 
         std::memcpy(buffer, vertexData, sizeof(vertexData));
