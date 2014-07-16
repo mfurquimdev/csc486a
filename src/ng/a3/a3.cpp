@@ -115,7 +115,7 @@ public:
     }
 
 private:
-    ng::vec3 mCameraPosition{3.0f,3.0f,3.0f};
+    ng::vec3 mCameraPosition{1.5f,1.5f,1.5f};
     ng::vec3 mCameraTarget{0.0f,0.0f,0.0f};
 
     void HandleEvent(const ng::WindowEvent& we)

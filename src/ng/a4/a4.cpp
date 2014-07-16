@@ -70,6 +70,11 @@ public:
                 std::make_shared<ng::SceneGraphNode>();
 
         cubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
+        cubeNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(cubeNode->Mesh);
+        cubeNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(cubeNode->Mesh);
+        cubeNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(cubeNode->Mesh);
+        cubeNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(cubeNode->Mesh);
+        cubeNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(cubeNode->Mesh);
         // cubeNode->Material = normalColoredMaterial;
         cubeNode->Material = checkeredMaterial;
         rootNode->Children.push_back(cubeNode);
@@ -87,7 +92,6 @@ public:
                 std::make_shared<ng::SceneGraphNode>();
 
         squareNode->Mesh = std::make_shared<ng::SquareMesh>(100.0f);
-        squareNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(squareNode->Mesh);
         squareNode->Material = checkeredMaterial;
         squareNode->Transform = ng::translate(100.0f, 100.0f, 0.0f);
         overlayRootNode->Children.push_back(squareNode);
@@ -138,7 +142,7 @@ public:
     }
 
 private:
-    ng::vec3 mCameraPosition{4.0f,4.0f,4.0f};
+    ng::vec3 mCameraPosition{1.5f,1.5f,1.5f};
     ng::vec3 mCameraTarget{0.0f,0.0f,0.0f};
 
     void HandleEvent(const ng::WindowEvent&)

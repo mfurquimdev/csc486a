@@ -380,13 +380,11 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
                                    3.0f / 16.0f
                                  : 3.0f / (8.0f * n);
 
-                        vec3 newpos = (1 - n * B) * pos
-                                    + std::accumulate(neighborSet.begin(),
-                                                      neighborSet.end(),
-                                                      vec3(0),
-                                                      [B](vec3 x, vec3 y) {
-                                                        return x + y * B;
-                                                      });
+                        vec3 newpos = (1 - B) * pos
+                                    + B / n * std::accumulate(
+                                                neighborSet.begin(),
+                                                neighborSet.end(),
+                                                vec3(0));
 
                         // write back the new position
                         for (std::size_t elem = 0;
