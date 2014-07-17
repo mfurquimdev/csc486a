@@ -37,27 +37,41 @@ VertexFormat CubeMesh::GetVertexFormat() const
                 sizeof(CubeMesh::Vertex),
                 offsetof(CubeMesh::Vertex, Texcoord));
 
+    fmt.IsIndexed = true;
+    fmt.IndexType = ArithmeticType::UInt8;
+    fmt.IndexOffset = 0;
+
     return fmt;
 }
 
 std::size_t CubeMesh::GetMaxVertexBufferSize() const
 {
     constexpr int NumFaces = 6;
-    constexpr int TrianglesPerFace = 2;
-    constexpr int VerticesPerTriangle = 3;
+    constexpr int VerticesPerFace = 5;
     constexpr std::size_t SizeOfVertex = sizeof(CubeMesh::Vertex);
-    return NumFaces * TrianglesPerFace * VerticesPerTriangle * SizeOfVertex;
+    return NumFaces * VerticesPerFace * SizeOfVertex;
 }
 
 std::size_t CubeMesh::GetMaxIndexBufferSize() const
 {
-    return 0;
+    constexpr int NumFaces = 6;
+    constexpr int TrianglesPerFace = 4;
+    constexpr int IndicesPerTriangle = 3;
+    constexpr std::size_t SizeOfIndex = sizeof(std::uint8_t);
+    return NumFaces * TrianglesPerFace * IndicesPerTriangle * SizeOfIndex;
 }
 
 std::size_t CubeMesh::WriteVertices(void* buffer) const
 {
+    constexpr std::size_t numFaces = 6;
+    constexpr std::size_t verticesPerFace = 5;
+
     if (buffer)
     {
+
+        // positions
+        // ================================
+        //
         //   f----------g
         //  /|         /|
         // e----------h |
@@ -78,19 +92,24 @@ std::size_t CubeMesh::WriteVertices(void* buffer) const
         //       / -y
         //      v
         //     +z
-
-        // texcoords
         //
-        //       * - - *
-        //       |  +  |
-        //       |  y  |
-        // * - - * - - * - - * - - *
-        // |  -  |  +  |  +  |  -  |
-        // |  x  |  z  |  x  |  z  |
-        // * - - * - - * - - * - - *
-        //       |  -  |
-        //       |  y  |
-        //       * - - *
+        // texcoords
+        // ================================
+        //
+        // notation: tcr
+        // c = column
+        // r = row
+        //
+        //       t13---t23
+        //        |  +  |
+        //        |  y  |
+        // t02---t12---t22---t32---t42
+        //  |  -  |  +  |  +  |  -  |
+        //  |  x  |  z  |  x  |  z  |
+        // t01---t11---t21---t31---t41
+        //        |  -  |
+        //        |  y  |
+        //       t10---t20
 
         // positions
         const vec3 minExtent = vec3(-mSideLength / 2);
@@ -135,30 +154,75 @@ std::size_t CubeMesh::WriteVertices(void* buffer) const
         const vec2 t13 = tx * 1.0f + ty * 3.0f;
         const vec2 t23 = tx * 2.0f + ty * 3.0f;
 
-        const CubeMesh::Vertex vertexData[][3] = {
-            { { a, bottom, t10 }, { b, bottom, t20 }, { c, bottom, t21 } }, // bottom tri 1
-            { { c, bottom, t21 }, { d, bottom, t11 }, { a, bottom, t10 } }, // bottom tri 2
-            { { d, front,  t11 }, { c, front,  t21 }, { h, front,  t22 } }, // front tri 1
-            { { h, front,  t22 }, { e, front,  t12 }, { d, front,  t11 } }, // front tri 2
-            { { a, left,   t01 }, { d, left,   t11 }, { e, left,   t12 } }, // left tri 1
-            { { e, left,   t12 }, { f, left,   t02 }, { a, left,   t01 } }, // left tri 2
-            { { b, back,   t31 }, { a, back,   t41 }, { f, back,   t42 } }, // back tri 1
-            { { f, back,   t42 }, { g, back,   t32 }, { b, back,   t31 } }, // back tri 2
-            { { c, right,  t21 }, { b, right,  t31 }, { g, right,  t32 } }, // right tri 1
-            { { g, right,  t32 }, { h, right,  t22 }, { c, right,  t21 } }, // right tri 2
-            { { h, top,    t22 }, { g, top,    t23 }, { f, top,    t13 } }, // top tri 1
-            { { f, top,    t13 }, { e, top,    t12 }, { h, top,    t22 } }  // top tri 2
+        const CubeMesh::Vertex zero;
+
+        // six faces with 5 vertices each (bottom left, bottom right, top right, top left, center)
+        // note the corner vertices are missing. They are patched in after by averaging the other vertices.
+        CubeMesh::Vertex vertexData[numFaces][verticesPerFace] = {
+            { { a, bottom, t10 }, { b, bottom, t20 }, { c, bottom, t21 }, { d, bottom, t11 }, zero }, // bottom
+            { { d, front,  t11 }, { c, front,  t21 }, { h, front,  t22 }, { e, front,  t12 }, zero }, // front
+            { { a, left,   t01 }, { d, left,   t11 }, { e, left,   t12 }, { f, left,   t02 }, zero }, // left
+            { { b, back,   t31 }, { a, back,   t41 }, { f, back,   t42 }, { g, back,   t32 }, zero }, // back
+            { { c, right,  t21 }, { b, right,  t31 }, { g, right,  t32 }, { h, right,  t22 }, zero }, // right
+            { { e, top,    t12 }, { h, top,    t22 }, { g, top,    t23 }, { f, top,    t13 }, zero }, // top
         };
+
+        // patch in the averaged centers
+        for (std::size_t face = 0; face < numFaces; face++)
+        {
+            CubeMesh::Vertex& centerVertex = vertexData[face][4];
+
+            for (std::size_t corner = 0; corner < 4; corner++)
+            {
+                CubeMesh::Vertex& cornerVertex = vertexData[face][corner];
+                centerVertex.Position += cornerVertex.Position;
+                centerVertex.Normal += cornerVertex.Normal;
+                centerVertex.Texcoord += cornerVertex.Texcoord;
+            }
+
+            centerVertex.Position /= 4.0f;
+            centerVertex.Normal /= 4.0f;
+            centerVertex.Texcoord /= 4.0f;
+        }
 
         std::memcpy(buffer, vertexData, sizeof(vertexData));
     }
 
-    return 36;
+    return numFaces * verticesPerFace;
 }
 
-std::size_t CubeMesh::WriteIndices(void*) const
+std::size_t CubeMesh::WriteIndices(void* buffer) const
 {
-    return 0;
+    constexpr std::size_t indicesPerFace = 12;
+    constexpr std::size_t verticesPerFace = 5;
+    constexpr std::size_t numFaces = 6;
+
+    if (buffer != nullptr)
+    {
+        std::uint8_t* indices = static_cast<std::uint8_t*>(buffer);
+
+        const std::uint8_t faceIndexPattern[indicesPerFace] = {
+            0, 1, 4, 1, 2, 4, 2, 3, 4, 3, 0, 4
+        };
+
+        for (std::size_t face = 0; face < numFaces; face++)
+        {
+            std::size_t bufferOffset = face * indicesPerFace;
+            std::size_t indexOffset = face * verticesPerFace;
+
+            std::uint8_t offsetIndices[indicesPerFace];
+            std::memcpy(offsetIndices, faceIndexPattern, sizeof(faceIndexPattern));
+            for (std::size_t i = 0; i < indicesPerFace; i++)
+            {
+                offsetIndices[i] += indexOffset;
+            }
+
+            std::memcpy(&indices[bufferOffset], offsetIndices, sizeof(offsetIndices));
+        }
+
+    }
+
+    return indicesPerFace * numFaces;
 }
 
 } // end namespace ng

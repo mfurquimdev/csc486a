@@ -92,6 +92,11 @@ public:
                 std::make_shared<ng::SceneGraphNode>();
 
         squareNode->Mesh = std::make_shared<ng::SquareMesh>(100.0f);
+        squareNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(squareNode->Mesh);
+        squareNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(squareNode->Mesh);
+        squareNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(squareNode->Mesh);
+        squareNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(squareNode->Mesh);
+
         squareNode->Material = checkeredMaterial;
         squareNode->Transform = ng::translate(100.0f, 100.0f, 0.0f);
         overlayRootNode->Children.push_back(squareNode);
