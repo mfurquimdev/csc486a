@@ -17,7 +17,8 @@ set(COMMON_DIRS
     .
     util
     window
-    rendering)
+    rendering
+    filesystem)
 
 foreach(common_dir ${COMMON_DIRS})
     file(GLOB sources
