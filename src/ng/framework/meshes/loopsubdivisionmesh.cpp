@@ -209,17 +209,8 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
         {
             bool operator()(vec3 x, vec3 y) const
             {
-                // the lowered precision will cause lookup errors
-                // if the subdivision is increased too much.
-                // however, without it, there are tears in the models.
-                // ideally,the precision should somehow be chosen dynamically.
-                constexpr float Precision = 0.000001f;
-
                 return std::lexicographical_compare(
-                    &x[0], &x[0] + 3, &y[0], &y[0] + 3,
-                    [](float a, float b) {
-                        return b - a > Precision;
-                    });
+                    &x[0], &x[0] + 3, &y[0], &y[0] + 3);
             }
         };
 

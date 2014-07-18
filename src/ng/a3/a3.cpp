@@ -16,12 +16,18 @@
 #include "ng/framework/meshes/loopsubdivisionmesh.hpp"
 #include "ng/framework/meshes/implicitsurfacemesh.hpp"
 
+#include "ng/engine/filesystem/filesystem.hpp"
+#include "ng/framework/loaders/objloader.hpp"
+#include "ng/framework/meshes/objmesh.hpp"
+
 #include "ng/framework/util/fixedstepupdate.hpp"
 
 #include <vector>
 
 class A3 : public ng::IApp
 {
+    std::shared_ptr<ng::IFileSystem> mFileSystem;
+
     std::shared_ptr<ng::IWindowManager> mWindowManager;
     std::shared_ptr<ng::IWindow> mWindow;
     std::shared_ptr<ng::IRenderer> mRenderer;
@@ -37,6 +43,8 @@ class A3 : public ng::IApp
 public:
     void Init() override
     {
+        mFileSystem = ng::CreateFileSystem();
+
         mWindowManager = ng::CreateWindowManager();
         mWindow = mWindowManager->CreateWindow("a3", 640, 480, 0, 0, ng::VideoFlags());
         mRenderer = ng::CreateRenderer(mWindowManager, mWindow);
@@ -63,7 +71,11 @@ public:
 //                    0.3f,
 //                    2.0f);
 
-         mCubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
+        // mCubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
+        std::shared_ptr<ng::IReadFile> bunnyFile = mFileSystem->GetReadFile("bunny.obj", ng::FileReadMode::Text);
+        ng::ObjShape shape;
+        ng::LoadObj(shape, *bunnyFile);
+        mCubeNode->Mesh = std::make_shared<ng::ObjMesh>(std::move(shape));
         mCubeNode->Material = wireframeMaterial;
         rootNode->Children.push_back(mCubeNode);
 
@@ -115,7 +127,7 @@ public:
     }
 
 private:
-    ng::vec3 mCameraPosition{1.5f,1.5f,1.5f};
+    ng::vec3 mCameraPosition{0.3f,0.3f,0.3f};
     ng::vec3 mCameraTarget{0.0f,0.0f,0.0f};
 
     void HandleEvent(const ng::WindowEvent& we)
