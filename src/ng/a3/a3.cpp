@@ -71,11 +71,11 @@ public:
 //                    0.3f,
 //                    2.0f);
 
-        // mCubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
-        std::shared_ptr<ng::IReadFile> bunnyFile = mFileSystem->GetReadFile("bunny.obj", ng::FileReadMode::Text);
-        ng::ObjShape shape;
-        ng::LoadObj(shape, *bunnyFile);
-        mCubeNode->Mesh = std::make_shared<ng::ObjMesh>(std::move(shape));
+         mCubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
+//        std::shared_ptr<ng::IReadFile> bunnyFile = mFileSystem->GetReadFile("bunny.obj", ng::FileReadMode::Text);
+//        ng::ObjShape shape;
+//        ng::LoadObj(shape, *bunnyFile);
+//        mCubeNode->Mesh = std::make_shared<ng::ObjMesh>(std::move(shape));
         mCubeNode->Material = wireframeMaterial;
         rootNode->Children.push_back(mCubeNode);
 
@@ -127,7 +127,7 @@ public:
     }
 
 private:
-    ng::vec3 mCameraPosition{0.3f,0.3f,0.3f};
+    ng::vec3 mCameraPosition{1.3f,1.3f,1.3f};
     ng::vec3 mCameraTarget{0.0f,0.0f,0.0f};
 
     void HandleEvent(const ng::WindowEvent& we)
@@ -170,7 +170,7 @@ private:
     {
         // dt = std::chrono::milliseconds(0);
 
-        mCameraPosition = ng::vec3(ng::rotate(3.14f * dt.count() / 1000,
+        mCameraPosition = ng::vec3(ng::rotate4x4(3.14f * dt.count() / 1000,
                                               0.0f, 1.0f, 0.0f)
                                  * ng::vec4(mCameraPosition,1.0f));
 

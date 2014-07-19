@@ -12,11 +12,12 @@ namespace ng
 {
 
 template<class T, std::size_t N>
-struct genType_storage;
+class genType_storage;
 
 template<class T, std::size_t N>
-struct vec : public genType_storage<T,N>
+class vec : public genType_storage<T,N>
 {
+public:
     using genType_storage<T,N>::genType_storage;
 
     constexpr vec() = default;
@@ -194,8 +195,9 @@ bool operator!=(vec<T,N> lhs, vec<T,N> rhs)
 }
 
 template<class T>
-struct genType_storage<T,1>
+class genType_storage<T,1>
 {
+public:
     union {
         T x;
         T r;
@@ -221,8 +223,9 @@ struct genType_storage<T,1>
 };
 
 template<class T>
-struct genType_storage<T,2>
+class genType_storage<T,2>
 {
+public:
     union {
         struct {
             T x,y;
@@ -246,8 +249,9 @@ struct genType_storage<T,2>
 };
 
 template<class T>
-struct genType_storage<T,3>
+class genType_storage<T,3>
 {
+public:
     union {
         struct {
             T x,y,z;
@@ -279,8 +283,9 @@ struct genType_storage<T,3>
 };
 
 template<class T>
-struct genType_storage<T,4>
+class genType_storage<T,4>
 {
+public:
     union {
         struct {
             T x,y,z,w;
@@ -518,8 +523,9 @@ using dvec3 = genDType<3>;
 using dvec4 = genDType<4>;
 
 template<class T, std::size_t C, std::size_t R>
-struct mat_storage
+class mat_storage
 {
+public:
     vec<T,R> e[C];
 
     mat_storage() = default;
@@ -577,8 +583,9 @@ struct mat_storage
 };
 
 template<class T, std::size_t C, std::size_t R>
-struct mat_base : mat_storage<T,C,R>
+class mat_base : public mat_storage<T,C,R>
 {
+public:
     using mat_storage<T,C,R>::mat_storage;
     using mat_storage<T,C,R>::e;
 
@@ -587,8 +594,9 @@ struct mat_base : mat_storage<T,C,R>
 };
 
 template<class T, std::size_t N>
-struct mat_base<T,N,N> : mat_storage<T,N,N>
+class mat_base<T,N,N> : public mat_storage<T,N,N>
 {
+public:
     using mat_storage<T,N,N>::mat_storage;
     using mat_storage<T,N,N>::e;
 
@@ -616,8 +624,9 @@ struct mat_base<T,N,N> : mat_storage<T,N,N>
 };
 
 template<class T, std::size_t C, std::size_t R>
-struct mat : mat_base<T,C,R>
+class mat : public mat_base<T,C,R>
 {
+public:
     using mat_base<T,C,R>::mat_base;
     using mat_base<T,C,R>::e;
 
@@ -804,7 +813,68 @@ mat<T,4,4>>::type inverse(mat<T,4,4> m)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-mat<T,4,4>>::type translate(T x, T y, T z)
+mat<T,3,3>>::type scale3x3(T s)
+{
+    return {
+        { s, 0, 0 },
+        { 0, s, 0 },
+        { 0, 0, s },
+    };
+}
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,3,3>>::type scale3x3(T x, T y, T z)
+{
+    return {
+        { x, 0, 0 },
+        { 0, y, 0 },
+        { 0, 0, z },
+    };
+}
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,3,3>>::type scale3x3(vec<T,3> v)
+{
+   return scale3x3(v.x, v.y, v.z);
+}
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,4,4>>::type scale4x4(T s)
+{
+   return {
+       { s, 0, 0, 0 },
+       { 0, s, 0, 0 },
+       { 0, 0, s, 0 },
+       { 0, 0, 0, 1 }
+   };
+}
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,4,4>>::type scale4x4(T x, T y, T z)
+{
+    return {
+        { x, 0, 0, 0 },
+        { 0, y, 0, 0 },
+        { 0, 0, z, 0 },
+        { 0, 0, 0, 1 }
+    };
+}
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,4,4>>::type scale4x4(vec<T,3> v)
+{
+  return scale4x4(v.x, v.y, v.z);
+}
+
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,4,4>>::type translate4x4(T x, T y, T z)
 {
     return {
         { 1, 0, 0, 0 },
@@ -816,14 +886,14 @@ mat<T,4,4>>::type translate(T x, T y, T z)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-mat<T,4,4>>::type translate(vec<T,3> v)
+mat<T,4,4>>::type translate4x4(vec<T,3> v)
 {
-   return translate(v.x, v.y, v.z);
+   return translate4x4(v.x, v.y, v.z);
 }
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-mat<T,4,4>>::type rotate(T angle, vec<T,3> v)
+mat<T,3,3>>::type rotate3x3(T angle, vec<T,3> v)
 {
     T c = std::cos(angle);
     T s = std::sin(angle);
@@ -832,20 +902,25 @@ mat<T,4,4>>::type rotate(T angle, vec<T,3> v)
     T y = v.y;
     T z = v.z;
     return {
-       { x * x * (1 - c) + c    , y * x * (1 - c) + z * s, x * z * (1 - c) - y * s, 0 },
-       { x * y * (1 - c) - z * s, y * y * (1 - c) + c    , y * z * (1 - c) + x * s, 0 },
-       { x * z * (1 - c) + y * s, y * z * (1 - c) - x * s, z * z * (1 - c) + c    , 0 },
-       { 0                      , 0                      , 0                      , 1 }
+        { x * x * (1 - c) + c    , y * x * (1 - c) + z * s, x * z * (1 - c) - y * s },
+        { x * y * (1 - c) - z * s, y * y * (1 - c) + c    , y * z * (1 - c) + x * s },
+        { x * z * (1 - c) + y * s, y * z * (1 - c) - x * s, z * z * (1 - c) + c     },
     };
 }
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-mat<T,4,4>>::type rotate(T angle, T x, T y, T z)
+mat<T,4,4>>::type rotate4x4(T angle, vec<T,3> v)
 {
-    return rotate(angle, { x, y, z });
+    return mat<T,4,4>(rotate3x3(angle,v));
 }
 
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,4,4>>::type rotate4x4(T angle, T x, T y, T z)
+{
+    return rotate4x4(angle, { x, y, z });
+}
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
