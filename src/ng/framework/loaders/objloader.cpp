@@ -5,6 +5,8 @@
 #include "ng/engine/util/scopeguard.hpp"
 #include "ng/engine/util/debug.hpp"
 
+#include "ng/framework/models/objmodel.hpp"
+
 #include <stdexcept>
 #include <sstream>
 

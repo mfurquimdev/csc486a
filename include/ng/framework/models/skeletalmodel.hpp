@@ -1,5 +1,5 @@
-#ifndef NG_SKELETON_HPP
-#define NG_SKELETON_HPP
+#ifndef NG_JOINTS_HPP
+#define NG_JOINTS_HPP
 
 #include "ng/engine/math/linearalgebra.hpp"
 #include "ng/engine/math/quaternion.hpp"
@@ -10,7 +10,7 @@
 namespace ng
 {
 
-class Joint
+class SkeletonJoint
 {
 public:
     mat4 InverseBindPose;
@@ -20,38 +20,41 @@ public:
     int Parent;
 };
 
-class JointPose
+class SkeletonJointPose
 {
 public:
     Quaternionf Rotation;
     vec3 Translation;
     vec3 Scale{1};
+
+private:
     std::uint8_t Padding[8];
 };
 
-static_assert(sizeof(JointPose) == 12 * sizeof(float),
+static_assert(sizeof(SkeletonJointPose) == 12 * sizeof(float),
               "JointPose should be aligned to vec4 size");
 
-mat4 PoseToMat4(const JointPose& pose);
+mat4 PoseToMat4(const SkeletonJointPose& pose);
 
-void CalculateGlobalPoses(
-        const Joint* joints,
-        const JointPose* localPoses,
+void LocalPosesToGlobalPoses(
+        const SkeletonJoint* joints,
+        const SkeletonJointPose* localPoses,
         std::size_t numJoints,
         mat4* globalPoses);
 
-void CalculateSkinningMatrixPalette(
-        const Joint* joints,
+void GlobalPosesToSkinningMatrices(
+        const SkeletonJoint* joints,
         const mat4* NG_RESTRICT globalPoses,
         std::size_t numJoints,
         mat4* NG_RESTRICT skinningMatrices);
 
-vec3 CalculateCurrentPoseVertex(
+vec3 BindPoseToCurrentPose(
         const mat4* skinningMatrices,
         const float* jointWeights,
+        const std::size_t* skinningIndices,
         std::size_t numJoints,
-        vec4 bindPoseVertex);
+        vec3 bindPoseVertex);
 
 } // end namespace ng
 
-#endif // NG_SKELETON_HPP
+#endif // NG_JOINTS_HPP

@@ -1,19 +1,16 @@
-#ifndef NG_OBJMESH_HPP
-#define NG_OBJMESH_HPP
+#ifndef NG_SKELETALMESH_HPP
+#define NG_SKELETALMESH_HPP
 
 #include "ng/engine/rendering/mesh.hpp"
-#include "ng/framework/models/objmodel.hpp"
+#include "ng/framework/loaders/objloader.hpp"
+#include "ng/framework/models/skeletalmodel.hpp"
 
 namespace ng
 {
 
-class ObjMesh : public IMesh
+class SkeletalMesh : public IMesh
 {
-    const ObjShape mShape;
-
 public:
-    ObjMesh(ObjShape shape);
-
     VertexFormat GetVertexFormat() const override;
 
     std::size_t GetMaxVertexBufferSize() const override;
@@ -25,4 +22,4 @@ public:
 
 } // end namespace ng
 
-#endif // NG_OBJMESH_HPP
+#endif // NG_SKELETALMESH_HPP

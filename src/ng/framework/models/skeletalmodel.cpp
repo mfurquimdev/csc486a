@@ -1,9 +1,9 @@
-#include "ng/framework/skeletal/skeleton.hpp"
+#include "ng/framework/models/skeletalmodel.hpp"
 
 namespace ng
 {
 
-mat4 PoseToMat4(const JointPose& pose)
+mat4 PoseToMat4(const SkeletonJointPose& pose)
 {
     mat3 R(pose.Rotation);
     mat3 S(scale3x3(pose.Scale));
@@ -14,16 +14,16 @@ mat4 PoseToMat4(const JointPose& pose)
     return P;
 }
 
-void CalculateGlobalPoses(
-        const Joint* joints,
-        const JointPose* localPoses,
+void LocalPosesToGlobalPoses(
+        const SkeletonJoint* joints,
+        const SkeletonJointPose* localPoses,
         std::size_t numJoints,
         mat4* globalPoses)
 {
     for (std::size_t j = 0; j < numJoints; j++)
     {
-        const Joint* joint = &joints[j];
-        const JointPose* pose = &localPoses[j];
+        const SkeletonJoint* joint = &joints[j];
+        const SkeletonJointPose* pose = &localPoses[j];
 
         mat4 Pj_M = PoseToMat4(*pose);
         while (joint->Parent != -1)
@@ -39,8 +39,8 @@ void CalculateGlobalPoses(
     }
 }
 
-void CalculateSkinningMatrixPalette(
-        const Joint* joints,
+void GlobalPosesToSkinningMatrices(
+        const SkeletonJoint* joints,
         const mat4* NG_RESTRICT globalPoses,
         std::size_t numJoints,
         mat4* NG_RESTRICT skinningMatrices)
@@ -52,9 +52,10 @@ void CalculateSkinningMatrixPalette(
     }
 }
 
-vec3 CalculateCurrentPoseVertex(
+vec3 BindPoseToCurrentPose(
         const mat4* skinningMatrices,
         const float* jointWeights,
+        const std::size_t* skinningIndices,
         std::size_t numJoints,
         vec3 bindPoseVertex)
 {
@@ -64,7 +65,7 @@ vec3 CalculateCurrentPoseVertex(
     for (std::size_t j = 0; j < numJoints; j++)
     {
         result += jointWeights[j]
-                * (skinningMatrices[j] * bindPose4);
+                * (skinningMatrices[skinningIndices[j]] * bindPose4);
     }
 
     return vec3(result);
