@@ -46,6 +46,12 @@ void CalculateSkinningMatrixPalette(
         std::size_t numJoints,
         mat4* NG_RESTRICT skinningMatrices);
 
+vec3 CalculateCurrentPoseVertex(
+        const mat4* skinningMatrices,
+        const float* jointWeights,
+        std::size_t numJoints,
+        vec4 bindPoseVertex);
+
 } // end namespace ng
 
 #endif // NG_SKELETON_HPP

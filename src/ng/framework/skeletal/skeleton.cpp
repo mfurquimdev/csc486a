@@ -52,4 +52,22 @@ void CalculateSkinningMatrixPalette(
     }
 }
 
+vec3 CalculateCurrentPoseVertex(
+        const mat4* skinningMatrices,
+        const float* jointWeights,
+        std::size_t numJoints,
+        vec3 bindPoseVertex)
+{
+    vec4 bindPose4(bindPoseVertex, 1.0f);
+    vec4 result;
+
+    for (std::size_t j = 0; j < numJoints; j++)
+    {
+        result += jointWeights[j]
+                * (skinningMatrices[j] * bindPose4);
+    }
+
+    return vec3(result);
+}
+
 } // end namespace ng
