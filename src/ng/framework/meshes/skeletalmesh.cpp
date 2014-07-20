@@ -152,12 +152,13 @@ std::size_t SkeletalMesh::WriteVertices(void* buffer) const
                              - pJointWeights[1]
                              - pJointWeights[2]);
 
-                DebugPrintf("Weights: %f %f %f %f\n", weights[0], weights[1], weights[2], weights[3]);
+                //DebugPrintf("Weights: %f %f %f %f\n", weights[0], weights[1], weights[2], weights[3]);
 
                 for (std::size_t j = 0; j < numJointsPerVertex; j++)
                 {
+                    std::uint8_t jointIndex = pJointIndices[j];
                     result += weights[j]
-                            *  (skinningMatrices.at(pJointIndices[j]) * bindPose4);
+                            *  (skinningMatrices.at(jointIndex) * bindPose4);
                 }
 
                 std::memcpy(pfPosition, &result[0],

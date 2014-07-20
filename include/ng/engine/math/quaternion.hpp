@@ -17,7 +17,7 @@ public:
             float angleOfRotationInRadians)
     {
           return {{
-                  axisOfRotation * std::sin(angleOfRotationInRadians / 2),
+                  normalize(axisOfRotation) * std::sin(angleOfRotationInRadians / 2),
                   std::cos(angleOfRotationInRadians / 2)
               }};
     }
@@ -56,9 +56,9 @@ public:
         T z = Components[2];
         T w = Components[3];
         return {
-            1-2*y*y-2*z*z, 2*x*y-2*z*w,   2*x*z+2*y*w,
-            2*x*y+2*z*w,   1-2*x*x-2*z*z, 2*y*z-2*x*w,
-            2*x*z-2*y*w,   2*y*z+2*x*w,   1-2*x*x-2*y*y
+            1-2*y*y-2*z*z, 2*x*y+2*z*w,   2*x*z-2*y*w,
+            2*x*y-2*z*w,   1-2*x*x-2*z*z, 2*y*z+2*x*w,
+            2*x*z+2*y*w,   2*y*z-2*x*w,   1-2*x*x-2*y*y
         };
     }
 };

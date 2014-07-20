@@ -35,10 +35,14 @@ bool TryLoadObj(
     std::vector<std::size_t> negativePositionsToPatch;
     std::vector<std::size_t> negativeTexcoordsToPatch;
     std::vector<std::size_t> negativeNormalsToPatch;
+    std::vector<std::size_t> negativeJointIndicesToPatch;
+    std::vector<std::size_t> negativeJointWeightsToPatch;
 
     int posIndexState = -1;
     int texIndexState = -1;
     int normIndexState = -1;
+    int jointIndexIndexState = -1;
+    int jointWeightIndexState = -1;
 
     for (std::string line; getline(line, objFile); lineno++)
     {
@@ -122,22 +126,69 @@ bool TryLoadObj(
                 return false;
             }
         }
+        else if (command == "ji")
+        {
+            int i;
+            int n;
+            newShape.JointIndices.emplace_back();
+            for (n = 0; ss >> i; n++)
+            {
+                if (n < 4)
+                {
+                    newShape.JointIndices.back()[n] = i;
+                }
+            }
+
+            if (n != 4)
+            {
+                error = "Joint Indices must be 4D";
+                return false;
+            }
+        }
+        else if (command == "jw")
+        {
+            float w;
+            int n;
+            newShape.JointWeights.emplace_back();
+            for (n = 0; ss >> w; n++)
+            {
+                if (n < 3)
+                {
+                    newShape.JointWeights.back()[n] = w;
+                }
+            }
+
+            if (n != 3)
+            {
+                error = "Joint Weights must be 3D";
+                return false;
+            }
+        }
         else if (command == "f")
         {
-            int pidx, tidx, nidx;
+            int pidx, tidx, nidx, jiidx, jwidx;
             bool haspidx = false, hastidx = false, hasnidx = false;
+            bool hasjiidx = false, hasjwidx = false;
 
             int numVertices = 0;
 
             while (ss.peek() != std::stringstream::traits_type::eof())
             {
-                if (!(ss >> pidx))
+                while (std::isspace(ss.peek()))
                 {
-                    error = "Couldn't read position index";
-                    return false;
+                    ss.get();
                 }
 
-                haspidx = true;
+                if (ss.peek() != '/')
+                {
+                    if (!(ss >> pidx))
+                    {
+                        error = "Couldn't read position index";
+                        return false;
+                    }
+
+                    haspidx = true;
+                }
 
                 if (ss.peek() == '/')
                 {
@@ -153,10 +204,14 @@ bool TryLoadObj(
 
                         hastidx = true;
                     }
+                }
 
-                    if (ss.peek() == '/')
+                if (ss.peek() == '/')
+                {
+                    ss.get();
+
+                    if (ss.peek() != '/')
                     {
-                        ss.get();
                         if (!(ss >> nidx))
                         {
                             error = "Couldn't read normal index";
@@ -164,6 +219,38 @@ bool TryLoadObj(
                         }
 
                         hasnidx = true;
+                    }
+                }
+
+                if (ss.peek() == '/')
+                {
+                    ss.get();
+
+                    if (ss.peek() != '/')
+                    {
+                        if (!(ss >> jiidx))
+                        {
+                            error = "Couldn't read joint index index";
+                            return false;
+                        }
+
+                        hasjiidx = true;
+                    }
+                }
+
+                if (ss.peek() == '/')
+                {
+                    ss.get();
+
+                    if (ss.peek() != '/')
+                    {
+                        if (!(ss >> jwidx))
+                        {
+                            error = "Couldn't read joint weight index";
+                            return false;
+                        }
+
+                        hasjwidx = true;
                     }
                 }
 
@@ -200,6 +287,28 @@ bool TryLoadObj(
                     return false;
                 }
 
+                if (jointIndexIndexState == -1)
+                {
+                    jointIndexIndexState = hasjiidx;
+                    newShape.HasJointIndexIndices = hasjiidx;
+                }
+                else if (jointIndexIndexState != hasjiidx)
+                {
+                    error = "Inconsistency in joint index index presence";
+                    return false;
+                }
+
+                if (jointWeightIndexState == -1)
+                {
+                    jointWeightIndexState = hasjwidx;
+                    newShape.HasJointWeightIndices = hasjwidx;
+                }
+                else if (jointWeightIndexState != hasjwidx)
+                {
+                    error = "Inconsistency in joint weight index presence";
+                    return false;
+                }
+
                 if (haspidx)
                 {
                     if (pidx < 0)
@@ -225,6 +334,24 @@ bool TryLoadObj(
                         negativeNormalsToPatch.push_back(newShape.Indices.size());
                     }
                     newShape.Indices.push_back(nidx < 0 ? nidx : nidx - 1);
+                }
+
+                if (hasjiidx)
+                {
+                    if (jiidx < 0)
+                    {
+                        negativeJointIndicesToPatch.push_back(newShape.Indices.size());
+                    }
+                    newShape.Indices.push_back(jiidx < 0 ? jiidx : jiidx - 1);
+                }
+
+                if (hasjwidx)
+                {
+                    if (jwidx < 0)
+                    {
+                        negativeJointWeightsToPatch.push_back(newShape.Indices.size());
+                    }
+                    newShape.Indices.push_back(jwidx < 0 ? jwidx : jwidx - 1);
                 }
 
                 numVertices++;
@@ -274,6 +401,14 @@ bool TryLoadObj(
     for (std::size_t i : negativeNormalsToPatch)
     {
         newShape.Indices[i] = newShape.Normals.size() + newShape.Indices[i];
+    }
+    for (std::size_t i : negativeJointIndicesToPatch)
+    {
+        newShape.Indices[i] = newShape.JointIndices.size() + newShape.Indices[i];
+    }
+    for (std::size_t i : negativeJointWeightsToPatch)
+    {
+        newShape.Indices[i] = newShape.JointWeights.size() + newShape.Indices[i];
     }
 
     shape = std::move(newShape);

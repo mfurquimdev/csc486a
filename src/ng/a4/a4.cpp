@@ -83,7 +83,6 @@ public:
 
         mRobotArmNode = std::make_shared<ng::SceneGraphNode>();
 
-        std::vector<ng::SkeletonJointPose> robotBindPoseJointPoses;
         {
             ng::Skeleton robotSkeleton;
             {
@@ -97,29 +96,42 @@ public:
                 robotSkeleton.Joints[robotSkeleton.Joints.size() - 1].Parent = 1;
             }
 
-            {
-                robotBindPoseJointPoses.emplace_back();
+            // prepare the bind pose
+            mRobotPose.emplace_back();
 
-                robotBindPoseJointPoses.emplace_back();
-                robotBindPoseJointPoses.back().Translation = ng::vec3(0,3,0);
+            mRobotPose.emplace_back();
+            mRobotPose.back().Translation = ng::vec3(0,3,0);
 
-                robotBindPoseJointPoses.emplace_back();
-                robotBindPoseJointPoses.back().Translation = ng::vec3(0,2,0);
-            }
+            mRobotPose.emplace_back();
+            mRobotPose.back().Translation = ng::vec3(0,2,0);
 
-            if (robotBindPoseJointPoses.size() != robotSkeleton.Joints.size())
+            if (mRobotPose.size() != robotSkeleton.Joints.size())
             {
                 throw std::logic_error("Not enough poses for the bind pose");
             }
 
-            ng::CalculateInverseBindPose(robotBindPoseJointPoses.data(),
+            ng::CalculateInverseBindPose(mRobotPose.data(),
                                          robotSkeleton.Joints.data(),
                                          robotSkeleton.Joints.size());
+
+            ng::DebugPrintf("Inverse bind pose matrices:\n");
+            for (std::size_t i = 0; i < robotSkeleton.Joints.size(); i++)
+            {
+                ng::DebugPrintf("Inverse bind pose %d:\n", i);
+
+                for (int c = 0; c < 4; c++)
+                {
+                    for (int r = 0; r < 4; r++)
+                    {
+                        ng::DebugPrintf("%f ", robotSkeleton.Joints[i].InverseBindPose[c][r]);
+                    }
+                    ng::DebugPrintf("\n");
+                }
+            }
+
             mRobotSkeleton =
                     std::make_shared<ng::ImmutableSkeleton>(
                         std::move(robotSkeleton));
-
-            mRobotPose.resize(mRobotSkeleton->GetSkeleton().Joints.size());
         }
 
         {
@@ -134,10 +146,10 @@ public:
                     std::make_shared<ng::ObjMesh>(
                         std::move(robotBindPoseShape));
 
-            mRobotBindPoseMesh =
-                    std::make_shared<ng::NearestJointSkinnedMesh>(
-                        mRobotBindPoseMesh,
-                        mRobotSkeleton);
+//            mRobotBindPoseMesh =
+//                    std::make_shared<ng::NearestJointSkinnedMesh>(
+//                        mRobotBindPoseMesh,
+//                        mRobotSkeleton);
         }
 
         mRobotArmNode->Material = checkeredMaterial;
@@ -200,8 +212,8 @@ public:
     }
 
 private:
-    ng::vec3 mCameraPosition{7.0f,7.0f,7.0f};
-    ng::vec3 mCameraTarget{0.0f,3.0f,0.0f};
+    ng::vec3 mCameraPosition{10.0f,10.0f,10.0f};
+    ng::vec3 mCameraTarget{0.0f,0.0f,0.0f};
 
     void HandleEvent(const ng::WindowEvent&)
     {
@@ -252,8 +264,23 @@ private:
         r += dt.count() / 1000.0f * 1.5f;
 
         // mRobotPose[2].Scale = ng::vec3(1,std::sin(r) + 1, 1);
+        mRobotPose[0].Rotation =
+                ng::Quaternionf::FromAxisAndRotation(ng::vec3(0,0,1), r / 2);
+        mRobotPose[1].Rotation =
+                ng::Quaternionf::FromAxisAndRotation(ng::vec3(0,1,0), r * 2);
         mRobotPose[2].Rotation =
-                ng::Quaternionf::FromAxisAndRotation(ng::vec3(0,0,1), r);
+                ng::Quaternionf::FromAxisAndRotation(ng::vec3(0,0,1), r * 4);
+
+//        ng::mat3 m(mRobotPose[2].Rotation);
+//        ng::vec3 a = m * ng::vec3(1,0,0);
+//        ng::DebugPrintf("M:\n");
+//        for (int c = 0; c < 3; c++) {
+//            for (int r = 0; r < 3; r++) {
+//                ng::DebugPrintf("%f ", m[c][r]);
+//            }
+//            ng::DebugPrintf("\n");
+//        }
+//        ng::DebugPrintf("A: %f %f %f\n", a.x, a.y, a.z);
 
 //        mRobotPose[0].Rotation =
 //                ng::Quaternionf::FromAxisAndRotation(ng::vec3(0,0,1), 0.5f);
@@ -264,9 +291,6 @@ private:
 //        mRobotPose[2].Rotation =
 //                ng::Quaternionf::FromAxisAndRotation(ng::vec3(0,0,1), r);
 
-        ng::SkinningMatrixPalette robotSkinningPalette;
-        robotSkinningPalette.SkinningMatrices.resize(mRobotPose.size());
-
         if (mRobotSkeleton->GetSkeleton().Joints.size() !=
             mRobotPose.size())
         {
@@ -275,17 +299,34 @@ private:
                         "and number of joint poses");
         }
 
-        if (mRobotPose.size() !=
-            robotSkinningPalette.SkinningMatrices.size())
-        {
-            throw std::logic_error(
-                        "Mismatch of number of joint poses "
-                        "and skinning matrices");
-        }
+        std::vector<ng::mat4> globalRobotPoses(mRobotPose.size());
 
         ng::LocalPosesToGlobalPoses(
                     mRobotSkeleton->GetSkeleton().Joints.data(),
                     mRobotPose.data(), mRobotPose.size(),
+                    globalRobotPoses.data());
+
+        ng::DebugPrintf("Global poses:\n");
+        for (std::size_t i = 0; i < globalRobotPoses.size(); i++)
+        {
+            ng::DebugPrintf("global pose %d:\n", i);
+
+            for (int c = 0; c < 4; c++)
+            {
+                for (int r = 0; r < 4; r++)
+                {
+                    ng::DebugPrintf("%f ", globalRobotPoses[i][c][r]);
+                }
+                ng::DebugPrintf("\n");
+            }
+        }
+
+        ng::SkinningMatrixPalette robotSkinningPalette;
+        robotSkinningPalette.SkinningMatrices.resize(mRobotPose.size());
+
+        ng::GlobalPosesToSkinningMatrices(
+                    mRobotSkeleton->GetSkeleton().Joints.data(),
+                    globalRobotPoses.data(), globalRobotPoses.size(),
                     robotSkinningPalette.SkinningMatrices.data());
 
         ng::DebugPrintf("Skinning palette:\n");

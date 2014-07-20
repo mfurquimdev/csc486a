@@ -195,7 +195,7 @@ std::size_t NearestJointSkinnedMesh::WriteVertices(void* buffer) const
                 }
             }
 
-            DebugPrintf("Total: %f\n", total);
+            // DebugPrintf("Total: %f\n", total);
 
             char* weightsLocation =
                     vertexBuffer.get()
@@ -230,7 +230,7 @@ std::size_t NearestJointSkinnedMesh::WriteVertices(void* buffer) const
                 }
             }
 
-            DebugPrintf("Weights: %f %f %f %f\n", weights[0], weights[1], weights[2], weights[3]);
+            // DebugPrintf("Weights: %f %f %f %f\n", weights[0], weights[1], weights[2], weights[3]);
 
             std::memcpy(weightsLocation, &weights, sizeof(float) * 3);
         }
