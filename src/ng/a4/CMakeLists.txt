@@ -7,5 +7,16 @@ file(GLOB_RECURSE SOURCES
 
 include_directories(${NG_INCLUDE_DIR} ${NG_SRC_DIR})
 
-add_executable(a4 ${SOURCES})
+set(ASSETS
+    robotarm.obj)
+
+set_source_files_properties(${ASSETS} PROPERTIES HEADER_FILE_ONLY TRUE)
+
+add_executable(a4 ${SOURCES} ${ASSETS})
 target_link_libraries(a4 engine framework)
+
+foreach(assetFile ${ASSETS})
+    add_custom_target("${assetFile}_export" ALL
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                       ${CMAKE_CURRENT_SOURCE_DIR}/${assetFile} $<TARGET_FILE_DIR:a4>)
+endforeach()

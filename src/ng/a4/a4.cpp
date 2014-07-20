@@ -3,6 +3,9 @@
 #include "ng/engine/window/windowmanager.hpp"
 #include "ng/engine/window/window.hpp"
 #include "ng/engine/window/windowevent.hpp"
+
+#include "ng/engine/filesystem/filesystem.hpp"
+
 #include "ng/engine/rendering/renderer.hpp"
 #include "ng/engine/rendering/scenegraph.hpp"
 #include "ng/engine/rendering/material.hpp"
@@ -15,6 +18,10 @@
 #include "ng/framework/meshes/cubemesh.hpp"
 #include "ng/framework/meshes/squaremesh.hpp"
 #include "ng/framework/meshes/loopsubdivisionmesh.hpp"
+#include "ng/framework/meshes/skeletalmesh.hpp"
+#include "ng/framework/meshes/nearestjointskinnedmesh.hpp"
+#include "ng/framework/models/skeletalmodel.hpp"
+#include "ng/framework/meshes/objmesh.hpp"
 
 #include "ng/framework/textures/checkerboardtexture.hpp"
 
@@ -31,11 +38,16 @@ class A4 : public ng::IApp
     std::shared_ptr<ng::IWindowManager> mWindowManager;
     std::shared_ptr<ng::IWindow> mWindow;
     std::shared_ptr<ng::IRenderer> mRenderer;
+    std::shared_ptr<ng::IFileSystem> mFileSystem;
 
     ng::SceneGraph mScene;
     std::shared_ptr<ng::SceneGraphCameraNode> mMainCamera;
-
     std::shared_ptr<ng::SceneGraphCameraNode> mOverlayCamera;
+
+    std::shared_ptr<ng::SceneGraphNode> mRobotArmNode;
+    std::shared_ptr<ng::ImmutableSkeleton> mRobotSkeleton;
+    std::shared_ptr<ng::IMesh> mRobotBindPoseMesh;
+    std::vector<ng::SkeletonJointPose> mRobotPose;
 
     ng::FixedStepUpdate mFixedStepUpdate{std::chrono::milliseconds(1000/60)};
 
@@ -49,13 +61,15 @@ public:
 
         mRenderer = ng::CreateRenderer(mWindowManager, mWindow);
 
+        mFileSystem = ng::CreateFileSystem();
+
         // setup materials
         ng::Material normalColoredMaterial(ng::MaterialType::NormalColored);
 
         ng::Material checkeredMaterial(ng::MaterialType::Textured);
         checkeredMaterial.Texture0 =
             std::make_shared<ng::CheckerboardTexture>(
-                4*4, 3*4, 1, ng::vec4(1), ng::vec4(0));
+                4, 4, 1, ng::vec4(1), ng::vec4(0));
         checkeredMaterial.Sampler0.MinFilter = ng::TextureFilter::Nearest;
         checkeredMaterial.Sampler0.MagFilter = ng::TextureFilter::Nearest;
         checkeredMaterial.Sampler0.WrapX = ng::TextureWrap::ClampToEdge;
@@ -66,18 +80,67 @@ public:
                 std::make_shared<ng::SceneGraphNode>();
         mScene.Root = rootNode;
 
-        std::shared_ptr<ng::SceneGraphNode> cubeNode =
-                std::make_shared<ng::SceneGraphNode>();
+        mRobotArmNode = std::make_shared<ng::SceneGraphNode>();
 
-        cubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
-        cubeNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(cubeNode->Mesh);
-        cubeNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(cubeNode->Mesh);
-        cubeNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(cubeNode->Mesh);
-        cubeNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(cubeNode->Mesh);
-        cubeNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(cubeNode->Mesh);
-        // cubeNode->Material = normalColoredMaterial;
-        cubeNode->Material = checkeredMaterial;
-        rootNode->Children.push_back(cubeNode);
+        std::vector<ng::SkeletonJointPose> robotBindPoseJointPoses;
+        {
+            ng::Skeleton robotSkeleton;
+            {
+                robotSkeleton.Joints.emplace_back();
+                robotSkeleton.Joints.back().Parent = ng::SkeletonJoint::RootJointIndex;
+
+                robotSkeleton.Joints.emplace_back();
+                robotSkeleton.Joints[robotSkeleton.Joints.size() - 1].Parent = 0;
+
+                robotSkeleton.Joints.emplace_back();
+                robotSkeleton.Joints[robotSkeleton.Joints.size() - 1].Parent = 1;
+            }
+
+            {
+                robotBindPoseJointPoses.emplace_back();
+
+                robotBindPoseJointPoses.emplace_back();
+                robotBindPoseJointPoses.back().Translation = ng::vec3(0,3,0);
+
+                robotBindPoseJointPoses.emplace_back();
+                robotBindPoseJointPoses.back().Translation = ng::vec3(0,5,0);
+            }
+
+            if (robotBindPoseJointPoses.size() != robotSkeleton.Joints.size())
+            {
+                throw std::logic_error("Not enough poses for the bind pose");
+            }
+
+            ng::CalculateInverseBindPose(robotBindPoseJointPoses.data(),
+                                         robotSkeleton.Joints.data(),
+                                         robotSkeleton.Joints.size());
+            mRobotSkeleton =
+                    std::make_shared<ng::ImmutableSkeleton>(
+                        std::move(robotSkeleton));
+
+            mRobotPose.resize(mRobotSkeleton->GetSkeleton().Joints.size());
+        }
+
+        {
+            ng::ObjShape robotBindPoseShape;
+            std::shared_ptr<ng::IReadFile> robotBindPoseFile =
+                    mFileSystem->GetReadFile("robotarm.obj",
+                                             ng::FileReadMode::Text);
+
+            ng::LoadObj(robotBindPoseShape, *robotBindPoseFile);
+
+            mRobotBindPoseMesh =
+                    std::make_shared<ng::ObjMesh>(
+                        std::move(robotBindPoseShape));
+
+            mRobotBindPoseMesh =
+                    std::make_shared<ng::NearestJointSkinnedMesh>(
+                        mRobotBindPoseMesh,
+                        mRobotSkeleton);
+        }
+
+        mRobotArmNode->Material = checkeredMaterial;
+        rootNode->Children.push_back(mRobotArmNode);
 
         mMainCamera = std::make_shared<ng::SceneGraphCameraNode>();
         rootNode->Children.push_back(mMainCamera);
@@ -88,22 +151,11 @@ public:
                 std::make_shared<ng::SceneGraphNode>();
         mScene.OverlayRoot = overlayRootNode;
 
-        std::shared_ptr<ng::SceneGraphNode> squareNode =
-                std::make_shared<ng::SceneGraphNode>();
-
-        squareNode->Mesh = std::make_shared<ng::SquareMesh>(100.0f);
-        squareNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(squareNode->Mesh);
-        squareNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(squareNode->Mesh);
-        squareNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(squareNode->Mesh);
-        squareNode->Mesh = std::make_shared<ng::LoopSubdivisionMesh>(squareNode->Mesh);
-
-        squareNode->Material = checkeredMaterial;
-        squareNode->Transform = ng::translate4x4(100.0f, 100.0f, 0.0f);
-        overlayRootNode->Children.push_back(squareNode);
-
         mOverlayCamera = std::make_shared<ng::SceneGraphCameraNode>();
         overlayRootNode->Children.push_back(mOverlayCamera);
         mScene.OverlayActiveCameras.push_back(mOverlayCamera);
+
+        Update(std::chrono::milliseconds(0));
     }
 
     ng::AppStepAction Step() override
@@ -147,8 +199,8 @@ public:
     }
 
 private:
-    ng::vec3 mCameraPosition{1.5f,1.5f,1.5f};
-    ng::vec3 mCameraTarget{0.0f,0.0f,0.0f};
+    ng::vec3 mCameraPosition{7.0f,7.0f,7.0f};
+    ng::vec3 mCameraTarget{0.0f,3.0f,0.0f};
 
     void HandleEvent(const ng::WindowEvent&)
     {
@@ -193,6 +245,45 @@ private:
     {
         UpdateCameraToWindow();
         UpdateCameraTransform(dt);
+
+        mRobotPose[1].Rotation =
+                ng::Quaternionf::FromAxisAndRotation(
+                    ng::vec3(0,0,1), 1.5f);
+
+
+        ng::SkinningMatrixPalette robotSkinningPalette;
+        robotSkinningPalette.SkinningMatrices.resize(mRobotPose.size());
+
+        if (mRobotSkeleton->GetSkeleton().Joints.size() !=
+            mRobotPose.size())
+        {
+            throw std::logic_error(
+                        "Mismatch of number of joints "
+                        "and number of joint poses");
+        }
+
+        if (mRobotPose.size() !=
+            robotSkinningPalette.SkinningMatrices.size())
+        {
+            throw std::logic_error(
+                        "Mismatch of number of joint poses "
+                        "and skinning matrices");
+        }
+
+        ng::LocalPosesToGlobalPoses(
+                    mRobotSkeleton->GetSkeleton().Joints.data(),
+                    mRobotPose.data(), mRobotPose.size(),
+                    robotSkinningPalette.SkinningMatrices.data());
+
+        std::shared_ptr<ng::ImmutableSkinningMatrixPalette>
+                immutableRobotSkinningPalette =
+                    std::make_shared<ng::ImmutableSkinningMatrixPalette>(
+                        std::move(robotSkinningPalette));
+
+        mRobotArmNode->Mesh =
+                std::make_shared<ng::SkeletalMesh>(
+                    mRobotBindPoseMesh,
+                    immutableRobotSkinningPalette);
     }
 };
 

@@ -3,14 +3,24 @@
 
 #include "ng/engine/rendering/mesh.hpp"
 #include "ng/framework/loaders/objloader.hpp"
-#include "ng/framework/models/skeletalmodel.hpp"
+
+#include <memory>
 
 namespace ng
 {
 
+class ImmutableSkinningMatrixPalette;
+
 class SkeletalMesh : public IMesh
 {
+    std::shared_ptr<IMesh> mBindPoseMesh;
+    std::shared_ptr<ImmutableSkinningMatrixPalette> mSkinningPalette;
+
 public:
+    SkeletalMesh(
+            std::shared_ptr<IMesh> bindPoseMesh,
+            std::shared_ptr<ImmutableSkinningMatrixPalette> skinningPalette);
+
     VertexFormat GetVertexFormat() const override;
 
     std::size_t GetMaxVertexBufferSize() const override;

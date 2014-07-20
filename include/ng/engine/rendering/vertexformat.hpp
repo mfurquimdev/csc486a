@@ -35,10 +35,14 @@ public:
 
 class VertexFormat
 {
-public:
-    VertexAttribute Position;
-    VertexAttribute Normal;
-    VertexAttribute TexCoord0;
+public:  
+    VertexAttribute Position;  // usually 2-4 floats
+    VertexAttribute Normal;    // usually 3 floats
+    VertexAttribute TexCoord0; // usually 2-3 floats
+
+    // for skeletal meshes
+    VertexAttribute JointIndices; // usually 4 unsigned bytes
+    VertexAttribute JointWeights; // usually 3 floats (4th is calculated)
 
     bool IsIndexed = false;
     ArithmeticType IndexType;

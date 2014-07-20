@@ -21,6 +21,19 @@ LoopSubdivisionMesh::LoopSubdivisionMesh(
     {
         throw std::logic_error("Cannot subdivide null mesh");
     }
+
+    VertexFormat baseFmt = mMeshToSubdivide->GetVertexFormat();
+
+    if (baseFmt.Position.Enabled == false)
+    {
+        throw std::logic_error("Cannot subdivide mesh without position");
+    }
+
+    if (baseFmt.Position.Cardinality > 3)
+    {
+        throw std::logic_error(
+            "Can only subdivide with position cardinality <= 3");
+    }
 }
 
 static std::vector<std::reference_wrapper<VertexAttribute>>
@@ -104,25 +117,16 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
     VertexFormat fmt = GetVertexFormat();
     VertexFormat baseFmt = mMeshToSubdivide->GetVertexFormat();
 
-    if (baseFmt.Position.Enabled == false)
-    {
-        throw std::logic_error("Cannot subdivide mesh without position");
-    }
-
-    if (baseFmt.Position.Cardinality > 3)
-    {
-        throw std::logic_error(
-            "Can only subdivide with position cardinality <= 3");
-    }
-
     std::unique_ptr<char[]> baseVertices;
     std::size_t numBaseVertices = 0;
-    if (mMeshToSubdivide->GetMaxVertexBufferSize() > 0)
+    std::size_t maxBaseVertexBufferSize =
+        mMeshToSubdivide->GetMaxVertexBufferSize();
+
+    if (maxBaseVertexBufferSize > 0)
     {
-        if (buffer)
+        if (buffer != nullptr)
         {
-            baseVertices.reset(
-                new char[mMeshToSubdivide->GetMaxVertexBufferSize()]);
+            baseVertices.reset(new char[maxBaseVertexBufferSize]);
         }
 
         numBaseVertices = mMeshToSubdivide->WriteVertices(baseVertices.get());
@@ -130,12 +134,14 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
 
     std::unique_ptr<char[]> baseIndices;
     std::size_t numBaseIndices = 0;
-    if (mMeshToSubdivide->GetMaxIndexBufferSize() > 0)
+    std::size_t maxBaseIndexBufferSize =
+        mMeshToSubdivide->GetMaxIndexBufferSize();
+
+    if (maxBaseIndexBufferSize > 0)
     {
-        if (buffer)
+        if (buffer != nullptr)
         {
-            baseIndices.reset(
-                        new char[mMeshToSubdivide->GetMaxIndexBufferSize()]);
+            baseIndices.reset(new char[maxBaseIndexBufferSize]);
         }
 
         numBaseIndices = mMeshToSubdivide->WriteIndices(baseIndices.get());
