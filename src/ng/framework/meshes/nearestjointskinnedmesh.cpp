@@ -1,6 +1,8 @@
 #include "ng/framework/meshes/nearestjointskinnedmesh.hpp"
 #include "ng/framework/models/skeletalmodel.hpp"
 
+#include "ng/engine/util/debug.hpp"
+
 #include <cstring>
 
 namespace ng
@@ -142,12 +144,10 @@ std::size_t NearestJointSkinnedMesh::WriteVertices(void* buffer) const
 
         for (std::size_t v = 0; v < numBaseVertices; v++)
         {
-            std::uint8_t closestVertices[4] = { 0, 0, 0, 0 };
-            vec4 distanceSquaredToVertices(std::numeric_limits<float>::max());
+            std::vector<std::pair<std::uint8_t,float>> distanceSquaredToJoints;
 
-            float furthestDistanceSquared = std::numeric_limits<float>::max();
-
-            float* pPosition = reinterpret_cast<float*>(
+            float* pPosition =
+                    reinterpret_cast<float*>(
                           vertexBuffer.get()
                         + fmt.Position.Offset
                         + fmt.Position.Stride * v);
@@ -158,60 +158,81 @@ std::size_t NearestJointSkinnedMesh::WriteVertices(void* buffer) const
 
             for (std::size_t j = 0; j < numJoints; j++)
             {
-                float distanceSquared = dot(jointPositions[j], position);
-
-                if (distanceSquared < furthestDistanceSquared)
-                {
-                    std::size_t furthestIndex = 0;
-                    std::size_t numFurthestIndices = 0;
-                    for (std::size_t k = 0; k < 4; k++)
-                    {
-                        if (distanceSquaredToVertices[k] ==
-                            furthestDistanceSquared)
-                        {
-                            furthestIndex = k;
-                            numFurthestIndices++;
-                        }
-                    }
-
-                    if (numFurthestIndices == 1)
-                    {
-                        furthestDistanceSquared = distanceSquared;
-                    }
-
-                    distanceSquaredToVertices[furthestIndex] = distanceSquared;
-                    closestVertices[furthestIndex] = j;
-                }
+                vec3 delta = jointPositions[j] - position;
+                float distanceSquared = dot(delta, delta);
+                distanceSquaredToJoints.emplace_back(j, distanceSquared);
             }
+
+            std::sort(distanceSquaredToJoints.begin(),
+                      distanceSquaredToJoints.end(),
+                      [](std::pair<std::uint8_t,float> a,
+                         std::pair<std::uint8_t,float> b)
+            {
+                return a.second < b.second;
+            });
 
             char* indicesLocation =
                     vertexBuffer.get()
                   + fmt.JointIndices.Offset
                   + fmt.JointIndices.Stride * v;
 
-            std::memcpy(indicesLocation, &closestVertices[0],
-                    sizeof(std::uint8_t) * 4);
+            std::uint8_t* indices =
+                    reinterpret_cast<std::uint8_t*>(
+                        indicesLocation);
 
-            float total = std::accumulate(
-                        &distanceSquaredToVertices[0],
-                        &distanceSquaredToVertices[3] + 1,
-                        0.0f);
-
-            vec4 weights = distanceSquaredToVertices / total;
-            weights = vec4(1) - weights;
-            float len = length(weights);
-            if (len != 0.0f)
+            float total = 0.0f;
+            for (std::size_t i = 0; i < 4; i++)
             {
-                weights = weights / len;
+                if (i < distanceSquaredToJoints.size())
+                {
+                    indices[i] = distanceSquaredToJoints[i].first;
+
+                    total += distanceSquaredToJoints[i].second;
+                }
+                else
+                {
+                    indices[i] = 0;
+                }
             }
+
+            DebugPrintf("Total: %f\n", total);
 
             char* weightsLocation =
                     vertexBuffer.get()
                   + fmt.JointWeights.Offset
                   + fmt.JointWeights.Stride * v;
 
-            std::memcpy(weightsLocation, &weights,
-                        sizeof(float) * 3);
+            float toTotal[4];
+            float toTotalTotal = 0.0f;
+            for (std::size_t i = 0; i < 4; i++)
+            {
+                if (i < distanceSquaredToJoints.size())
+                {
+                    toTotal[i] = total - distanceSquaredToJoints[i].second;
+                }
+                else
+                {
+                    toTotal[i] = 0.0f;
+                }
+                toTotalTotal += toTotal[i];
+            }
+
+            vec4 weights;
+            for (std::size_t i = 0; i < 4; i++)
+            {
+                if (i < distanceSquaredToJoints.size())
+                {
+                    weights[i] = toTotal[i] / toTotalTotal;
+                }
+                else
+                {
+                    weights[i] = 0.0f;
+                }
+            }
+
+            DebugPrintf("Weights: %f %f %f %f\n", weights[0], weights[1], weights[2], weights[3]);
+
+            std::memcpy(weightsLocation, &weights, sizeof(float) * 3);
         }
 
         std::memcpy(buffer, vertexBuffer.get(), maxVertexBufferSize);

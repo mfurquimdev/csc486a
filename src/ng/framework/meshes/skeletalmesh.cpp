@@ -152,13 +152,15 @@ std::size_t SkeletalMesh::WriteVertices(void* buffer) const
                              - pJointWeights[1]
                              - pJointWeights[2]);
 
+                DebugPrintf("Weights: %f %f %f %f\n", weights[0], weights[1], weights[2], weights[3]);
+
                 for (std::size_t j = 0; j < numJointsPerVertex; j++)
                 {
                     result += weights[j]
                             *  (skinningMatrices.at(pJointIndices[j]) * bindPose4);
                 }
 
-                std::memcpy(pfPosition, &bindPose4[0],
+                std::memcpy(pfPosition, &result[0],
                           clampedPositionCardinality
                         * SizeOfArithmeticType(baseFmt.Position.Type));
             }

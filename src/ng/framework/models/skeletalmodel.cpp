@@ -1,5 +1,7 @@
 #include "ng/framework/models/skeletalmodel.hpp"
 
+#include "ng/engine/util/debug.hpp"
+
 namespace ng
 {
 

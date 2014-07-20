@@ -14,6 +14,7 @@
 
 #include "ng/engine/util/memory.hpp"
 #include "ng/engine/util/scopeguard.hpp"
+#include "ng/engine/util/debug.hpp"
 
 #include "ng/framework/meshes/cubemesh.hpp"
 #include "ng/framework/meshes/squaremesh.hpp"
@@ -103,7 +104,7 @@ public:
                 robotBindPoseJointPoses.back().Translation = ng::vec3(0,3,0);
 
                 robotBindPoseJointPoses.emplace_back();
-                robotBindPoseJointPoses.back().Translation = ng::vec3(0,5,0);
+                robotBindPoseJointPoses.back().Translation = ng::vec3(0,2,0);
             }
 
             if (robotBindPoseJointPoses.size() != robotSkeleton.Joints.size())
@@ -230,7 +231,7 @@ private:
 
     void UpdateCameraTransform(std::chrono::milliseconds dt)
     {
-        // dt = std::chrono::milliseconds(0);
+        dt = std::chrono::milliseconds(0);
 
         mCameraPosition = ng::vec3(ng::rotate4x4(3.14f * dt.count() / 1000,
                                               0.0f, 1.0f, 0.0f)
@@ -246,10 +247,22 @@ private:
         UpdateCameraToWindow();
         UpdateCameraTransform(dt);
 
-        mRobotPose[1].Rotation =
-                ng::Quaternionf::FromAxisAndRotation(
-                    ng::vec3(0,0,1), 1.5f);
+        static float r = 0.0f;
 
+        r += dt.count() / 1000.0f * 1.5f;
+
+        // mRobotPose[2].Scale = ng::vec3(1,std::sin(r) + 1, 1);
+        mRobotPose[2].Rotation =
+                ng::Quaternionf::FromAxisAndRotation(ng::vec3(0,0,1), r);
+
+//        mRobotPose[0].Rotation =
+//                ng::Quaternionf::FromAxisAndRotation(ng::vec3(0,0,1), 0.5f);
+
+//        mRobotPose[1].Rotation =
+//                ng::Quaternionf::FromAxisAndRotation(ng::vec3(0,0,1), -1.0f);
+
+//        mRobotPose[2].Rotation =
+//                ng::Quaternionf::FromAxisAndRotation(ng::vec3(0,0,1), r);
 
         ng::SkinningMatrixPalette robotSkinningPalette;
         robotSkinningPalette.SkinningMatrices.resize(mRobotPose.size());
@@ -274,6 +287,21 @@ private:
                     mRobotSkeleton->GetSkeleton().Joints.data(),
                     mRobotPose.data(), mRobotPose.size(),
                     robotSkinningPalette.SkinningMatrices.data());
+
+        ng::DebugPrintf("Skinning palette:\n");
+        for (std::size_t i = 0; i < robotSkinningPalette.SkinningMatrices.size(); i++)
+        {
+            ng::DebugPrintf("Palette %d:\n", i);
+
+            for (int c = 0; c < 4; c++)
+            {
+                for (int r = 0; r < 4; r++)
+                {
+                    ng::DebugPrintf("%f ", robotSkinningPalette.SkinningMatrices[i][c][r]);
+                }
+                ng::DebugPrintf("\n");
+            }
+        }
 
         std::shared_ptr<ng::ImmutableSkinningMatrixPalette>
                 immutableRobotSkinningPalette =
