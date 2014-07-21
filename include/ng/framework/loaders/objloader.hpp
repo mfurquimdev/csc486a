@@ -6,16 +6,16 @@
 namespace ng
 {
 
-class ObjShape;
+class ObjModel;
 class IReadFile;
 
 bool TryLoadObj(
-        ObjShape& shape,
+        ObjModel& model,
         IReadFile& objFile,
         std::string& error);
 
 void LoadObj(
-        ObjShape& shape,
+        ObjModel& model,
         IReadFile& objFile);
 
 } // end namespace ng

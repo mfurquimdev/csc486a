@@ -9,10 +9,10 @@ namespace ng
 
 class ObjMesh : public IMesh
 {
-    const ObjShape mShape;
+    const ObjModel mShape;
 
 public:
-    ObjMesh(ObjShape shape);
+    ObjMesh(ObjModel shape);
 
     VertexFormat GetVertexFormat() const override;
 

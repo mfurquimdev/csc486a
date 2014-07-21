@@ -135,7 +135,7 @@ public:
         }
 
         {
-            ng::ObjShape robotBindPoseShape;
+            ng::ObjModel robotBindPoseShape;
             std::shared_ptr<ng::IReadFile> robotBindPoseFile =
                     mFileSystem->GetReadFile("robotarm.obj",
                                              ng::FileReadMode::Text);

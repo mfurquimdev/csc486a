@@ -14,13 +14,13 @@ namespace ng
 {
 
 bool TryLoadObj(
-        ObjShape& shape,
+        ObjModel& model,
         IReadFile& objFile,
         std::string& error)
 {
     error.clear();
 
-    ObjShape newShape;
+    ObjModel newShape;
 
     int lineno = 1;
 
@@ -411,16 +411,16 @@ bool TryLoadObj(
         newShape.Indices[i] = newShape.JointWeights.size() + newShape.Indices[i];
     }
 
-    shape = std::move(newShape);
+    model = std::move(newShape);
     return true;
 }
 
 void LoadObj(
-        ObjShape& shape,
+        ObjModel& model,
         IReadFile& objFile)
 {
     std::string error;
-    if (!TryLoadObj(shape, objFile, error))
+    if (!TryLoadObj(model, objFile, error))
     {
         throw std::runtime_error(error);
     }

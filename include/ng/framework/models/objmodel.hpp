@@ -9,7 +9,7 @@
 namespace ng
 {
 
-class ObjShape
+class ObjModel
 {
 public:
     std::string Name;
@@ -42,7 +42,6 @@ public:
              + int(HasJointWeightIndices);
     }
 };
-
 
 } // end namespace ng
 

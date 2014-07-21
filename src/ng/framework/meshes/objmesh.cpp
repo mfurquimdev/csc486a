@@ -7,7 +7,7 @@
 namespace ng
 {
 
-ObjMesh::ObjMesh(ObjShape shape)
+ObjMesh::ObjMesh(ObjModel shape)
     : mShape(std::move(shape))
 {
     if (mShape.VerticesPerFace != 3)
@@ -17,7 +17,7 @@ ObjMesh::ObjMesh(ObjShape shape)
     }
 }
 
-static std::size_t GetVertexSize(const ObjShape& shape)
+static std::size_t GetVertexSize(const ObjModel& shape)
 {
     std::size_t vertexSize = 0;
 
