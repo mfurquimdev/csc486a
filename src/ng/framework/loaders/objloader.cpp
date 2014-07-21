@@ -18,9 +18,9 @@ bool TryLoadObj(
         IReadFile& objFile,
         std::string& error)
 {
-    error.clear();
-
     ObjModel newShape;
+
+    error.clear();
 
     int lineno = 1;
 
@@ -35,14 +35,10 @@ bool TryLoadObj(
     std::vector<std::size_t> negativePositionsToPatch;
     std::vector<std::size_t> negativeTexcoordsToPatch;
     std::vector<std::size_t> negativeNormalsToPatch;
-    std::vector<std::size_t> negativeJointIndicesToPatch;
-    std::vector<std::size_t> negativeJointWeightsToPatch;
 
     int posIndexState = -1;
     int texIndexState = -1;
     int normIndexState = -1;
-    int jointIndexIndexState = -1;
-    int jointWeightIndexState = -1;
 
     for (std::string line; getline(line, objFile); lineno++)
     {
@@ -82,13 +78,13 @@ bool TryLoadObj(
             newShape.Positions.emplace_back();
             for (n = 0; ss >> f; n++)
             {
-                if (n < 3)
+                if (n < 4)
                     newShape.Positions.back()[n] = f;
             }
 
-            if (n != 3)
+            if (n < 3 || n > 4)
             {
-                error = "Positions must be 3D";
+                error = "Positions must be 3D or 4D";
                 return false;
             }
         }
@@ -99,13 +95,13 @@ bool TryLoadObj(
             newShape.Texcoords.emplace_back();
             for (n = 0; ss >> f; n++)
             {
-                if (n < 2)
+                if (n < 3)
                     newShape.Texcoords.back()[n] = f;
             }
 
-            if (n != 2)
+            if (n < 2 || n > 3)
             {
-                error = "Texcoords must be 2D";
+                error = "Texcoords must be 2D or 3D";
                 return false;
             }
         }
@@ -126,49 +122,10 @@ bool TryLoadObj(
                 return false;
             }
         }
-        else if (command == "ji")
-        {
-            int i;
-            int n;
-            newShape.JointIndices.emplace_back();
-            for (n = 0; ss >> i; n++)
-            {
-                if (n < 4)
-                {
-                    newShape.JointIndices.back()[n] = i;
-                }
-            }
-
-            if (n != 4)
-            {
-                error = "Joint Indices must be 4D";
-                return false;
-            }
-        }
-        else if (command == "jw")
-        {
-            float w;
-            int n;
-            newShape.JointWeights.emplace_back();
-            for (n = 0; ss >> w; n++)
-            {
-                if (n < 3)
-                {
-                    newShape.JointWeights.back()[n] = w;
-                }
-            }
-
-            if (n != 3)
-            {
-                error = "Joint Weights must be 3D";
-                return false;
-            }
-        }
         else if (command == "f")
         {
-            int pidx, tidx, nidx, jiidx, jwidx;
+            int pidx, tidx, nidx;
             bool haspidx = false, hastidx = false, hasnidx = false;
-            bool hasjiidx = false, hasjwidx = false;
 
             int numVertices = 0;
 
@@ -222,44 +179,12 @@ bool TryLoadObj(
                     }
                 }
 
-                if (ss.peek() == '/')
-                {
-                    ss.get();
-
-                    if (ss.peek() != '/')
-                    {
-                        if (!(ss >> jiidx))
-                        {
-                            error = "Couldn't read joint index index";
-                            return false;
-                        }
-
-                        hasjiidx = true;
-                    }
-                }
-
-                if (ss.peek() == '/')
-                {
-                    ss.get();
-
-                    if (ss.peek() != '/')
-                    {
-                        if (!(ss >> jwidx))
-                        {
-                            error = "Couldn't read joint weight index";
-                            return false;
-                        }
-
-                        hasjwidx = true;
-                    }
-                }
-
                 if (posIndexState == -1)
                 {
                     posIndexState = haspidx;
                     newShape.HasPositionIndices = haspidx;
                 }
-                else if (posIndexState != haspidx)
+                else if (posIndexState != int(haspidx))
                 {
                     error = "Inconsistency in position index presence";
                     return false;
@@ -270,7 +195,7 @@ bool TryLoadObj(
                     texIndexState = hastidx;
                     newShape.HasTexcoordIndices = hastidx;
                 }
-                else if (texIndexState != hastidx)
+                else if (texIndexState != int(hastidx))
                 {
                     error = "Inconsistency in texcoord index presence";
                     return false;
@@ -281,31 +206,9 @@ bool TryLoadObj(
                     normIndexState = hasnidx;
                     newShape.HasNormalIndices = hasnidx;
                 }
-                else if (normIndexState != hasnidx)
+                else if (normIndexState != int(hasnidx))
                 {
                     error = "Inconsistency in normal index presence";
-                    return false;
-                }
-
-                if (jointIndexIndexState == -1)
-                {
-                    jointIndexIndexState = hasjiidx;
-                    newShape.HasJointIndexIndices = hasjiidx;
-                }
-                else if (jointIndexIndexState != hasjiidx)
-                {
-                    error = "Inconsistency in joint index index presence";
-                    return false;
-                }
-
-                if (jointWeightIndexState == -1)
-                {
-                    jointWeightIndexState = hasjwidx;
-                    newShape.HasJointWeightIndices = hasjwidx;
-                }
-                else if (jointWeightIndexState != hasjwidx)
-                {
-                    error = "Inconsistency in joint weight index presence";
                     return false;
                 }
 
@@ -315,7 +218,7 @@ bool TryLoadObj(
                     {
                         negativePositionsToPatch.push_back(newShape.Indices.size());
                     }
-                    newShape.Indices.push_back(pidx < 0 ? pidx : pidx - 1);
+                    newShape.Indices.push_back(pidx);
                 }
 
                 if (hastidx)
@@ -324,7 +227,7 @@ bool TryLoadObj(
                     {
                         negativeTexcoordsToPatch.push_back(newShape.Indices.size());
                     }
-                    newShape.Indices.push_back(tidx < 0 ? tidx : tidx - 1);
+                    newShape.Indices.push_back(tidx);
                 }
 
                 if (hasnidx)
@@ -333,25 +236,7 @@ bool TryLoadObj(
                     {
                         negativeNormalsToPatch.push_back(newShape.Indices.size());
                     }
-                    newShape.Indices.push_back(nidx < 0 ? nidx : nidx - 1);
-                }
-
-                if (hasjiidx)
-                {
-                    if (jiidx < 0)
-                    {
-                        negativeJointIndicesToPatch.push_back(newShape.Indices.size());
-                    }
-                    newShape.Indices.push_back(jiidx < 0 ? jiidx : jiidx - 1);
-                }
-
-                if (hasjwidx)
-                {
-                    if (jwidx < 0)
-                    {
-                        negativeJointWeightsToPatch.push_back(newShape.Indices.size());
-                    }
-                    newShape.Indices.push_back(jwidx < 0 ? jwidx : jwidx - 1);
+                    newShape.Indices.push_back(nidx);
                 }
 
                 numVertices++;
@@ -359,6 +244,12 @@ bool TryLoadObj(
 
             if (newShape.VerticesPerFace == 0)
             {
+                if (numVertices < 3 || numVertices > 4)
+                {
+                    error = "Faces must be triangles or quads";
+                    return false;
+                }
+
                 newShape.VerticesPerFace = numVertices;
             }
             else if (newShape.VerticesPerFace != numVertices)
@@ -369,6 +260,12 @@ bool TryLoadObj(
         }
         else if (command == "g")
         {
+            if (newShape.Name.length() > 0)
+            {
+                error = "Doesn't handle multiple group names";
+                return false;
+            }
+
             if (!(ss >> newShape.Name))
             {
                 error = "Couldn't get group name";
@@ -392,23 +289,71 @@ bool TryLoadObj(
     // patch negative indices
     for (std::size_t i : negativePositionsToPatch)
     {
-        newShape.Indices[i] = newShape.Positions.size() + newShape.Indices[i];
+        newShape.Indices[i] = newShape.Positions.size() + newShape.Indices[i] + 1;
     }
+
     for (std::size_t i : negativeTexcoordsToPatch)
     {
-        newShape.Indices[i] = newShape.Texcoords.size() + newShape.Indices[i];
+        newShape.Indices[i] = newShape.Texcoords.size() + newShape.Indices[i] + 1;
     }
+
     for (std::size_t i : negativeNormalsToPatch)
     {
-        newShape.Indices[i] = newShape.Normals.size() + newShape.Indices[i];
+        newShape.Indices[i] = newShape.Normals.size() + newShape.Indices[i] + 1;
     }
-    for (std::size_t i : negativeJointIndicesToPatch)
+
+    // perform bounds-checking
+    int indicesPerVertex = int(newShape.HasPositionIndices)
+                         + int(newShape.HasTexcoordIndices)
+                         + int(newShape.HasNormalIndices);
+
+    int indexOffset = 0;
+
+    if (newShape.HasPositionIndices)
     {
-        newShape.Indices[i] = newShape.JointIndices.size() + newShape.Indices[i];
+        for (std::size_t i = indexOffset;
+             i < newShape.Indices.size();
+             i += indicesPerVertex)
+        {
+            if (std::size_t(newShape.Indices[i]) > newShape.Positions.size())
+            {
+                error = "Position index out of bounds";
+                return false;
+            }
+        }
+        indexOffset += 1;
     }
-    for (std::size_t i : negativeJointWeightsToPatch)
+
+    if (newShape.HasTexcoordIndices)
     {
-        newShape.Indices[i] = newShape.JointWeights.size() + newShape.Indices[i];
+        for (std::size_t i = indexOffset;
+             i < newShape.Indices.size();
+             i += indicesPerVertex)
+        {
+            if (std::size_t(newShape.Indices[i]) > newShape.Texcoords.size())
+            {
+                error = "Texcoord index out of bounds";
+                return false;
+            }
+        }
+
+        indexOffset += 1;
+    }
+
+    if (newShape.HasNormalIndices)
+    {
+        for (std::size_t i = indexOffset;
+             i < newShape.Indices.size();
+             i += indicesPerVertex)
+        {
+            if (std::size_t(newShape.Indices[i]) > newShape.Normals.size())
+            {
+                error = "Normal index out of bounds";
+                return false;
+            }
+        }
+
+        indexOffset += 1;
     }
 
     model = std::move(newShape);

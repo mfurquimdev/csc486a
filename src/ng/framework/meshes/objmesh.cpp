@@ -23,25 +23,15 @@ static std::size_t GetVertexSize(const ObjModel& shape)
 
     if (shape.HasPositionIndices)
     {
-        vertexSize += 3 * sizeof(float);
+        vertexSize += 4 * sizeof(float);
     }
 
     if (shape.HasTexcoordIndices)
     {
-        vertexSize += 2 * sizeof(float);
-    }
-
-    if (shape.HasNormalIndices)
-    {
         vertexSize += 3 * sizeof(float);
     }
 
-    if (shape.HasJointIndexIndices)
-    {
-        vertexSize += 4 * sizeof(std::uint8_t);
-    }
-
-    if (shape.HasJointWeightIndices)
+    if (shape.HasNormalIndices)
     {
         vertexSize += 3 * sizeof(float);
     }
@@ -59,23 +49,23 @@ VertexFormat ObjMesh::GetVertexFormat() const
     if (mShape.HasPositionIndices)
     {
         fmt.Position = VertexAttribute(
+                    4,
+                    ArithmeticType::Float,
+                    false,
+                    vertexSize,
+                    offset);
+        offset += 4 * sizeof(float);
+    }
+
+    if (mShape.HasTexcoordIndices)
+    {
+        fmt.TexCoord0 = VertexAttribute(
                     3,
                     ArithmeticType::Float,
                     false,
                     vertexSize,
                     offset);
         offset += 3 * sizeof(float);
-    }
-
-    if (mShape.HasTexcoordIndices)
-    {
-        fmt.TexCoord0 = VertexAttribute(
-                    2,
-                    ArithmeticType::Float,
-                    false,
-                    vertexSize,
-                    offset);
-        offset += 2 * sizeof(float);
     }
 
     if (mShape.HasNormalIndices)
@@ -89,37 +79,19 @@ VertexFormat ObjMesh::GetVertexFormat() const
         offset += 3 * sizeof(float);
     }
 
-    if (mShape.HasJointIndexIndices)
-    {
-        fmt.JointIndices = VertexAttribute(
-                    4,
-                    ArithmeticType::UInt8,
-                    false,
-                    vertexSize,
-                    offset);
-        offset += 4 * sizeof(std::uint8_t);
-    }
-
-    if (mShape.HasJointWeightIndices)
-    {
-        fmt.JointWeights = VertexAttribute(
-                    3,
-                    ArithmeticType::Float,
-                    false,
-                    vertexSize,
-                    offset);
-        offset += 3 * sizeof(float);
-    }
-
     return fmt;
 }
 
 std::size_t ObjMesh::GetMaxVertexBufferSize() const
 {
+    int indicesPerVertex = int(mShape.HasPositionIndices)
+                         + int(mShape.HasTexcoordIndices)
+                         + int(mShape.HasNormalIndices);
+
     std::size_t vertexSize = GetVertexSize(mShape);
     std::size_t numFaces =
               mShape.Indices.size()
-            / (mShape.GetIndicesPerVertex() * mShape.VerticesPerFace);
+            / (indicesPerVertex * mShape.VerticesPerFace);
     std::size_t numVerticesTotal = numFaces * 3;
     return vertexSize * numVerticesTotal;
 }
@@ -132,9 +104,13 @@ std::size_t ObjMesh::GetMaxIndexBufferSize() const
 
 std::size_t ObjMesh::WriteVertices(void* buffer) const
 {
+    int indicesPerVertex = int(mShape.HasPositionIndices)
+                         + int(mShape.HasTexcoordIndices)
+                         + int(mShape.HasNormalIndices);
+
     std::size_t numFaces =
               mShape.Indices.size()
-            / (mShape.GetIndicesPerVertex() * mShape.VerticesPerFace);
+            / (indicesPerVertex * mShape.VerticesPerFace);
     std::size_t numVerticesTotal = numFaces * 3;
 
     if (buffer != nullptr)
@@ -142,7 +118,6 @@ std::size_t ObjMesh::WriteVertices(void* buffer) const
         std::size_t vertexSize = GetVertexSize(mShape);
         std::size_t floatsPerVertex = vertexSize / sizeof(float);
         std::size_t floatsPerFace = 3 * floatsPerVertex;
-        std::size_t indicesPerVertex = mShape.GetIndicesPerVertex();
 
         float* fbuffer = static_cast<float*>(buffer);
 
@@ -159,50 +134,31 @@ std::size_t ObjMesh::WriteVertices(void* buffer) const
                 if (mShape.HasPositionIndices)
                 {
                     std::memcpy(vertexData,
-                                &mShape.Positions[*vertexIndices],
-                                sizeof(vec3));
+                                &mShape.Positions[*vertexIndices - 1],
+                                sizeof(vec4));
                     vertexIndices++;
-                    vertexData += 3;
+                    vertexData += 4;
                 }
 
                 if (mShape.HasTexcoordIndices)
                 {
                     std::memcpy(vertexData,
-                                &mShape.Texcoords[*vertexIndices],
-                                sizeof(vec2));
-                    vertexIndices++;
-                    vertexData += 2;
-                }
-
-                if (mShape.HasNormalIndices)
-                {
-                    std::memcpy(vertexData,
-                                &mShape.Normals[*vertexIndices],
+                                &mShape.Texcoords[*vertexIndices - 1],
                                 sizeof(vec3));
                     vertexIndices++;
                     vertexData += 3;
                 }
 
-                if (mShape.HasJointIndexIndices)
+                if (mShape.HasNormalIndices)
                 {
                     std::memcpy(vertexData,
-                                &mShape.JointIndices[*vertexIndices],
-                                sizeof(std::uint8_t) * 4);
-                    vertexIndices++;
-                    vertexData += 1;
-                }
-
-                if (mShape.HasJointWeightIndices)
-                {
-                    std::memcpy(vertexData,
-                                &mShape.JointWeights[*vertexIndices],
+                                &mShape.Normals[*vertexIndices - 1],
                                 sizeof(vec3));
                     vertexIndices++;
                     vertexData += 3;
                 }
             }
         }
-
     }
 
     return numVerticesTotal;

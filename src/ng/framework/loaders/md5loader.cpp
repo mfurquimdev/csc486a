@@ -620,6 +620,7 @@ bool TryLoadMD5Mesh(
         std::string& error)
 {
     MD5Model newModel;
+    error.clear();
     MD5Parser parser(newModel, md5meshFile, error);
 
     if (!parser.Parse())
