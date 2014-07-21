@@ -214,6 +214,11 @@ bool TryLoadObj(
 
                 if (haspidx)
                 {
+                    if (pidx == 0)
+                    {
+                        error = "0 is an invalid index for obj";
+                        return false;
+                    }
                     if (pidx < 0)
                     {
                         negativePositionsToPatch.push_back(newShape.Indices.size());
@@ -223,6 +228,11 @@ bool TryLoadObj(
 
                 if (hastidx)
                 {
+                    if (tidx == 0)
+                    {
+                        error = "0 is an invalid index for obj";
+                        return false;
+                    }
                     if (tidx < 0)
                     {
                         negativeTexcoordsToPatch.push_back(newShape.Indices.size());
@@ -232,6 +242,11 @@ bool TryLoadObj(
 
                 if (hasnidx)
                 {
+                    if (nidx == 0)
+                    {
+                        error = "0 is an invalid index for obj";
+                        return false;
+                    }
                     if (nidx < 0)
                     {
                         negativeNormalsToPatch.push_back(newShape.Indices.size());
