@@ -17,7 +17,7 @@ public:
     std::string JointName;
 
     static constexpr int RootJointIndex = -1;
-    int Parent;
+    int ParentIndex;
 };
 
 class Skeleton

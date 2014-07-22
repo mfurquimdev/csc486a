@@ -11,6 +11,40 @@ void SkeletonFromMD5Model(
 {
     Skeleton newSkeleton;
 
+    // use the model's bind pose
+    // to create the inverse bind pose matrices.
+
+    for (const MD5Joint& md5Joint : model.BindPoseJoints)
+    {
+        SkeletonJoint joint;
+        joint.JointName = md5Joint.Name;
+        joint.ParentIndex = md5Joint.ParentIndex;
+
+        Quaternionf quat;
+        quat.Components.x = md5Joint.Orientation.x;
+        quat.Components.y = md5Joint.Orientation.y;
+        quat.Components.z = md5Joint.Orientation.z;
+
+        float t = 1.0f - dot(md5Joint.Orientation, md5Joint.Orientation);
+        if (t < 0.0f)
+        {
+            quat.Components.w = 0.0f;
+        }
+        else
+        {
+            quat.Components.w = -std::sqrt(t);
+        }
+
+        mat4 invBindPose = mat4(transpose(mat3(quat)));
+        invBindPose[3][0] = -md5Joint.Position.x;
+        invBindPose[3][1] = -md5Joint.Position.y;
+        invBindPose[3][2] = -md5Joint.Position.z;
+
+        joint.InverseBindPose = invBindPose;
+
+        newSkeleton.Joints.push_back(std::move(joint));
+    }
+
     skeleton = std::move(newSkeleton);
 }
 
@@ -36,9 +70,9 @@ void CalculateInverseBindPose(
         const SkeletonJointPose* pose = &bindPoseJointPoses[j];
 
         mat4 Pj_M = PoseToMat4(*pose);
-        while (joint->Parent != SkeletonJoint::RootJointIndex)
+        while (joint->ParentIndex != SkeletonJoint::RootJointIndex)
         {
-            int parent = joint->Parent;
+            int parent = joint->ParentIndex;
             joint = &joints[parent];
             pose = &bindPoseJointPoses[parent];
 
@@ -61,9 +95,9 @@ void LocalPosesToGlobalPoses(
         const SkeletonJointPose* pose = &localPoses[j];
 
         mat4 Pj_M = PoseToMat4(*pose);
-        while (joint->Parent != SkeletonJoint::RootJointIndex)
+        while (joint->ParentIndex != SkeletonJoint::RootJointIndex)
         {
-            int parent = joint->Parent;
+            int parent = joint->ParentIndex;
             joint = &joints[parent];
             pose = &localPoses[parent];
 
