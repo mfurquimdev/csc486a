@@ -28,12 +28,6 @@ LoopSubdivisionMesh::LoopSubdivisionMesh(
     {
         throw std::logic_error("Cannot subdivide mesh without position");
     }
-
-    if (baseFmt.Position.Cardinality > 3)
-    {
-        throw std::logic_error(
-            "Can only subdivide with position cardinality <= 3");
-    }
 }
 
 static std::vector<std::reference_wrapper<VertexAttribute>>
@@ -213,22 +207,22 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
         // build neighbor map
         struct VectorCompare
         {
-            bool operator()(vec3 x, vec3 y) const
+            bool operator()(vec4 x, vec4 y) const
             {
                 return std::lexicographical_compare(
-                    &x[0], &x[0] + 3, &y[0], &y[0] + 3);
+                    &x[0], &x[0] + 4, &y[0], &y[0] + 4);
             }
         };
 
-        using VectorSet = std::set<vec3,VectorCompare>;
-        std::map<vec3,VectorSet,VectorCompare> neighbors;
+        using VectorSet = std::set<vec4,VectorCompare>;
+        std::map<vec4,VectorSet,VectorCompare> neighbors;
 
         for (std::size_t faceIdx = 0; faceIdx < numFaces; faceIdx++)
         {
             sizevec3 face = getFaceVertices(faceIdx);
 
-            std::array<vec3,3> positions;
-            for (std::size_t vertexIdx = 0; vertexIdx < 3; vertexIdx++)
+            std::array<vec4,3> positions;
+            for (std::size_t vertexIdx = 0; vertexIdx < 4; vertexIdx++)
             {
                 float* posAttrib =
                     reinterpret_cast<float*>(
@@ -237,7 +231,7 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
                       + baseFmt.Position.Stride * face[vertexIdx]);
 
                 for (std::size_t elem = 0;
-                     elem < baseFmt.Position.Cardinality && elem < 3;
+                     elem < baseFmt.Position.Cardinality && elem < 4;
                      elem++)
                 {
                     positions[vertexIdx][elem] = posAttrib[elem];
@@ -359,9 +353,9 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
                             reinterpret_cast<float*>(
                                 vertexData[v].get() + offsets[v]);
 
-                        vec3 pos;
+                        vec4 pos;
                         for (std::size_t elem = 0;
-                             elem < attrib.Cardinality && elem < 3;
+                             elem < attrib.Cardinality && elem < 4;
                              elem++)
                         {
                             pos[elem] = posAttrib[elem];
@@ -377,15 +371,15 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
                                    3.0f / 16.0f
                                  : 3.0f / (8.0f * n);
 
-                        vec3 newpos = (1 - B) * pos
+                        vec4 newpos = (1 - B) * pos
                                     + B / n * std::accumulate(
                                                 neighborSet.begin(),
                                                 neighborSet.end(),
-                                                vec3(0));
+                                                vec4(0));
 
                         // write back the new position
                         for (std::size_t elem = 0;
-                             elem < attrib.Cardinality && elem < 3;
+                             elem < attrib.Cardinality && elem < 4;
                              elem++)
                         {
                             posAttrib[elem] = newpos[elem];

@@ -18,6 +18,7 @@
 
 #include "ng/engine/filesystem/filesystem.hpp"
 #include "ng/framework/loaders/objloader.hpp"
+#include "ng/framework/models/objmodel.hpp"
 #include "ng/framework/meshes/objmesh.hpp"
 
 #include "ng/framework/util/fixedstepupdate.hpp"
@@ -72,10 +73,10 @@ public:
 //                    2.0f);
 
          mCubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
-//        std::shared_ptr<ng::IReadFile> bunnyFile = mFileSystem->GetReadFile("bunny.obj", ng::FileReadMode::Text);
-//        ng::ObjShape shape;
-//        ng::LoadObj(shape, *bunnyFile);
-//        mCubeNode->Mesh = std::make_shared<ng::ObjMesh>(std::move(shape));
+//        std::shared_ptr<ng::IReadFile> bunnyFile = mFileSystem->GetReadFile("cube.obj", ng::FileReadMode::Text);
+//        ng::ObjModel model;
+//        ng::LoadObj(model, *bunnyFile);
+//        mCubeNode->Mesh = std::make_shared<ng::ObjMesh>(std::move(model));
         mCubeNode->Material = wireframeMaterial;
         rootNode->Children.push_back(mCubeNode);
 
@@ -127,7 +128,7 @@ public:
     }
 
 private:
-    ng::vec3 mCameraPosition{1.3f,1.3f,1.3f};
+    ng::vec3 mCameraPosition{2.0f};
     ng::vec3 mCameraTarget{0.0f,0.0f,0.0f};
 
     void HandleEvent(const ng::WindowEvent& we)
