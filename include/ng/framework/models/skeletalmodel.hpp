@@ -41,6 +41,12 @@ public:
     }
 };
 
+class MD5Model;
+
+void SkeletonFromMD5Model(
+        const MD5Model& model,
+        Skeleton& skeleton);
+
 class SkeletonJointPose
 {
 public:

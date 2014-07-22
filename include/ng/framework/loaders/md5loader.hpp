@@ -14,7 +14,7 @@ bool TryLoadMD5Mesh(
         IReadFile& md5meshFile,
         std::string& error);
 
-void TryLoadMD5Mesh(
+void LoadMD5Mesh(
         MD5Model& model,
         IReadFile& md5meshFile);
 

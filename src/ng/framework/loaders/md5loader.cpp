@@ -59,6 +59,67 @@ class MD5Parser
         return true;
     }
 
+    bool AcceptDoubleQuotedString(std::string& s)
+    {
+        if (RequireChar('"'))
+        {
+            s.clear();
+            bool escaped = false;
+            while (escaped || mInputStream.peek() != '"')
+            {
+                char peeked = mInputStream.peek();
+
+                if (escaped)
+                {
+                    if (peeked == '\\' || peeked == '"')
+                    {
+                        s += peeked;
+                    }
+                    else if (peeked == 'n')
+                    {
+                        s += '\n';
+                    }
+                    else if (peeked == 't')
+                    {
+                        s += '\t';
+                    }
+                    else if (peeked == 'r')
+                    {
+                        s += '\r';
+                    }
+                    else
+                    {
+                        mError = "Unescapable character: ";
+                        mError += peeked;
+                        return false;
+                    }
+
+                    escaped = false;
+                }
+                else
+                {
+                    if (peeked == '\\')
+                    {
+                        escaped = true;
+                    }
+                    else
+                    {
+                        s += peeked;
+                    }
+                }
+
+                mInputStream.get();
+            }
+
+            if (RequireChar('"'))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     bool AcceptChar(char& ch)
     {
         if (!(mInputStream >> ch))
@@ -136,7 +197,8 @@ class MD5Parser
     bool AcceptCommandLine()
     {
         std::string commandline;
-        if (RequireIdentifier("commandline") && AcceptIdentifier(commandline))
+        if (RequireIdentifier("commandline") &&
+            AcceptDoubleQuotedString(commandline))
         {
             mModel.CommandLine = commandline;
             return true;
@@ -195,7 +257,7 @@ class MD5Parser
     bool AcceptJoint()
     {
         MD5Joint joint;
-        if (AcceptIdentifier(joint.Name) &&
+        if (AcceptDoubleQuotedString(joint.Name) &&
             AcceptInt(joint.ParentIndex) &&
             RequireChar('(') &&
                 AcceptFloat(joint.Position[0]) &&
@@ -543,7 +605,7 @@ class MD5Parser
             mModel.Meshes.emplace_back();
 
             return RequireIdentifier("shader") &&
-                   AcceptIdentifier(mModel.Meshes.back().Shader) &&
+                   AcceptDoubleQuotedString(mModel.Meshes.back().Shader) &&
                    AcceptNumVertices() &&
                    AcceptVertices() &&
                    AcceptNumTriangles() &&

@@ -1,9 +1,18 @@
 #include "ng/framework/models/skeletalmodel.hpp"
 
-#include "ng/engine/util/debug.hpp"
+#include "ng/framework/models/md5model.hpp"
 
 namespace ng
 {
+
+void SkeletonFromMD5Model(
+        const MD5Model& model,
+        Skeleton& skeleton)
+{
+    Skeleton newSkeleton;
+
+    skeleton = std::move(newSkeleton);
+}
 
 mat4 PoseToMat4(const SkeletonJointPose& pose)
 {

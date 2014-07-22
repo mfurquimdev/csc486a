@@ -8,7 +8,8 @@ file(GLOB_RECURSE SOURCES
 include_directories(${NG_INCLUDE_DIR} ${NG_SRC_DIR})
 
 set(ASSETS
-    robotarm.obj)
+    robotarm.obj
+    robotarm.md5mesh)
 
 set_source_files_properties(${ASSETS} PROPERTIES HEADER_FILE_ONLY TRUE)
 
