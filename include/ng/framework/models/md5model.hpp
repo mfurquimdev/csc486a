@@ -21,7 +21,6 @@ public:
 class MD5Vertex
 {
 public:
-    int VertexIndex;
     vec2 Texcoords;
     int StartWeight;
     int WeightCount;
@@ -30,14 +29,12 @@ public:
 class MD5Triangle
 {
 public:
-    int TriangleIndex;
     ivec3 VertexIndices;
 };
 
 class MD5Weight
 {
 public:
-    int WeightIndex;
     int JointIndex;
     float WeightBias;
     vec3 WeightPosition;

@@ -332,7 +332,7 @@ class MD5Parser
                 return false;
             }
 
-            mModel.Meshes.back().Vertices.reserve(numverts);
+            mModel.Meshes.back().Vertices.resize(numverts);
             mNumExpectedVertices = numverts;
 
             return true;
@@ -344,8 +344,9 @@ class MD5Parser
     bool AcceptVertex()
     {
         MD5Vertex vertex;
+        int vertexIndex;
         if (RequireIdentifier("vert") &&
-            AcceptInt(vertex.VertexIndex) &&
+            AcceptInt(vertexIndex) &&
             RequireChar('(') &&
                 AcceptFloat(vertex.Texcoords[0]) &&
                 AcceptFloat(vertex.Texcoords[1]) &&
@@ -353,6 +354,12 @@ class MD5Parser
             AcceptInt(vertex.StartWeight) &&
             AcceptInt(vertex.WeightCount))
         {
+            if (vertexIndex < 0 || vertexIndex >= mNumExpectedVertices)
+            {
+                mError = "vertexIndex out of bounds";
+                return false;
+            }
+
             if (vertex.StartWeight < 0)
             {
                 mError = "StartWeight < 0";
@@ -365,7 +372,7 @@ class MD5Parser
                 return false;
             }
 
-            mModel.Meshes.back().Vertices.push_back(std::move(vertex));
+            mModel.Meshes.back().Vertices[vertexIndex] = vertex;
             return true;
         }
 
@@ -414,7 +421,7 @@ class MD5Parser
                 return false;
             }
 
-            mModel.Meshes.back().Triangles.reserve(numtris);
+            mModel.Meshes.back().Triangles.resize(numtris);
             mNumExpectedTriangles = numtris;
 
             return true;
@@ -426,37 +433,42 @@ class MD5Parser
     bool AcceptTriangle()
     {
         MD5Triangle triangle;
+        int triangleIndex;
         if (RequireIdentifier("tri") &&
-            AcceptInt(triangle.TriangleIndex) &&
+            AcceptInt(triangleIndex) &&
             AcceptInt(triangle.VertexIndices[0]) &&
             AcceptInt(triangle.VertexIndices[1]) &&
             AcceptInt(triangle.VertexIndices[2]))
         {
-            if (triangle.TriangleIndex < 0)
+            if (triangleIndex < 0 ||
+                triangleIndex >= mNumExpectedTriangles)
             {
-                mError = "TriangleIndex < 0";
+                mError = "triangleIndex out of bounds";
                 return false;
             }
 
-            if (triangle.VertexIndices[0] < 0)
+            if (triangle.VertexIndices[0] < 0 ||
+                triangle.VertexIndices[0] >= mNumExpectedVertices)
             {
-                mError = "VertexIndices[0] < 0";
+                mError = "VertexIndices[0] out of bounds";
                 return false;
             }
 
-            if (triangle.VertexIndices[1] < 0)
+            if (triangle.VertexIndices[1] < 0 ||
+                triangle.VertexIndices[1] >= mNumExpectedVertices)
             {
-                mError = "VertexIndices[1] < 0";
+                mError = "VertexIndices[1] out of bounds";
                 return false;
             }
 
-            if (triangle.VertexIndices[2] < 0)
+            if (triangle.VertexIndices[2] < 0 ||
+                triangle.VertexIndices[2] >= mNumExpectedVertices)
             {
-                mError = "VertexIndices[2] < 0";
+                mError = "VertexIndices[2] out of bounds";
                 return false;
             }
 
-            mModel.Meshes.back().Triangles.push_back(std::move(triangle));
+            mModel.Meshes.back().Triangles[triangleIndex] = triangle;
 
             return true;
         }
@@ -506,7 +518,7 @@ class MD5Parser
                 return false;
             }
 
-            mModel.Meshes.back().Weights.reserve(numweights);
+            mModel.Meshes.back().Weights.resize(numweights);
             mNumExpectedWeights = numweights;
 
             return true;
@@ -518,8 +530,9 @@ class MD5Parser
     bool AcceptWeight()
     {
         MD5Weight weight;
+        int weightIndex;
         if (RequireIdentifier("weight") &&
-            AcceptInt(weight.WeightIndex) &&
+            AcceptInt(weightIndex) &&
             AcceptInt(weight.JointIndex) &&
             AcceptFloat(weight.WeightBias) &&
             RequireChar('(') &&
@@ -528,37 +541,21 @@ class MD5Parser
                 AcceptFloat(weight.WeightPosition[2]) &&
             RequireChar(')'))
         {
-            if (weight.WeightIndex < 0)
+            if (weightIndex < 0 ||
+                weightIndex >= mNumExpectedWeights)
             {
-                mError = "WeightIndex < 0";
+                mError = "weightIndex out of bounds";
                 return false;
             }
 
-            if (weight.JointIndex < 0)
+            if (weight.JointIndex < 0 ||
+                weight.JointIndex >= mNumExpectedJoints)
             {
-                mError = "JointIndex < 0";
+                mError = "JointIndex out of bounds";
                 return false;
             }
 
-            if (weight.WeightPosition[0] < 0)
-            {
-                mError = "WeightPosition[0] < 0";
-                return false;
-            }
-
-            if (weight.WeightPosition[1] < 0)
-            {
-                mError = "WeightPosition[1] < 0";
-                return false;
-            }
-
-            if (weight.WeightPosition[2] < 0)
-            {
-                mError = "WeightPosition[2] < 0";
-                return false;
-            }
-
-            mModel.Meshes.back().Weights.push_back(std::move(weight));
+            mModel.Meshes.back().Weights[weightIndex] = weight;
 
             return true;
         }
@@ -592,6 +589,18 @@ class MD5Parser
             mError = "Expected " + std::to_string(mNumExpectedWeights)
                    + " weights, but got " + std::to_string(numAcceptedWeights);
             return false;
+        }
+
+        // bounds-check the weights in the vertices
+
+        for (const MD5Vertex& vert : mModel.Meshes.back().Vertices)
+        {
+            if (vert.StartWeight >= mNumExpectedWeights ||
+                vert.StartWeight + vert.WeightCount > mNumExpectedWeights)
+            {
+                mError = "StartWeight/WeightCount out of bounds";
+                return false;
+            }
         }
 
         return true;
