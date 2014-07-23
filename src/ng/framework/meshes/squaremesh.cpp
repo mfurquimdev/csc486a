@@ -8,6 +8,14 @@
 namespace ng
 {
 
+class SquareMesh::Vertex
+{
+public:
+    vec2 Position;
+    vec2 Texcoord;
+    vec3 Normal;
+};
+
 SquareMesh::SquareMesh(float sideLength)
     : mSideLength(sideLength)
 { }

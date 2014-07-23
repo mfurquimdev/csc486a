@@ -7,6 +7,33 @@
 namespace ng
 {
 
+namespace
+{
+
+template<unsigned int Nbits=5>
+class WyvillHash
+{
+public:
+    static constexpr unsigned int NBits = Nbits;
+    static constexpr unsigned int BMask = (1 << NBits) - 1;
+
+    constexpr std::uint16_t operator()(ivec3 i) const
+    {
+        // takes 5 least significant bits of x,y,z and combines them
+        // result: 0xxxxxyyyyyzzzzz
+        return ((((i.x & BMask) << NBits) | (i.y & BMask)) << NBits) | (i.z & BMask);
+    }
+};
+
+} // end anonymous namespace
+
+class ImplicitSurfaceMesh::Vertex
+{
+public:
+    vec3 Position;
+    vec3 Normal;
+};
+
 ImplicitSurfaceMesh::ImplicitSurfaceMesh(
         std::vector<ImplicitSurfacePrimitive> primitives,
         float isoValue,

@@ -8,6 +8,14 @@
 namespace ng
 {
 
+class CubeMesh::Vertex
+{
+public:
+    vec3 Position;
+    vec3 Normal;
+    vec2 Texcoord;
+};
+
 CubeMesh::CubeMesh(float sideLength)
     : mSideLength(sideLength)
 { }

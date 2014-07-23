@@ -9,7 +9,7 @@ namespace ng
 
 class MD5Mesh : public IMesh
 {
-    MD5Model mModel;
+    const MD5Model mModel;
 
 public:
     MD5Mesh(MD5Model model);

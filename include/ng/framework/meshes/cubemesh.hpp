@@ -10,17 +10,11 @@ namespace ng
 
 class CubeMesh : public IMesh
 {
+    class Vertex;
+
     const float mSideLength;
 
 public:
-    class Vertex
-    {
-    public:
-        vec3 Position;
-        vec3 Normal;
-        vec2 Texcoord;
-    };
-
     CubeMesh(float sideLength);
 
     VertexFormat GetVertexFormat() const override;

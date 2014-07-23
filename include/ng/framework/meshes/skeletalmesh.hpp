@@ -2,7 +2,6 @@
 #define NG_SKELETALMESH_HPP
 
 #include "ng/engine/rendering/mesh.hpp"
-#include "ng/framework/loaders/objloader.hpp"
 
 #include <memory>
 
@@ -13,8 +12,8 @@ class ImmutableSkinningMatrixPalette;
 
 class SkeletalMesh : public IMesh
 {
-    std::shared_ptr<IMesh> mBindPoseMesh;
-    std::shared_ptr<ImmutableSkinningMatrixPalette> mSkinningPalette;
+    const std::shared_ptr<IMesh> mBindPoseMesh;
+    const std::shared_ptr<ImmutableSkinningMatrixPalette> mSkinningPalette;
 
 public:
     SkeletalMesh(

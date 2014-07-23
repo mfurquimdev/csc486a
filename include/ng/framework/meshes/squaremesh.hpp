@@ -10,17 +10,11 @@ namespace ng
 
 class SquareMesh : public IMesh
 {
+    class Vertex;
+
     const float mSideLength;
 
 public:
-    class Vertex
-    {
-    public:
-        vec2 Position;
-        vec2 Texcoord;
-        vec3 Normal;
-    };
-
     SquareMesh(float sideLength);
 
     VertexFormat GetVertexFormat() const override;
