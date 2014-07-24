@@ -1,5 +1,9 @@
 #include "ng/framework/meshes/md5mesh.hpp"
 
+#include "ng/engine/math/quaternion.hpp"
+
+#include "ng/engine/util/debug.hpp"
+
 namespace ng
 {
 
@@ -102,6 +106,9 @@ std::size_t MD5Mesh::WriteVertices(void* buffer) const
                  tri < mesh.Triangles.size();
                  tri++, index += 3)
             {
+//                DebugPrintf("triangle %d\n", tri);
+                vec3 positions[3];
+
                 for (int i = 0; i < 3; i++)
                 {
                     int vertexIndex = mesh.Triangles[tri].VertexIndices[i];
@@ -113,7 +120,7 @@ std::size_t MD5Mesh::WriteVertices(void* buffer) const
                             "MD5Mesh only supports max 4 joints per vertex");
                     }
 
-                    vec3 position;
+                    vec3& position = positions[i];
 
                     for (int j = 0; j < md5vertex.WeightCount; j++)
                     {
@@ -122,19 +129,40 @@ std::size_t MD5Mesh::WriteVertices(void* buffer) const
                         const MD5Joint& md5joint =
                             mModel.BindPoseJoints[md5weight.JointIndex];
 
-                        vec3 wv;
+                        float quaternionW;
+                        {
+                            const vec3& q = md5joint.Orientation;
+                            quaternionW = 1.0f - dot(q,q);
+                            quaternionW  = quaternionW < 0.0f ?
+                                        0.0f : std::sqrt(quaternionW);
+                        }
 
-                        // TODO: replace with my code
-//                        Quat_rotatePoint(
-//                            md5joint.Orientation,
-//                            md5weight.WeightPosition,
-//                            wv);
+                        Quaternionf orientationQuaternion(
+                                    Quaternionf::FromComponents(
+                                        vec4(md5joint.Orientation, quaternionW)));
+
+//                        DebugPrintf("orientation quaternion:\n"
+//                                    "{%8.2f, %8.2f, %8.2f, %8.2f}\n",
+//                                    orientationQuaternion.Components[0],
+//                                    orientationQuaternion.Components[1],
+//                                    orientationQuaternion.Components[2],
+//                                    orientationQuaternion.Components[3]);
+
+                        vec3 wv = vec3(
+                                    rotate(
+                                        orientationQuaternion,
+                                        md5weight.WeightPosition).Components);
 
                         for (int component = 0; component < 3; component++)
                         {
                             position[component] =
                                 (md5joint.Position[component] + wv[component])
                               * md5weight.WeightBias;
+
+//                            DebugPrintf("position[%d] = (%8.2f + %8.2f) * %f\n",
+//                                        md5joint.Position[component],
+//                                        wv[component],
+//                                        md5weight.WeightBias);
                         }
                     }
 
@@ -142,15 +170,13 @@ std::size_t MD5Mesh::WriteVertices(void* buffer) const
                         md5vertex.Texcoords[0],
                         1.0f - md5vertex.Texcoords[1]);
 
-
-                    vec3 normal;
-                    // TODO: compute normal
-
                     vec<std::uint8_t,4> jointIndices(0);
                     for (int j = 0; j < md5vertex.WeightCount; j++)
                     {
-                        // should probably get the 4 most heavily weighted joints instead
-                        jointIndices[j] = md5vertex.StartWeight + j;
+                        const MD5Weight& md5weight =
+                            mesh.Weights[md5vertex.StartWeight + j];
+
+                        jointIndices[j] = md5weight.JointIndex;
                     }
 
                     vec3 jointWeights(0.0f);
@@ -160,13 +186,30 @@ std::size_t MD5Mesh::WriteVertices(void* buffer) const
                             mesh.Weights[md5vertex.StartWeight + j].WeightBias;
                     }
 
-                    MD5MeshVertex& vertex = vbuffer[index];
+                    MD5MeshVertex& vertex = vbuffer[index + i];
                     vertex.Position = position;
                     vertex.Texcoord = texcoord;
-                    vertex.Normal = normal;
                     vertex.JointIndices = jointIndices;
                     vertex.JointWeights = jointWeights;
                 }
+
+                // now that we have the positions, patch in normals
+                vec3 tangent = positions[2] - positions[1];
+                vec3 bitangent = positions[0] - positions[1];
+                vec3 normal = normalize(cross(tangent, bitangent));
+
+                for (int i = 0; i < 3; i++)
+                {
+                    vbuffer[index + i].Normal = normal;
+                }
+
+//                DebugPrintf("Outputting positions:\n"
+//                            "\t{%8.2f,%8.2f,%8.2f}\n"
+//                            "\t{%8.2f,%8.2f,%8.2f}\n"
+//                            "\t{%8.2f,%8.2f,%8.2f}\n",
+//                            positions[0].x, positions[0].y, positions[0].z,
+//                            positions[1].x, positions[1].y, positions[1].z,
+//                            positions[2].x, positions[2].y, positions[2].z);
             }
         }
     }

@@ -22,6 +22,11 @@ public:
               }};
     }
 
+    static Quaternion FromComponents(vec<T,4> components)
+    {
+        return { components };
+    }
+
     Quaternion& operator*=(Quaternion other)
     {
         // evil but whatever
@@ -125,7 +130,7 @@ Quaternion<T> inverse(Quaternion<T> q)
 template<class T>
 Quaternion<T> rotate(Quaternion<T> q, vec<T,3> v)
 {
-    Quaternion<T> qv(v, 0);
+    Quaternion<T> qv(Quaternion<T>::FromComponents(vec4(v, T(0))));
     return q * qv * inverse(q);
 }
 
