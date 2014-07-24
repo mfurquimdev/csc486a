@@ -1,6 +1,8 @@
 #include "ng/framework/meshes/loopsubdivisionmesh.hpp"
 
 #include "ng/engine/math/linearalgebra.hpp"
+#include "ng/engine/math/constants.hpp"
+
 #include "ng/engine/util/debug.hpp"
 
 #include <array>
@@ -302,6 +304,15 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
             std::size_t positionByteOffset = 0;
             std::size_t normalByteOffset = 0;
 
+            // get position of vertices at the ends of the edge
+            std::array<vec4,3> corners;
+            for (int c = 0; c < (int) corners.size(); c++)
+            {
+                std::memcpy(&corners[c],
+                            baseVertices.get() + vertexSize * face[c],
+                            sizeof(float) * baseFmt.Position.Cardinality);
+            }
+
             for (const VertexAttribute& attrib : GetEnabledAttributes(baseFmt))
             {
                 if (&baseFmt.Position == &attrib)
@@ -330,34 +341,89 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
                 // generate the interpolated data for each edge
                 for (std::size_t e = 0; e < edgeData.size(); e++)
                 {
-                    // interpolate the two attributes into edgeData
-                    for (std::size_t i = 0; i < attrib.Cardinality; i++)
+                    if (&baseFmt.Position == &attrib)
                     {
-                        void* a1 = vertexData[e].get()
-                                 + attribByteOffset
-                                 + i * SizeOfArithmeticType(attrib.Type);
+                        // find all neighbours the two corners have in common
+                        vec4 v1 = corners[e];
+                        vec4 v2 = corners[(e+1)%3];
 
-                        void* a2 = vertexData[(e + 1) % vertexData.size()].get()
-                                 + attribByteOffset
-                                 + i * SizeOfArithmeticType(attrib.Type);
-
-                        void* edge = edgeData[e].get()
-                                   + attribByteOffset
-                                   + i * SizeOfArithmeticType(attrib.Type);
-
-                        if (attrib.Type == ArithmeticType::Float)
+                        VectorSet sharedNeighbors = neighbors[v1];
+                        VectorSet v2neighbors = neighbors[v2];
+                        for (auto it = sharedNeighbors.begin();
+                             it != sharedNeighbors.end();)
                         {
-                            float* a1f = static_cast<float*>(a1);
-                            float* a2f = static_cast<float*>(a2);
-                            float* edgef = static_cast<float*>(edge);
+                            auto next = it;
+                            ++next;
 
-                            *edgef = (*a1f + *a2f) / 2.0f;
+                            if (v2neighbors.find(*it) == v2neighbors.end())
+                            {
+                                sharedNeighbors.erase(it);
+                            }
+
+                            it = next;
+                        }
+
+                        if (sharedNeighbors.size() == 1)
+                        {
+                            // crease
+                            vec4 pos = v1 * 0.5f + v2 * 0.5f;
+                            std::memcpy(edgeData[e].get() + attribByteOffset,
+                                        &pos[0],
+                                        std::min(4u, attrib.Cardinality) * sizeof(float));
+                        }
+                        else if (sharedNeighbors.size() == 2)
+                        {
+                            // interior
+                            std::array<vec4,2> twoSharedNeighbors;
+                            std::copy(sharedNeighbors.begin(), sharedNeighbors.end(),
+                                      twoSharedNeighbors.begin());
+
+                            vec4 pos = 3.0f / 8.0f * (v1 + v2)
+                                     + 1.0f / 8.0f * (twoSharedNeighbors[0] + twoSharedNeighbors[1]);
+
+                            std::memcpy(edgeData[e].get() + attribByteOffset,
+                                        &pos[0],
+                                        std::min(4u, attrib.Cardinality) * sizeof(float));
                         }
                         else
                         {
-                            throw std::runtime_error(
-                                "Interpolation not implemented "
-                                "for types other than float.");
+                            throw std::logic_error(
+                                        "should have 1 or 2 shared neighbors, "
+                                        "but had "
+                                        + std::to_string(sharedNeighbors.size()));
+                        }
+                    }
+                    else
+                    {
+                        // interpolate the two attributes into edgeData
+                        for (std::size_t i = 0; i < attrib.Cardinality; i++)
+                        {
+                            void* a1 = vertexData[e].get()
+                                     + attribByteOffset
+                                     + i * SizeOfArithmeticType(attrib.Type);
+
+                            void* a2 = vertexData[(e + 1) % vertexData.size()].get()
+                                     + attribByteOffset
+                                     + i * SizeOfArithmeticType(attrib.Type);
+
+                            void* edge = edgeData[e].get()
+                                       + attribByteOffset
+                                       + i * SizeOfArithmeticType(attrib.Type);
+
+                            if (attrib.Type == ArithmeticType::Float)
+                            {
+                                float* a1f = static_cast<float*>(a1);
+                                float* a2f = static_cast<float*>(a2);
+                                float* edgef = static_cast<float*>(edge);
+
+                                *edgef = (*a1f + *a2f) / 2.0f;
+                            }
+                            else
+                            {
+                                throw std::runtime_error(
+                                    "Interpolation not implemented "
+                                    "for types other than float.");
+                            }
                         }
                     }
                 }
@@ -372,36 +438,50 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
                                 vertexData[v].get() + attribByteOffset);
 
                         vec4 pos;
-                        for (std::size_t elem = 0;
-                             elem < attrib.Cardinality && elem < 4;
-                             elem++)
-                        {
-                            pos[elem] = posAttrib[elem];
-                        }
+                        std::memcpy(&pos[0],
+                                posAttrib,
+                                std::min(4u, attrib.Cardinality) * sizeof(float));
 
                         // look up the position's neighbors
                         const VectorSet& neighborSet = neighbors.at(pos);
 
                         std::size_t n = neighborSet.size();
 
-                        // calculate B coefficient for weight
-                        float B = n == 3 ?
-                                   3.0f / 16.0f
-                                 : 3.0f / (8.0f * n);
+                        vec4 newpos;
 
-                        vec4 newpos = (1 - B) * pos
+                        if (n == 2)
+                        {
+                            // boundary
+                            newpos = 3.0f / 4.0f * pos
+                                   + std::accumulate(neighborSet.begin(),
+                                                     neighborSet.end(),
+                                                     vec4(0),
+                                                     [](vec4 acc, vec4 nei)
+                                    {
+                                        return acc += 1.0f / 8.0f * nei;
+                                    });
+                        }
+                        else
+                        {
+                            // interior
+
+                            // calculate B coefficient for weight
+                            float B = 1.0f / 64.0f
+                                    * (40.0f - std::pow(3.0f
+                                                      + 2.0f
+                                                      * std::cos(pi<float>::value * 2 / n),2));
+
+                            newpos = (1 - B) * pos
                                     + B / n * std::accumulate(
-                                                neighborSet.begin(),
-                                                neighborSet.end(),
-                                                vec4(0));
+                                        neighborSet.begin(),
+                                        neighborSet.end(),
+                                        vec4(0));
+                        }
 
                         // write back the new position
-                        for (std::size_t elem = 0;
-                             elem < attrib.Cardinality && elem < 4;
-                             elem++)
-                        {
-                            posAttrib[elem] = newpos[elem];
-                        }
+                        std::memcpy(posAttrib,
+                                    &newpos[0],
+                                std::min(4u, attrib.Cardinality) * sizeof(float));
                     }
                 }
 
@@ -438,7 +518,7 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
                         std::memcpy(&positions[i][0],
                                 vertexPointers[i] + positionByteOffset,
                                 sizeof(float) *
-                                std::max(3u, baseFmt.Position.Cardinality));
+                                std::min(3u, baseFmt.Position.Cardinality));
                     }
 
                     vec3 normal = normalize(cross(
@@ -450,7 +530,7 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
                         std::memcpy(vertexPointers[i] + normalByteOffset,
                                     &normal[0],
                                     sizeof(float) *
-                                    std::max(3u, baseFmt.Normal.Cardinality));
+                                    std::min(3u, baseFmt.Normal.Cardinality));
                     }
                 }
             }
