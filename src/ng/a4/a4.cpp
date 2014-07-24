@@ -163,7 +163,7 @@ public:
     }
 
 private:
-    ng::vec3 mCameraPosition{10.0f,10.0f,10.0f};
+    ng::vec3 mCameraPosition{0.0f,0.0f,10.0f};
     ng::vec3 mCameraTarget{0.0f,0.0f,0.0f};
 
     void HandleEvent(const ng::WindowEvent&)
@@ -223,18 +223,22 @@ private:
         // TODO: convert global poses to skinning matrices
 
         // placeholder: all identity
-        std::vector<ng::SkeletonJointPose> robotPose(
-                    mRobotSkeleton->GetSkeleton().Joints.size());
+//        std::vector<ng::SkeletonJointPose> robotPose(
+//                    mRobotSkeleton->GetSkeleton().Joints.size());
 
-        std::vector<ng::mat4> globalRobotPoses(robotPose.size());
+        std::vector<ng::mat4> globalRobotPoses(mRobotSkeleton->GetSkeleton().Joints.size());
 
-        ng::LocalPosesToGlobalPoses(
-                    mRobotSkeleton->GetSkeleton().Joints.data(),
-                    robotPose.data(), robotPose.size(),
-                    globalRobotPoses.data());
+        for (int i = 0; i < mRobotSkeleton->GetSkeleton().Joints.size(); i++)
+        {
+            globalRobotPoses[i] = inverse(mRobotSkeleton->GetSkeleton().Joints[i].InverseBindPose);
+        }
+//        ng::LocalPosesToGlobalPoses(
+//                    mRobotSkeleton->GetSkeleton().Joints.data(),
+//                    robotPose.data(), robotPose.size(),
+//                    globalRobotPoses.data());
 
         ng::SkinningMatrixPalette robotSkinningPalette;
-        robotSkinningPalette.SkinningMatrices.resize(robotPose.size());
+        robotSkinningPalette.SkinningMatrices.resize(globalRobotPoses.size());
 
         ng::GlobalPosesToSkinningMatrices(
                     mRobotSkeleton->GetSkeleton().Joints.data(),

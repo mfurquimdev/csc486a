@@ -152,14 +152,26 @@ std::size_t SkeletalMesh::WriteVertices(void* buffer) const
                              - pJointWeights[1]
                              - pJointWeights[2]);
 
-                //DebugPrintf("Weights: %f %f %f %f\n", weights[0], weights[1], weights[2], weights[3]);
+                DebugPrintf("BindPose4: {%f %f %f %f}\n", bindPose4[0], bindPose4[1], bindPose4[2], bindPose4[3]);
+                DebugPrintf("Weights: %f %f %f %f\n", weights[0], weights[1], weights[2], weights[3]);
 
                 for (std::size_t j = 0; j < numJointsPerVertex; j++)
                 {
                     std::uint8_t jointIndex = pJointIndices[j];
                     result += weights[j]
                             *  (skinningMatrices.at(jointIndex) * bindPose4);
+
+                    for (int c = 0; c < 4; c++)
+                    {
+                        for (int r = 0; r < 4; r++)
+                        {
+                            DebugPrintf("%f ", skinningMatrices.at(jointIndex)[c][r]);
+                        }
+                        DebugPrintf("\n");
+                    }
+                    DebugPrintf("result (jointIndex %d): {%f %f %f %f}\n", jointIndex, result[0], result[1], result[2], result[3]);
                 }
+                DebugPrintf("result: {%f %f %f %f}\n", result[0], result[1], result[2], result[3]);
 
                 std::memcpy(pfPosition, &result[0],
                           clampedPositionCardinality
@@ -169,6 +181,8 @@ std::size_t SkeletalMesh::WriteVertices(void* buffer) const
 
         std::memcpy(buffer, baseVertices.get(), maxBaseVertexBufferSize);
     }
+
+    DebugPrintf("numBaseVertices: %d\n", numBaseVertices);
 
     return numBaseVertices;
 }
