@@ -59,6 +59,13 @@ public:
     std::vector<MD5MeshData> Meshes;
 };
 
+class MD5Anim
+{
+public:
+    int MD5Version;
+    std::string CommandLine;
+};
+
 } // end namespace ng
 
 #endif // NG_MD5MODEL_HPP

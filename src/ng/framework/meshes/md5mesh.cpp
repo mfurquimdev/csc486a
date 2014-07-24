@@ -106,7 +106,6 @@ std::size_t MD5Mesh::WriteVertices(void* buffer) const
                  tri < mesh.Triangles.size();
                  tri++, index += 3)
             {
-//                DebugPrintf("triangle %d\n", tri);
                 vec3 positions[3];
 
                 for (int i = 0; i < 3; i++)
@@ -141,13 +140,6 @@ std::size_t MD5Mesh::WriteVertices(void* buffer) const
                                     Quaternionf::FromComponents(
                                         vec4(md5joint.Orientation, quaternionW)));
 
-//                        DebugPrintf("orientation quaternion:\n"
-//                                    "{%8.2f, %8.2f, %8.2f, %8.2f}\n",
-//                                    orientationQuaternion.Components[0],
-//                                    orientationQuaternion.Components[1],
-//                                    orientationQuaternion.Components[2],
-//                                    orientationQuaternion.Components[3]);
-
                         vec3 wv = vec3(
                                     rotate(
                                         orientationQuaternion,
@@ -158,11 +150,6 @@ std::size_t MD5Mesh::WriteVertices(void* buffer) const
                             position[component] =
                                 (md5joint.Position[component] + wv[component])
                               * md5weight.WeightBias;
-
-                            DebugPrintf("position[%d] = (%8.2f + %8.2f) * %f\n",
-                                        md5joint.Position[component],
-                                        wv[component],
-                                        md5weight.WeightBias);
                         }
                     }
 
@@ -202,19 +189,9 @@ std::size_t MD5Mesh::WriteVertices(void* buffer) const
                 {
                     vbuffer[index + i].Normal = normal;
                 }
-
-//                DebugPrintf("Outputting positions:\n"
-//                            "\t{%8.2f,%8.2f,%8.2f}\n"
-//                            "\t{%8.2f,%8.2f,%8.2f}\n"
-//                            "\t{%8.2f,%8.2f,%8.2f}\n",
-//                            positions[0].x, positions[0].y, positions[0].z,
-//                            positions[1].x, positions[1].y, positions[1].z,
-//                            positions[2].x, positions[2].y, positions[2].z);
             }
         }
     }
-
-    DebugPrintf("Vertex count: %d\n", vertexCount);
 
     return vertexCount;
 }
@@ -232,14 +209,8 @@ std::size_t MD5Mesh::WriteIndices(void* buffer) const
             std::copy(&mesh.Triangles[tri].VertexIndices[0],
                       &mesh.Triangles[tri].VertexIndices[0] + 3,
                       &ubuffer[index]);
-            DebugPrintf("Indices: {%d,%d,%d}\n",
-                        mesh.Triangles[tri].VertexIndices[0],
-                    mesh.Triangles[tri].VertexIndices[1],
-                    mesh.Triangles[tri].VertexIndices[2]);
         }
     }
-
-    DebugPrintf("Number of indices: %d\n", index);
 
     return index;
 }

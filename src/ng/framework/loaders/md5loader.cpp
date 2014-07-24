@@ -7,18 +7,19 @@
 namespace ng
 {
 
-class MD5Parser
+class MD5ParserBase
 {
-    MD5Model& mModel;
+protected:
     std::string& mError;
     std::stringstream mInputStream;
 
-    int mNumExpectedJoints;
-    int mNumExpectedMeshes;
-
-    int mNumExpectedVertices;
-    int mNumExpectedTriangles;
-    int mNumExpectedWeights;
+    void EatWhitespace()
+    {
+        while (std::isspace(mInputStream.peek()))
+        {
+            mInputStream.get();
+        }
+    }
 
     bool AcceptIdentifier(std::string& id)
     {
@@ -184,29 +185,52 @@ class MD5Parser
         return true;
     }
 
-    bool AcceptVersion()
+    bool AcceptVersion(int& version)
     {
         if (RequireIdentifier("MD5Version") && RequireInt(10))
         {
-            mModel.MD5Version = 10;
+            version = 10;
             return true;
         }
 
         return false;
     }
 
-    bool AcceptCommandLine()
+    bool AcceptCommandLine(std::string& commandline)
     {
-        std::string commandline;
+        std::string cmd;
         if (RequireIdentifier("commandline") &&
-            AcceptDoubleQuotedString(commandline))
+            AcceptDoubleQuotedString(cmd))
         {
-            mModel.CommandLine = commandline;
+            commandline = std::move(cmd);
             return true;
         }
 
         return false;
     }
+
+public:
+    MD5ParserBase(std::string& error)
+        : mError(error)
+    { }
+
+    virtual bool Parse() = 0;
+};
+
+class MD5MeshParser : public MD5ParserBase
+{
+    MD5Model& mModel;
+
+    int mNumExpectedJoints;
+    int mNumExpectedMeshes;
+
+    int mNumExpectedVertices;
+    int mNumExpectedTriangles;
+    int mNumExpectedWeights;
+
+    // used to check that the same index isn't
+    // used by two vertices/triangles/weights
+    std::vector<bool> mExpectedIndices;
 
     bool AcceptNumJoints()
     {
@@ -245,14 +269,6 @@ class MD5Parser
         }
 
         return false;
-    }
-
-    void EatWhitespace()
-    {
-        while (std::isspace(mInputStream.peek()))
-        {
-            mInputStream.get();
-        }
     }
 
     bool AcceptJoint()
@@ -336,6 +352,9 @@ class MD5Parser
             mModel.Meshes.back().Vertices.resize(numverts);
             mNumExpectedVertices = numverts;
 
+            mExpectedIndices.clear();
+            mExpectedIndices.resize(mNumExpectedVertices);
+
             return true;
         }
 
@@ -373,7 +392,15 @@ class MD5Parser
                 return false;
             }
 
-            mModel.Meshes.back().Vertices[vertexIndex] = vertex;
+            if (mExpectedIndices[vertexIndex] == true)
+            {
+                mError = "Duplicate vertexIndex";
+                return false;
+            }
+
+            mExpectedIndices[vertexIndex] = true;
+
+            mModel.Meshes.back().Vertices[vertexIndex] = std::move(vertex);
             return true;
         }
 
@@ -425,6 +452,9 @@ class MD5Parser
             mModel.Meshes.back().Triangles.resize(numtris);
             mNumExpectedTriangles = numtris;
 
+            mExpectedIndices.clear();
+            mExpectedIndices.resize(mNumExpectedTriangles);
+
             return true;
         }
 
@@ -469,7 +499,15 @@ class MD5Parser
                 return false;
             }
 
-            mModel.Meshes.back().Triangles[triangleIndex] = triangle;
+            if (mExpectedIndices[triangleIndex] == true)
+            {
+                mError = "duplicate triangleIndex";
+                return false;
+            }
+
+            mExpectedIndices[triangleIndex] = true;
+
+            mModel.Meshes.back().Triangles[triangleIndex] = std::move(triangle);
 
             return true;
         }
@@ -522,6 +560,9 @@ class MD5Parser
             mModel.Meshes.back().Weights.resize(numweights);
             mNumExpectedWeights = numweights;
 
+            mExpectedIndices.clear();
+            mExpectedIndices.resize(mNumExpectedWeights);
+
             return true;
         }
 
@@ -556,7 +597,15 @@ class MD5Parser
                 return false;
             }
 
-            mModel.Meshes.back().Weights[weightIndex] = weight;
+            if (mExpectedIndices[weightIndex] == true)
+            {
+                mError = "duplicate weightIndex";
+                return false;
+            }
+
+            mExpectedIndices[weightIndex] = true;
+
+            mModel.Meshes.back().Weights[weightIndex] = std::move(weight);
 
             return true;
         }
@@ -660,14 +709,15 @@ class MD5Parser
     }
 
 public:
-    MD5Parser(
+    MD5MeshParser(
             MD5Model& model,
             IReadFile& md5meshFile,
             std::string& error)
-        : mModel(model)
-        , mError(error)
+        : MD5ParserBase(error)
+        , mModel(model)
     {
-        // read into a stream cuz I'm lazy
+        // TODO: should instead be setting the rdbuf of mInputStream
+        //       to read from the file.
         std::string line;
         while (getline(line, md5meshFile))
         {
@@ -675,14 +725,42 @@ public:
         }
     }
 
-    bool Parse()
+    bool Parse() override
     {
-        return AcceptVersion() &&
-               AcceptCommandLine() &&
+        return AcceptVersion(mModel.MD5Version) &&
+               AcceptCommandLine(mModel.CommandLine) &&
                AcceptNumJoints() &&
                AcceptNumMeshes() &&
                AcceptJoints() &&
                AcceptMeshes();
+    }
+};
+
+class MD5AnimParser : public MD5ParserBase
+{
+    MD5Anim& mAnim;
+
+public:
+    MD5AnimParser(
+            MD5Anim& anim,
+            IReadFile& md5animFile,
+            std::string& error)
+        : MD5ParserBase(error)
+        , mAnim(anim)
+    {
+        // TODO: should instead be setting the rdbuf of mInputStream
+        //       to read from the file.
+        std::string line;
+        while (getline(line, md5animFile))
+        {
+            mInputStream << line << '\n';
+        }
+    }
+
+    bool Parse() override
+    {
+        return AcceptVersion(mAnim.MD5Version) &&
+               AcceptCommandLine(mAnim.CommandLine);
     }
 };
 
@@ -693,7 +771,7 @@ bool TryLoadMD5Mesh(
 {
     MD5Model newModel;
     error.clear();
-    MD5Parser parser(newModel, md5meshFile, error);
+    MD5MeshParser parser(newModel, md5meshFile, error);
 
     if (!parser.Parse())
     {
@@ -712,6 +790,37 @@ void LoadMD5Mesh(
 {
     std::string error;
     if (!TryLoadMD5Mesh(model, md5meshFile, error))
+    {
+        throw std::runtime_error(error);
+    }
+}
+
+bool TryLoadMD5Anim(
+        MD5Anim& anim,
+        IReadFile& md5animFile,
+        std::string& error)
+{
+    MD5Anim newAnim;
+    error.clear();
+    MD5AnimParser parser(newAnim, md5animFile, error);
+
+    if (!parser.Parse())
+    {
+        return false;
+    }
+    else
+    {
+        anim = std::move(newAnim);
+        return true;
+    }
+}
+
+void LoadMD5Anim(
+        MD5Anim& anim,
+        IReadFile& md5animFile)
+{
+    std::string error;
+    if (!TryLoadMD5Anim(anim, md5animFile, error))
     {
         throw std::runtime_error(error);
     }
