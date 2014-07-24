@@ -72,11 +72,11 @@ public:
 //                    0.3f,
 //                    2.0f);
 
-         mCubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
-//        std::shared_ptr<ng::IReadFile> bunnyFile = mFileSystem->GetReadFile("cube.obj", ng::FileReadMode::Text);
-//        ng::ObjModel model;
-//        ng::LoadObj(model, *bunnyFile);
-//        mCubeNode->Mesh = std::make_shared<ng::ObjMesh>(std::move(model));
+//         mCubeNode->Mesh = std::make_shared<ng::CubeMesh>(1.0f);
+        std::shared_ptr<ng::IReadFile> bunnyFile = mFileSystem->GetReadFile("donut.obj", ng::FileReadMode::Text);
+        ng::ObjModel model;
+        ng::LoadObj(model, *bunnyFile);
+        mCubeNode->Mesh = std::make_shared<ng::ObjMesh>(std::move(model));
         mCubeNode->Material = wireframeMaterial;
         rootNode->Children.push_back(mCubeNode);
 

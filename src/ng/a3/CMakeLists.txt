@@ -8,7 +8,8 @@ file(GLOB_RECURSE SOURCES
 set(ASSETS
     bunny.obj
     cube.obj
-    teapot.obj)
+    teapot.obj
+    donut.obj)
 
 set_source_files_properties(${ASSETS} PROPERTIES HEADER_FILE_ONLY TRUE)
 

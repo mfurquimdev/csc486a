@@ -135,7 +135,8 @@ class MD5Parser
         char ch;
         if (!AcceptChar(ch) || ch != required)
         {
-            mError = "Expected " + required;
+            mError = "Expected ";
+            mError += required;
             return false;
         }
         return true;

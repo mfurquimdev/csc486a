@@ -3,6 +3,9 @@
 
 #include "ng/engine/util/arithmetictype.hpp"
 
+#include <array>
+#include <functional>
+
 namespace ng
 {
 
@@ -48,6 +51,12 @@ public:
     ArithmeticType IndexType;
     std::size_t IndexOffset;
 };
+
+std::array<std::reference_wrapper<const VertexAttribute>,5>
+    GetAttribArray(const VertexFormat& fmt);
+
+std::array<std::reference_wrapper<VertexAttribute>,5>
+    GetAttribArray(VertexFormat& fmt);
 
 } // end namespace ng
 

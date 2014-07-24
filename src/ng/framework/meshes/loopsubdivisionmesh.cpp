@@ -28,28 +28,34 @@ LoopSubdivisionMesh::LoopSubdivisionMesh(
     {
         throw std::logic_error("Cannot subdivide mesh without position");
     }
+
+    if (baseFmt.Position.Type != ArithmeticType::Float)
+    {
+        throw std::logic_error("Subdivision only works with float positions");
+    }
 }
+
+namespace
+{
 
 static std::vector<std::reference_wrapper<VertexAttribute>>
     GetEnabledAttributes(VertexFormat& fmt)
 {
     std::vector<std::reference_wrapper<VertexAttribute>> attribs;
 
-    if (fmt.Position.Enabled)
+    for (const std::reference_wrapper<VertexAttribute>& attrib
+         : GetAttribArray(fmt))
     {
-        attribs.push_back(fmt.Position);
-    }
-    if (fmt.Normal.Enabled)
-    {
-        attribs.push_back(fmt.Normal);
-    }
-    if (fmt.TexCoord0.Enabled)
-    {
-        attribs.push_back(fmt.TexCoord0);
+        if (attrib.get().Enabled)
+        {
+            attribs.push_back(attrib);
+        }
     }
 
     return attribs;
 }
+
+} // end anonymous namespace
 
 VertexFormat LoopSubdivisionMesh::GetVertexFormat() const
 {
@@ -222,7 +228,7 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
             sizevec3 face = getFaceVertices(faceIdx);
 
             std::array<vec4,3> positions;
-            for (std::size_t vertexIdx = 0; vertexIdx < 4; vertexIdx++)
+            for (std::size_t vertexIdx = 0; vertexIdx < 3; vertexIdx++)
             {
                 float* posAttrib =
                     reinterpret_cast<float*>(
@@ -291,10 +297,22 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
             sizevec3 face = getFaceVertices(faceIdx);
 
             // byte offset into the current vertex
-            std::array<std::size_t,3> offsets = {0, 0, 0};
+            std::size_t attribByteOffset = 0;
+
+            std::size_t positionByteOffset = 0;
+            std::size_t normalByteOffset = 0;
 
             for (const VertexAttribute& attrib : GetEnabledAttributes(baseFmt))
             {
+                if (&baseFmt.Position == &attrib)
+                {
+                    positionByteOffset = attribByteOffset;
+                }
+                else if (&baseFmt.Normal == &attrib)
+                {
+                    normalByteOffset = attribByteOffset;
+                }
+
                 std::size_t attribSize =
                     attrib.Cardinality * SizeOfArithmeticType(attrib.Type);
 
@@ -302,7 +320,7 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
                 for (std::size_t v = 0; v < vertexData.size(); v++)
                 {
                     std::memcpy(
-                        vertexData[v].get() + offsets[v],
+                        vertexData[v].get() + attribByteOffset,
                         baseVertices.get()
                             + attrib.Offset
                             + attrib.Stride * face[v],
@@ -316,15 +334,15 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
                     for (std::size_t i = 0; i < attrib.Cardinality; i++)
                     {
                         void* a1 = vertexData[e].get()
-                                 + offsets[e]
+                                 + attribByteOffset
                                  + i * SizeOfArithmeticType(attrib.Type);
 
                         void* a2 = vertexData[(e + 1) % vertexData.size()].get()
-                                 + offsets[e]
+                                 + attribByteOffset
                                  + i * SizeOfArithmeticType(attrib.Type);
 
                         void* edge = edgeData[e].get()
-                                   + offsets[e]
+                                   + attribByteOffset
                                    + i * SizeOfArithmeticType(attrib.Type);
 
                         if (attrib.Type == ArithmeticType::Float)
@@ -351,7 +369,7 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
                     {
                         float* posAttrib =
                             reinterpret_cast<float*>(
-                                vertexData[v].get() + offsets[v]);
+                                vertexData[v].get() + attribByteOffset);
 
                         vec4 pos;
                         for (std::size_t elem = 0;
@@ -387,10 +405,53 @@ std::size_t LoopSubdivisionMesh::WriteVertices(void* buffer) const
                     }
                 }
 
-                // update offsets of vertex data
-                for (std::size_t e = 0; e < edgeData.size(); e++)
+                // update offset into vertex data
+                attribByteOffset += attribSize;
+            }
+
+            if (baseFmt.Normal.Enabled)
+            {
+                // recalculate normals for the 4 triangles
+                for (int tri = 0; tri < 4; tri++)
                 {
-                    offsets[e] += attribSize;
+                    std::array<char*,3> vertexPointers;
+
+                    if (tri == 3)
+                    {
+                        // the middle is a special case
+                        // that doesn't match the pattern...
+                        for (int i = 0; i < 3; i++)
+                        {
+                            vertexPointers[i] = edgeData[i].get();
+                        }
+                    }
+                    else
+                    {
+                        vertexPointers[0] = vertexData[tri].get();
+                        vertexPointers[1] = edgeData[tri].get();
+                        vertexPointers[2] = edgeData[(2 + tri) % 3].get();
+                    }
+
+                    std::array<vec3,3> positions;
+                    for (int i = 0; i < 3; i++)
+                    {
+                        std::memcpy(&positions[i][0],
+                                vertexPointers[i] + positionByteOffset,
+                                sizeof(float) *
+                                std::max(3u, baseFmt.Position.Cardinality));
+                    }
+
+                    vec3 normal = normalize(cross(
+                                positions[2] - positions[1],
+                                positions[0] - positions[1]));
+
+                    for (int i = 0; i < 3; i++)
+                    {
+                        std::memcpy(vertexPointers[i] + normalByteOffset,
+                                    &normal[0],
+                                    sizeof(float) *
+                                    std::max(3u, baseFmt.Normal.Cardinality));
+                    }
                 }
             }
 

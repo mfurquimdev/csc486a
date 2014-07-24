@@ -192,7 +192,7 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
     static const char* coloredFSrc =
             "#version 100\n"
 
-            "uniform lowp vec3 uTint;\n"
+            "uniform highp vec3 uTint;\n"
 
             "void main() {\n"
              "    gl_FragColor = vec4(uTint,1.0);\n"
@@ -211,7 +211,7 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
             "attribute highp vec4 iPosition;\n"
             "attribute highp vec3 iNormal;\n"
 
-            "varying lowp vec3 fViewNormal;\n"
+            "varying highp vec3 fViewNormal;\n"
 
             "void main() {\n"
             "    gl_Position = uProjection * uModelView * iPosition;\n"
@@ -221,7 +221,7 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
     static const char* normalColoredFSrc =
             "#version 100\n"
 
-            "varying lowp vec3 fViewNormal;\n"
+            "varying highp vec3 fViewNormal;\n"
 
             "void main() {\n"
             "    gl_FragColor = vec4((fViewNormal + vec3(1)) / vec3(2), 1.0);\n"

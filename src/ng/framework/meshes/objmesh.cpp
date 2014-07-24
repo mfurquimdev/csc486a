@@ -10,14 +10,17 @@ namespace ng
 ObjMesh::ObjMesh(ObjModel shape)
     : mShape(std::move(shape))
 {
-    if (mShape.VerticesPerFace != 3)
+    if (mShape.VerticesPerFace < 3 ||
+        mShape.VerticesPerFace > 4)
     {
-        throw std::runtime_error("Unhandled number of vertices per face "
-                                 "(only handles 3)");
+        throw std::logic_error("Can only handle 3 or 4 vertices per face");
     }
 }
 
-static std::size_t GetVertexSize(const ObjModel& shape)
+namespace
+{
+
+std::size_t GetVertexSize(const ObjModel& shape)
 {
     std::size_t vertexSize = 0;
 
@@ -38,6 +41,8 @@ static std::size_t GetVertexSize(const ObjModel& shape)
 
     return vertexSize;
 }
+
+} // end anonymous namespace
 
 VertexFormat ObjMesh::GetVertexFormat() const
 {
@@ -89,10 +94,15 @@ std::size_t ObjMesh::GetMaxVertexBufferSize() const
                          + int(mShape.HasNormalIndices);
 
     std::size_t vertexSize = GetVertexSize(mShape);
+
     std::size_t numFaces =
               mShape.Indices.size()
             / (indicesPerVertex * mShape.VerticesPerFace);
-    std::size_t numVerticesTotal = numFaces * 3;
+
+    std::size_t trianglesPerFace = mShape.VerticesPerFace == 3 ? 1 : 2;
+
+    std::size_t numVerticesTotal = numFaces * trianglesPerFace * 3;
+
     return vertexSize * numVerticesTotal;
 }
 
@@ -111,51 +121,62 @@ std::size_t ObjMesh::WriteVertices(void* buffer) const
     std::size_t numFaces =
               mShape.Indices.size()
             / (indicesPerVertex * mShape.VerticesPerFace);
-    std::size_t numVerticesTotal = numFaces * 3;
+
+    std::size_t trianglesPerFace = mShape.VerticesPerFace == 3 ? 1 : 2;
+
+    std::size_t numVerticesTotal = numFaces * trianglesPerFace * 3;
 
     if (buffer != nullptr)
     {
         std::size_t vertexSize = GetVertexSize(mShape);
         std::size_t floatsPerVertex = vertexSize / sizeof(float);
-        std::size_t floatsPerFace = 3 * floatsPerVertex;
 
         float* fbuffer = static_cast<float*>(buffer);
 
         for (std::size_t face = 0; face < numFaces; face++)
         {
-            for (std::size_t v = 0; v < 3; v++)
+            for (std::size_t tri = 0; tri < trianglesPerFace; tri++)
             {
-                std::size_t vertexDataIndex = face * floatsPerFace
-                                            + v * floatsPerVertex;
-                float* vertexData = &fbuffer[vertexDataIndex];
-                const int* vertexIndices = mShape.Indices.data()
-                                         + (face * 3 + v) * indicesPerVertex;
-
-                if (mShape.HasPositionIndices)
+                for (std::size_t v = 0; v < 3; v++)
                 {
-                    std::memcpy(vertexData,
-                                &mShape.Positions[*vertexIndices - 1],
-                                sizeof(vec4));
-                    vertexIndices++;
-                    vertexData += 4;
-                }
+                    std::size_t triangleIndex =
+                            face * trianglesPerFace + tri;
 
-                if (mShape.HasTexcoordIndices)
-                {
-                    std::memcpy(vertexData,
-                                &mShape.Texcoords[*vertexIndices - 1],
-                                sizeof(vec3));
-                    vertexIndices++;
-                    vertexData += 3;
-                }
+                    std::size_t vertexDataIndex =
+                            (triangleIndex * 3 + v) * floatsPerVertex;
 
-                if (mShape.HasNormalIndices)
-                {
-                    std::memcpy(vertexData,
-                                &mShape.Normals[*vertexIndices - 1],
-                                sizeof(vec3));
-                    vertexIndices++;
-                    vertexData += 3;
+                    float* vertexData = &fbuffer[vertexDataIndex];
+
+                    const int* vertexIndices = mShape.Indices.data()
+                                             + (face * mShape.VerticesPerFace + v + (tri == 1 && v > 0 ? 1 : 0))
+                                                * indicesPerVertex;
+
+                    if (mShape.HasPositionIndices)
+                    {
+                        std::memcpy(vertexData,
+                                    &mShape.Positions[*vertexIndices - 1],
+                                    sizeof(vec4));
+                        vertexIndices++;
+                        vertexData += 4;
+                    }
+
+                    if (mShape.HasTexcoordIndices)
+                    {
+                        std::memcpy(vertexData,
+                                    &mShape.Texcoords[*vertexIndices - 1],
+                                    sizeof(vec3));
+                        vertexIndices++;
+                        vertexData += 3;
+                    }
+
+                    if (mShape.HasNormalIndices)
+                    {
+                        std::memcpy(vertexData,
+                                    &mShape.Normals[*vertexIndices - 1],
+                                    sizeof(vec3));
+                        vertexIndices++;
+                        vertexData += 3;
+                    }
                 }
             }
         }
