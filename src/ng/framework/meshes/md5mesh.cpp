@@ -4,6 +4,8 @@
 
 #include "ng/engine/util/debug.hpp"
 
+#include <numeric>
+
 namespace ng
 {
 

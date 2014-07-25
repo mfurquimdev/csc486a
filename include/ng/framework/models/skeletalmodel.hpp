@@ -6,6 +6,7 @@
 #include "ng/engine/util/compilertraits.hpp"
 
 #include <vector>
+#include <string>
 
 namespace ng
 {

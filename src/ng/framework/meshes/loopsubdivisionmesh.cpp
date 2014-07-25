@@ -10,6 +10,9 @@
 #include <cstring>
 #include <map>
 #include <set>
+#include <vector>
+#include <string>
+#include <numeric>
 
 namespace ng
 {

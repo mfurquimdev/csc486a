@@ -162,7 +162,7 @@ std::size_t CubeMesh::WriteVertices(void* buffer) const
         const vec2 t13 = tx * 1.0f + ty * 3.0f;
         const vec2 t23 = tx * 2.0f + ty * 3.0f;
 
-        const CubeMesh::Vertex zero;
+        const CubeMesh::Vertex zero{};
 
         // six faces with 5 vertices each (bottom left, bottom right, top right, top left, center)
         // note the corner vertices are missing. They are patched in after by averaging the other vertices.

@@ -429,8 +429,8 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                     std::unique_ptr<char[]> elementBuffer(new char[maxEBOSize]);
                     numElements = mesh.WriteIndices(elementBuffer.get());
                     glBufferData(
-                                GL_ARRAY_BUFFER,
-                                maxVBOSize,
+                                GL_ELEMENT_ARRAY_BUFFER,
+                                maxEBOSize,
                                 elementBuffer.get(),
                                 GL_STREAM_DRAW);
                 }
