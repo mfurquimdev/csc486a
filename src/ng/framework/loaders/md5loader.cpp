@@ -295,6 +295,12 @@ class MD5MeshParser : public MD5ParserBase
                 return false;
             }
 
+            if (joint.ParentIndex > (int) mModel.BindPoseJoints.size())
+            {
+                mError = "Parent joints must appear before their children.";
+                return false;
+            }
+
             mModel.BindPoseJoints.push_back(std::move(joint));
 
             return true;
@@ -841,6 +847,12 @@ class MD5AnimParser : public MD5ParserBase
                 joint.ParentIndex == (int) mAnim.Joints.size())
             {
                 mError = "parentIndex out of bounds or self-referential";
+                return false;
+            }
+
+            if (joint.ParentIndex > (int) mAnim.Joints.size())
+            {
+                mError = "Parent joints must appear before their children.";
                 return false;
             }
 
