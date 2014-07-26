@@ -11,42 +11,26 @@
 namespace ng
 {
 
-class SkeletonJoint
-{
-public:
-    mat4 InverseBindPose;
-    std::string JointName;
-
-    static constexpr int RootJointIndex = -1;
-    int ParentIndex;
-};
+class MD5Model;
+class MD5Anim;
 
 class Skeleton
 {
 public:
-    std::vector<SkeletonJoint> Joints;
-};
-
-class ImmutableSkeleton
-{
-    Skeleton mSkeleton;
-
-public:
-    ImmutableSkeleton(Skeleton skeleton)
-        : mSkeleton(std::move(skeleton))
-    { }
-
-    const Skeleton& GetSkeleton() const
+    class Joint
     {
-        return mSkeleton;
-    }
+    public:
+        mat4 InverseBindPose;
+        std::string JointName;
+
+        static constexpr int RootJointIndex = -1;
+        int ParentIndex;
+    };
+
+    static Skeleton FromMD5Model(const MD5Model& model);
+
+    std::vector<Joint> Joints;
 };
-
-class MD5Model;
-
-void SkeletonFromMD5Model(
-        const MD5Model& model,
-        Skeleton& skeleton);
 
 class SkeletonJointPose
 {
@@ -59,48 +43,36 @@ private:
     std::uint8_t Padding[8];
 };
 
-mat4 PoseToMat4(const SkeletonJointPose& pose);
+class SkeletonLocalPose
+{
+public:
+    static SkeletonLocalPose FromMD5AnimFrame(
+            const Skeleton& skeleton,
+            const MD5Anim& anim,
+            int frame);
 
-void CalculateInverseBindPose(
-        const SkeletonJointPose* bindPoseJointPoses,
-        SkeletonJoint* joints,
-        std::size_t numJoints);
+    std::vector<SkeletonJointPose> JointPoses;
+};
 
-void LocalPosesToGlobalPoses(
-        const SkeletonJoint* joints,
-        const SkeletonJointPose* localPoses,
-        std::size_t numJoints,
-        mat4* globalPoses);
+class SkeletonGlobalPose
+{
+public:
+    static SkeletonGlobalPose FromLocalPose(
+            const Skeleton& skeleton,
+            const SkeletonLocalPose& localPose);
+
+    std::vector<SkeletonJointPose> GlobalPoses;
+};
 
 class SkinningMatrixPalette
 {
 public:
+    static SkinningMatrixPalette FromGlobalPose(
+            const Skeleton& skeleton,
+            const SkeletonGlobalPose& globalPose);
+
     std::vector<mat4> SkinningMatrices;
 };
-
-class ImmutableSkinningMatrixPalette
-{
-    SkinningMatrixPalette mPalette;
-
-public:
-    ImmutableSkinningMatrixPalette(SkinningMatrixPalette palette)
-        : mPalette(std::move(palette))
-    { }
-
-    const SkinningMatrixPalette& GetPalette() const
-    {
-        return mPalette;
-    }
-};
-
-static_assert(sizeof(SkeletonJointPose) == 12 * sizeof(float),
-              "JointPose should be aligned to vec4 size");
-
-void GlobalPosesToSkinningMatrices(
-        const SkeletonJoint* joints,
-        const mat4* NG_RESTRICT globalPoses,
-        std::size_t numJoints,
-        mat4* NG_RESTRICT skinningMatrices);
 
 } // end namespace ng
 

@@ -778,7 +778,7 @@ class MD5AnimParser : public MD5ParserBase
                 return false;
             }
 
-            mAnim.JointHierarchy.reserve(numJoints);
+            mAnim.Joints.reserve(numJoints);
             mAnim.BaseFrame.reserve(numJoints);
             mNumExpectedJoints = numJoints;
 
@@ -830,14 +830,15 @@ class MD5AnimParser : public MD5ParserBase
     bool AcceptHierarchyJoint()
     {
         MD5AnimationJoint joint;
-        if (AcceptDoubleQuotedString(joint.JointName) &&
+        int flags;
+        if (AcceptDoubleQuotedString(joint.Name) &&
             AcceptInt(joint.ParentIndex) &&
-            AcceptInt(joint.Flags) &&
+            AcceptInt(flags) &&
             AcceptInt(joint.StartIndex))
         {
             if (joint.ParentIndex < -1 ||
                 joint.ParentIndex >= mNumExpectedJoints ||
-                joint.ParentIndex == (int) mAnim.JointHierarchy.size())
+                joint.ParentIndex == (int) mAnim.Joints.size())
             {
                 mError = "parentIndex out of bounds or self-referential";
                 return false;
@@ -850,7 +851,22 @@ class MD5AnimParser : public MD5ParserBase
                 return false;
             }
 
-            mAnim.JointHierarchy.push_back(std::move(joint));
+            if (flags < 0)
+            {
+                mError = "flags must be a positive number";
+                return false;
+            }
+
+            joint.Flags = flags;
+
+            if ((joint.Flags | 0x3F) != 0x3F)
+            {
+                mError = "flags may only have 6 least significant bits set "
+                         "(numbers from 0 to 63 inclusive.)";
+                return false;
+            }
+
+            mAnim.Joints.push_back(std::move(joint));
             return true;
         }
 

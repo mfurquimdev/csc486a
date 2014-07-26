@@ -10,7 +10,7 @@ namespace ng
 
 SkeletalMesh::SkeletalMesh(
         std::shared_ptr<IMesh> bindPoseMesh,
-        std::shared_ptr<ImmutableSkinningMatrixPalette> skinningPalette)
+        std::shared_ptr<immutable<SkinningMatrixPalette>> skinningPalette)
     : mBindPoseMesh(std::move(bindPoseMesh))
     , mSkinningPalette(std::move(skinningPalette))
 {
@@ -114,7 +114,7 @@ std::size_t SkeletalMesh::WriteVertices(void* buffer) const
         const unsigned int numJointsPerVertex = 4;
 
         const std::vector<mat4>& skinningMatrices =
-                mSkinningPalette->GetPalette().SkinningMatrices;
+                mSkinningPalette->get().SkinningMatrices;
 
         for (std::size_t i = 0; i < numBaseVertices; i++)
         {

@@ -62,9 +62,16 @@ public:
 class MD5AnimationJoint
 {
 public:
-    std::string JointName;
+    static constexpr unsigned int PositionXFlag = 1;
+    static constexpr unsigned int PositionYFlag = 2;
+    static constexpr unsigned int PositionZFlag = 4;
+    static constexpr unsigned int QuaternionXFlag = 8;
+    static constexpr unsigned int QuaternionYFlag = 16;
+    static constexpr unsigned int QuaternionZFlag = 32;
+
+    std::string Name;
     int ParentIndex;
-    int Flags;
+    unsigned int Flags;
     int StartIndex;
 };
 
@@ -94,11 +101,13 @@ public:
     int MD5Version;
     std::string CommandLine;
     int FrameRate;
-    std::vector<MD5AnimationJoint> JointHierarchy;
+    std::vector<MD5AnimationJoint> Joints;
     std::vector<MD5FrameBounds> FrameBounds;
     std::vector<MD5JointPose> BaseFrame;
     std::vector<MD5Frame> Frames;
 };
+
+
 
 } // end namespace ng
 
