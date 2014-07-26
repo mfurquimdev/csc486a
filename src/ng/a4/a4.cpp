@@ -228,7 +228,7 @@ private:
 
         std::vector<ng::mat4> globalRobotPoses(mRobotSkeleton->GetSkeleton().Joints.size());
 
-        for (int i = 0; i < mRobotSkeleton->GetSkeleton().Joints.size(); i++)
+        for (std::size_t i = 0; i < mRobotSkeleton->GetSkeleton().Joints.size(); i++)
         {
             globalRobotPoses[i] = inverse(mRobotSkeleton->GetSkeleton().Joints[i].InverseBindPose);
         }

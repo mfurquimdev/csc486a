@@ -59,11 +59,45 @@ public:
     std::vector<MD5MeshData> Meshes;
 };
 
+class MD5AnimationJoint
+{
+public:
+    std::string JointName;
+    int ParentIndex;
+    int Flags;
+    int StartIndex;
+};
+
+class MD5FrameBounds
+{
+public:
+    vec3 MinimumExtent;
+    vec3 MaximumExtent;
+};
+
+class MD5JointPose
+{
+public:
+    vec3 Position;
+    vec3 Orientation;
+};
+
+class MD5Frame
+{
+public:
+    std::vector<float> AnimationComponents;
+};
+
 class MD5Anim
 {
 public:
     int MD5Version;
     std::string CommandLine;
+    int FrameRate;
+    std::vector<MD5AnimationJoint> JointHierarchy;
+    std::vector<MD5FrameBounds> FrameBounds;
+    std::vector<MD5JointPose> BaseFrame;
+    std::vector<MD5Frame> Frames;
 };
 
 } // end namespace ng

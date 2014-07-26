@@ -287,9 +287,11 @@ class MD5MeshParser : public MD5ParserBase
                 AcceptFloat(joint.Orientation[2]) &&
             RequireChar(')'))
         {
-            if (joint.ParentIndex < 0 && joint.ParentIndex != -1)
+            if (joint.ParentIndex < -1 ||
+                joint.ParentIndex >= mNumExpectedJoints ||
+                joint.ParentIndex == (int) mModel.BindPoseJoints.size())
             {
-                mError = "The only valid negative parent index is -1";
+                mError = "Parent index out of range, or self-referential";
                 return false;
             }
 
@@ -716,11 +718,10 @@ public:
         : MD5ParserBase(error)
         , mModel(model)
     {
-        // TODO: should instead be setting the rdbuf of mInputStream
-        //       to read from the file.
         std::string line;
         while (getline(line, md5meshFile))
         {
+            line = line.substr(0, line.find("//"));
             mInputStream << line << '\n';
         }
     }
@@ -740,6 +741,371 @@ class MD5AnimParser : public MD5ParserBase
 {
     MD5Anim& mAnim;
 
+    int mNumExpectedFrames;
+    int mNumExpectedJoints;
+    int mFrameRate;
+    int mNumExpectedAnimatedComponents;
+
+    bool AcceptNumFrames()
+    {
+        int numFrames;
+        if (RequireIdentifier("numFrames") && AcceptInt(numFrames))
+        {
+            if (numFrames < 0)
+            {
+                mError = "numFrames < 0";
+                return false;
+            }
+
+            mAnim.FrameBounds.reserve(numFrames);
+            mAnim.Frames.reserve(numFrames);
+            mNumExpectedFrames = numFrames;
+
+            return true;
+        }
+
+        return false;
+    }
+
+    bool AcceptNumJoints()
+    {
+        int numJoints;
+        if (RequireIdentifier("numJoints") && AcceptInt(numJoints))
+        {
+            if (numJoints < 0)
+            {
+                mError = "numJoints < 0";
+                return false;
+            }
+
+            mAnim.JointHierarchy.reserve(numJoints);
+            mAnim.BaseFrame.reserve(numJoints);
+            mNumExpectedJoints = numJoints;
+
+            return true;
+        }
+
+        return false;
+    }
+
+    bool AcceptFrameRate()
+    {
+        int frameRate;
+        if (RequireIdentifier("frameRate") && AcceptInt(frameRate))
+        {
+            if (frameRate < 0)
+            {
+                mError = "frameRate < 0";
+                return false;
+            }
+
+            mFrameRate = frameRate;
+
+            return true;
+        }
+
+        return false;
+    }
+
+    bool AcceptNumAnimatedComponents()
+    {
+        int numAnimatedComponents;
+        if (RequireIdentifier("numAnimatedComponents") &&
+            AcceptInt(numAnimatedComponents))
+        {
+            if (numAnimatedComponents < 0)
+            {
+                mError = "numAnimatedComponents < 0";
+                return false;
+            }
+
+            mNumExpectedAnimatedComponents = numAnimatedComponents;
+
+            return true;
+        }
+
+        return false;
+    }
+
+    bool AcceptHierarchyJoint()
+    {
+        MD5AnimationJoint joint;
+        if (AcceptDoubleQuotedString(joint.JointName) &&
+            AcceptInt(joint.ParentIndex) &&
+            AcceptInt(joint.Flags) &&
+            AcceptInt(joint.StartIndex))
+        {
+            if (joint.ParentIndex < -1 ||
+                joint.ParentIndex >= mNumExpectedJoints ||
+                joint.ParentIndex == (int) mAnim.JointHierarchy.size())
+            {
+                mError = "parentIndex out of bounds or self-referential";
+                return false;
+            }
+
+            if (joint.StartIndex < 0 ||
+                joint.StartIndex >= mNumExpectedAnimatedComponents)
+            {
+                mError = "joint's startIndex is out of bounds";
+                return false;
+            }
+
+            mAnim.JointHierarchy.push_back(std::move(joint));
+            return true;
+        }
+
+        return false;
+    }
+
+    bool AcceptHierarchy()
+    {
+        int numAcceptedJoints = 0;
+        if (RequireIdentifier("hierarchy") && RequireChar('{'))
+        {
+            while (true)
+            {
+                EatWhitespace();
+
+                if (mInputStream.peek() == '}')
+                {
+                    mInputStream.get();
+
+                    break;
+                }
+                else
+                {
+                    if (!AcceptHierarchyJoint())
+                    {
+                        return false;
+                    }
+
+                    numAcceptedJoints++;
+                }
+            }
+
+            if (numAcceptedJoints != mNumExpectedJoints)
+            {
+                mError = "Expected " + std::to_string(mNumExpectedJoints)
+                        + " joints, but got " + std::to_string(numAcceptedJoints);
+                return false;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    bool AcceptBound()
+    {
+        MD5FrameBounds bounds;
+        if (RequireChar('(') &&
+                RequireFloat(bounds.MinimumExtent[0]) &&
+                RequireFloat(bounds.MinimumExtent[1]) &&
+                RequireFloat(bounds.MinimumExtent[2]) &&
+            RequireChar(')') &&
+            RequireChar('(') &&
+                RequireFloat(bounds.MaximumExtent[0]) &&
+                RequireFloat(bounds.MaximumExtent[1]) &&
+                RequireFloat(bounds.MaximumExtent[2]) &&
+            RequireChar(')'))
+        {
+            if (bounds.MinimumExtent[0] > bounds.MaximumExtent[0] ||
+                bounds.MinimumExtent[1] > bounds.MaximumExtent[1] ||
+                bounds.MinimumExtent[2] > bounds.MaximumExtent[2])
+            {
+                mError = "MinimumExtent > MaximumExtent";
+                return false;
+            }
+
+            mAnim.FrameBounds.push_back(std::move(bounds));
+
+            return true;
+        }
+
+        return false;
+    }
+
+    bool AcceptBounds()
+    {
+        int numAcceptedBounds = 0;
+        if (RequireIdentifier("bounds") && RequireChar('{'))
+        {
+            while (true)
+            {
+                EatWhitespace();
+
+                if (mInputStream.peek() == '}')
+                {
+                    mInputStream.get();
+                    break;
+                }
+
+                if (!AcceptBound())
+                {
+                    return false;
+                }
+
+                numAcceptedBounds++;
+            }
+
+            if (numAcceptedBounds != mNumExpectedFrames)
+            {
+                mError = "Mismatch between number of bounds and number of frames";
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    bool AcceptBaseFrameJointPose()
+    {
+        MD5JointPose pose;
+        if (RequireChar('(') &&
+                AcceptFloat(pose.Position[0]) &&
+                AcceptFloat(pose.Position[1]) &&
+                AcceptFloat(pose.Position[2]) &&
+            RequireChar(')') &&
+            RequireChar('(') &&
+                AcceptFloat(pose.Orientation[0]) &&
+                AcceptFloat(pose.Orientation[1]) &&
+                AcceptFloat(pose.Orientation[2]) &&
+            RequireChar(')'))
+        {
+            mAnim.BaseFrame.push_back(std::move(pose));
+
+            return true;
+        }
+
+        return false;
+    }
+
+    bool AcceptBaseFrame()
+    {
+        int numAcceptedBaseFrameJointPoses = 0;
+        if (RequireIdentifier("baseframe") && RequireChar('{'))
+        {
+            while (true)
+            {
+                EatWhitespace();
+
+                if (mInputStream.peek() == '}')
+                {
+                    mInputStream.get();
+                    break;
+                }
+
+                if (!AcceptBaseFrameJointPose())
+                {
+                    return false;
+                }
+
+                numAcceptedBaseFrameJointPoses++;
+            }
+
+            if (numAcceptedBaseFrameJointPoses != mNumExpectedJoints)
+            {
+                mError = "Mismatch between number of base frame joint poses "
+                         "and the number of expected joints";
+                return false;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    bool AcceptAnimationComponents()
+    {
+        int numAcceptedAnimationComponents = 0;
+
+        MD5Frame& frame = mAnim.Frames.back();
+
+        while (true)
+        {
+            EatWhitespace();
+            if (mInputStream.peek() == '}')
+            {
+                break;
+            }
+
+            float value;
+            if (!AcceptFloat(value))
+            {
+                return false;
+            }
+
+            frame.AnimationComponents.push_back(value);
+
+            numAcceptedAnimationComponents++;
+        }
+
+        if (numAcceptedAnimationComponents != mNumExpectedAnimatedComponents)
+        {
+            mError = "mismatch between number of frame components "
+                     "and numAnimatedComponents";
+            return false;
+        }
+
+        return true;
+    }
+
+    bool AcceptFrames()
+    {
+        int numAcceptedFrames = 0;
+
+        while (true)
+        {
+            EatWhitespace();
+
+            if (mInputStream.peek() == std::stringstream::traits_type::eof())
+            {
+                break;
+            }
+
+            int frameNumber;
+            if (RequireIdentifier("frame") &&
+                AcceptInt(frameNumber) &&
+                RequireChar('{'))
+            {
+                if (frameNumber != (int) mAnim.Frames.size())
+                {
+                    mError = "Incorrect frame index";
+                    return false;
+                }
+
+                mAnim.Frames.emplace_back();
+
+                if (!AcceptAnimationComponents())
+                {
+                    return false;
+                }
+
+                numAcceptedFrames++;
+
+                if (!RequireChar('}'))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        if (numAcceptedFrames != mNumExpectedFrames)
+        {
+            mError = "mismatch between number of frames and number of "
+                     "expected frames";
+            return false;
+        }
+
+        return true;
+    }
+
 public:
     MD5AnimParser(
             MD5Anim& anim,
@@ -748,11 +1114,10 @@ public:
         : MD5ParserBase(error)
         , mAnim(anim)
     {
-        // TODO: should instead be setting the rdbuf of mInputStream
-        //       to read from the file.
         std::string line;
         while (getline(line, md5animFile))
         {
+            line = line.substr(0, line.find("//"));
             mInputStream << line << '\n';
         }
     }
@@ -760,7 +1125,15 @@ public:
     bool Parse() override
     {
         return AcceptVersion(mAnim.MD5Version) &&
-               AcceptCommandLine(mAnim.CommandLine);
+               AcceptCommandLine(mAnim.CommandLine) &&
+               AcceptNumFrames() &&
+               AcceptNumJoints() &&
+               AcceptFrameRate() &&
+               AcceptNumAnimatedComponents() &&
+               AcceptHierarchy() &&
+               AcceptBounds() &&
+               AcceptBaseFrame() &&
+               AcceptFrames();
     }
 };
 
