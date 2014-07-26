@@ -14,22 +14,22 @@ namespace ng
 class MD5Model;
 class MD5Anim;
 
+class SkeletonJoint
+{
+public:
+    mat4 InverseBindPose;
+    std::string JointName;
+
+    static constexpr int RootJointIndex = -1;
+    int ParentIndex;
+};
+
 class Skeleton
 {
 public:
-    class Joint
-    {
-    public:
-        mat4 InverseBindPose;
-        std::string JointName;
-
-        static constexpr int RootJointIndex = -1;
-        int ParentIndex;
-    };
-
     static Skeleton FromMD5Model(const MD5Model& model);
 
-    std::vector<Joint> Joints;
+    std::vector<SkeletonJoint> Joints;
 };
 
 class SkeletonJointPose

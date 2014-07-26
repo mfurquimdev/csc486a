@@ -26,7 +26,7 @@ public:
     // otherwise, UB.
     T& get_mutable()
     {
-        if (shared_from_this().unique())
+        if (this->shared_from_this().unique())
         {
             return mValue;
         }

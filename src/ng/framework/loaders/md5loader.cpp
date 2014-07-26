@@ -1077,6 +1077,26 @@ class MD5AnimParser : public MD5ParserBase
             return false;
         }
 
+        for (std::size_t j = 0; j < mAnim.Joints.size(); j++)
+        {
+            int start = mAnim.Joints[j].StartIndex;
+            int componentCount = 0;
+            for (unsigned int i = 0; i < 6; i++)
+            {
+                if (mAnim.Joints[j].Flags & (1 << i))
+                {
+                    componentCount++;
+                }
+            }
+
+            if (start >= numAcceptedAnimationComponents ||
+                start + componentCount >= numAcceptedAnimationComponents)
+            {
+                mError = "joint's frame data is out of range";
+                return false;
+            }
+        }
+
         return true;
     }
 

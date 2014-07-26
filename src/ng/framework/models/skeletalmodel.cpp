@@ -5,46 +5,6 @@
 namespace ng
 {
 
-namespace
-{
-
-mat4 PoseToMat4(const SkeletonJointPose& pose)
-{
-    mat3 R(pose.Rotation);
-    mat3 S(scale3x3(pose.Scale));
-    mat4 P(R * S);
-    P[3][0] = pose.Translation[0];
-    P[3][1] = pose.Translation[1];
-    P[3][2] = pose.Translation[2];
-    return P;
-}
-
-void CalculateInverseBindPose(
-        const SkeletonJointPose* bindPoseJointPoses,
-        SkeletonJoint* joints,
-        std::size_t numJoints)
-{
-    for (std::size_t j = 0; j < numJoints; j++)
-    {
-        const SkeletonJoint* joint = &joints[j];
-        const SkeletonJointPose* pose = &bindPoseJointPoses[j];
-
-        mat4 Pj_M = PoseToMat4(*pose);
-        while (joint->ParentIndex != SkeletonJoint::RootJointIndex)
-        {
-            int parent = joint->ParentIndex;
-            joint = &joints[parent];
-            pose = &bindPoseJointPoses[parent];
-
-            Pj_M = PoseToMat4(*pose) * Pj_M;
-        }
-
-        joints[j].InverseBindPose = inverse(Pj_M);
-    }
-}
-
-} // end anonymous namespace
-
 Skeleton Skeleton::FromMD5Model(const MD5Model& model)
 {
     Skeleton skeleton;
@@ -100,7 +60,7 @@ SkeletonLocalPose SkeletonLocalPose::FromMD5AnimFrame(
                     "between skeleton and animation.");
     }
 
-    if (frame < 0 || frame >= anim.Frames.size())
+    if (frame < 0 || frame >= (int) anim.Frames.size())
     {
         throw std::logic_error("frame out of bounds");
     }
@@ -121,7 +81,7 @@ SkeletonLocalPose SkeletonLocalPose::FromMD5AnimFrame(
         SkeletonJointPose localPoseJoint;
         localPoseJoint.Translation = basePoseJoint.Position;
 
-        Quaternion quat;
+        Quaternionf quat;
         quat.Components.x = basePoseJoint.Orientation.x;
         quat.Components.y = basePoseJoint.Orientation.y;
         quat.Components.z = basePoseJoint.Orientation.z;
@@ -129,7 +89,7 @@ SkeletonLocalPose SkeletonLocalPose::FromMD5AnimFrame(
         // apply the transformation induced by the current frame
         unsigned int flags = animationJoint.Flags;
 
-        int frameDataOffset = 0;
+        int frameDataOffset = animationJoint.StartIndex;
 
         if (flags & MD5AnimationJoint::PositionXFlag)
         {
@@ -192,42 +152,83 @@ SkeletonLocalPose SkeletonLocalPose::FromMD5AnimFrame(
     return std::move(localPose);
 }
 
-void LocalPosesToGlobalPoses(
-        const SkeletonJoint* joints,
-        const SkeletonJointPose* localPoses,
-        std::size_t numJoints,
-        mat4* globalPoses)
+SkeletonGlobalPose SkeletonGlobalPose::FromLocalPose(
+        const Skeleton& skeleton,
+        const SkeletonLocalPose& localPose)
 {
-    for (std::size_t j = 0; j < numJoints; j++)
+    SkeletonGlobalPose globalPose;
+
+    if (skeleton.Joints.size() != localPose.JointPoses.size())
     {
-        const SkeletonJoint* joint = &joints[j];
-        const SkeletonJointPose* pose = &localPoses[j];
+        throw std::logic_error(
+                    "mismatch between number of joints in skeleton "
+                    "and the number of joints in the local pose");
+    }
 
-        mat4 Pj_M = PoseToMat4(*pose);
-        while (joint->ParentIndex != SkeletonJoint::RootJointIndex)
+    // note: we can assume that the parent's global transform
+    //       has already been computed, since joints always have their parent
+    //       before themselves.
+    for (std::size_t j = 0; j < skeleton.Joints.size(); j++)
+    {
+        const SkeletonJoint& joint = skeleton.Joints[j];
+        const SkeletonJointPose& localJoint = localPose.JointPoses[j];
+
+        SkeletonJointPose globalJoint;
+
+        if (joint.ParentIndex == SkeletonJoint::RootJointIndex)
         {
-            int parent = joint->ParentIndex;
-            joint = &joints[parent];
-            pose = &localPoses[parent];
+            globalJoint = localJoint;
+        }
+        else
+        {
+            const SkeletonJointPose& parentJoint =
+                    globalPose.GlobalPoses[joint.ParentIndex];
 
-            Pj_M = PoseToMat4(*pose) * Pj_M;
+            globalJoint.Scale = parentJoint.Scale * localJoint.Scale;
+
+            globalJoint.Rotation = normalize(
+                        parentJoint.Rotation * localJoint.Rotation);
+
+            globalJoint.Translation = vec3(rotate(
+                        parentJoint.Rotation,
+                        parentJoint.Scale * localJoint.Translation).Components);
         }
 
-        globalPoses[j] = Pj_M;
+        globalPose.GlobalPoses.push_back(globalJoint);
     }
+
+    return std::move(globalPose);
 }
 
-void GlobalPosesToSkinningMatrices(
-        const SkeletonJoint* joints,
-        const mat4* NG_RESTRICT globalPoses,
-        std::size_t numJoints,
-        mat4* NG_RESTRICT skinningMatrices)
+SkinningMatrixPalette SkinningMatrixPalette::FromGlobalPose(
+        const Skeleton& skeleton,
+        const SkeletonGlobalPose& globalPose)
 {
-    for (std::size_t j = 0; j < numJoints; j++)
+    SkinningMatrixPalette palette;
+
+    if (skeleton.Joints.size() != globalPose.GlobalPoses.size())
     {
-        skinningMatrices[j] = globalPoses[j]
-                            * joints[j].InverseBindPose;
+        throw std::logic_error(
+                    "Mismatch between number of skeleton joints "
+                    "and number of poses in the global pose");
     }
+
+    for (std::size_t j = 0; j < skeleton.Joints.size(); j++)
+    {
+        const SkeletonJointPose& globalJoint = globalPose.GlobalPoses[j];
+
+        mat3 R(globalJoint.Rotation);
+        mat3 S(scale3x3(globalJoint.Scale));
+        mat4 P(R * S);
+        P[3][0] = globalJoint.Translation[0];
+        P[3][1] = globalJoint.Translation[1];
+        P[3][2] = globalJoint.Translation[2];
+
+        palette.SkinningMatrices.push_back(
+                    P * skeleton.Joints[j].InverseBindPose);
+    }
+
+    return std::move(palette);
 }
 
 } // end namespace ng

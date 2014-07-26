@@ -46,9 +46,9 @@ class A4 : public ng::IApp
     std::shared_ptr<ng::SceneGraphCameraNode> mOverlayCamera;
 
     std::shared_ptr<ng::SceneGraphNode> mRobotArmNode;
-    std::shared_ptr<ng::ImmutableSkeleton> mRobotSkeleton;
+    std::shared_ptr<ng::immutable<ng::Skeleton>> mRobotSkeleton;
     std::shared_ptr<ng::IMesh> mRobotBindPoseMesh;
-    // TODO: Represent current pose from MD5Anim
+    ng::MD5Anim mRobotAnim;
 
     ng::FixedStepUpdate mFixedStepUpdate{std::chrono::milliseconds(1000/60)};
 
@@ -92,10 +92,10 @@ public:
             ng::LoadMD5Mesh(robotModel, *robotMD5MeshFile);
 
             ng::Skeleton robotSkeleton;
-            ng::SkeletonFromMD5Model(robotModel, robotSkeleton);
+            ng::Skeleton::FromMD5Model(robotModel);
 
             mRobotSkeleton =
-                    std::make_shared<ng::ImmutableSkeleton>(
+                    std::make_shared<ng::immutable<ng::Skeleton>>(
                         std::move(robotSkeleton));
 
             mRobotBindPoseMesh =
@@ -210,50 +210,27 @@ private:
         UpdateCameraToWindow();
         UpdateCameraTransform(dt);
 
-//        if (mRobotSkeleton->GetSkeleton().Joints.size() !=
-//            mRobotPose.size())
-//        {
-//            throw std::logic_error(
-//                        "Mismatch of number of joints "
-//                        "and number of joint poses");
-//        }
+        ng::SkeletonLocalPose localRobotPose(
+                    ng::SkeletonLocalPose::FromMD5AnimFrame(
+                        mRobotSkeleton->get(), mRobotAnim, 0));
 
-        // TODO: get current local pose from MD5Anim
-        // TODO: convert local poses to global poses
-        // TODO: convert global poses to skinning matrices
+        ng::SkeletonGlobalPose globalRobotPose(
+                    ng::SkeletonGlobalPose::FromLocalPose(
+                        mRobotSkeleton->get(), localRobotPose));
 
-        // placeholder: all identity
-//        std::vector<ng::SkeletonJointPose> robotPose(
-//                    mRobotSkeleton->GetSkeleton().Joints.size());
+        ng::SkinningMatrixPalette robotSkinningPalette =
+                ng::SkinningMatrixPalette::FromGlobalPose(
+                    mRobotSkeleton->get(), globalRobotPose);
 
-        std::vector<ng::mat4> globalRobotPoses(mRobotSkeleton->GetSkeleton().Joints.size());
-
-        for (std::size_t i = 0; i < mRobotSkeleton->GetSkeleton().Joints.size(); i++)
-        {
-            globalRobotPoses[i] = inverse(mRobotSkeleton->GetSkeleton().Joints[i].InverseBindPose);
-        }
-//        ng::LocalPosesToGlobalPoses(
-//                    mRobotSkeleton->GetSkeleton().Joints.data(),
-//                    robotPose.data(), robotPose.size(),
-//                    globalRobotPoses.data());
-
-        ng::SkinningMatrixPalette robotSkinningPalette;
-        robotSkinningPalette.SkinningMatrices.resize(globalRobotPoses.size());
-
-        ng::GlobalPosesToSkinningMatrices(
-                    mRobotSkeleton->GetSkeleton().Joints.data(),
-                    globalRobotPoses.data(), globalRobotPoses.size(),
-                    robotSkinningPalette.SkinningMatrices.data());
-
-        std::shared_ptr<ng::ImmutableSkinningMatrixPalette>
-                immutableRobotSkinningPalette =
-                    std::make_shared<ng::ImmutableSkinningMatrixPalette>(
+        std::shared_ptr<ng::immutable<ng::SkinningMatrixPalette>>
+                robotSkinningPalettePtr =
+                    std::make_shared<ng::immutable<ng::SkinningMatrixPalette>>(
                         std::move(robotSkinningPalette));
 
         mRobotArmNode->Mesh =
                 std::make_shared<ng::SkeletalMesh>(
                     mRobotBindPoseMesh,
-                    immutableRobotSkinningPalette);
+                    robotSkinningPalettePtr);
     }
 };
 
