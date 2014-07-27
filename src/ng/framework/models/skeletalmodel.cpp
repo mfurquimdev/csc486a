@@ -2,6 +2,8 @@
 
 #include "ng/framework/models/md5model.hpp"
 
+#include "ng/engine/util/debug.hpp"
+
 namespace ng
 {
 
@@ -49,7 +51,7 @@ Skeleton Skeleton::FromMD5Model(const MD5Model& model)
 SkeletonLocalPose SkeletonLocalPose::FromMD5AnimFrame(
         const Skeleton& skeleton,
         const MD5Anim& anim,
-        int frame)
+        int frameIndex)
 {
     SkeletonLocalPose localPose;
 
@@ -60,10 +62,12 @@ SkeletonLocalPose SkeletonLocalPose::FromMD5AnimFrame(
                     "between skeleton and animation.");
     }
 
-    if (frame < 0 || frame >= (int) anim.Frames.size())
+    if (frameIndex || frameIndex >= (int) anim.Frames.size())
     {
         throw std::logic_error("frame out of bounds");
     }
+
+    const MD5Frame& frame = anim.Frames[frameIndex];
 
     for (std::size_t j = 0; j < skeleton.Joints.size(); j++)
     {
@@ -76,7 +80,6 @@ SkeletonLocalPose SkeletonLocalPose::FromMD5AnimFrame(
 
         const MD5AnimationJoint& animationJoint = anim.Joints[j];
         const MD5JointPose& basePoseJoint = anim.BaseFrame[j];
-        const MD5Frame& frame = anim.Frames[j];
 
         SkeletonJointPose localPoseJoint;
         localPoseJoint.Translation = basePoseJoint.Position;
@@ -133,6 +136,9 @@ SkeletonLocalPose SkeletonLocalPose::FromMD5AnimFrame(
             frameDataOffset++;
         }
 
+        DebugPrintf("quat xyz: {%f,%f,%f}\n",
+                    quat.Components[0], quat.Components[1], quat.Components[2]);
+
         float t = 1.0f - dot(vec3(quat.Components),
                              vec3(quat.Components));
         if (t < 0.0f)
@@ -141,7 +147,7 @@ SkeletonLocalPose SkeletonLocalPose::FromMD5AnimFrame(
         }
         else
         {
-            quat.Components.w = -std::sqrt(t);
+            quat.Components.w = std::sqrt(t);
         }
 
         localPoseJoint.Rotation = quat;
@@ -191,8 +197,47 @@ SkeletonGlobalPose SkeletonGlobalPose::FromLocalPose(
 
             globalJoint.Translation = vec3(rotate(
                         parentJoint.Rotation,
-                        parentJoint.Scale * localJoint.Translation).Components);
+                        parentJoint.Scale * localJoint.Translation).Components)
+                    + parentJoint.Translation;
         }
+
+        DebugPrintf("localJoint.Rotation = \n"
+                    "{%f,%f,%f,%f}\n",
+                    localJoint.Rotation.Components[0],
+                    localJoint.Rotation.Components[1],
+                    localJoint.Rotation.Components[2],
+                    localJoint.Rotation.Components[3]);
+
+        DebugPrintf("localJoint.Scale = \n"
+                    "{%f,%f,%f}\n",
+                    localJoint.Scale[0],
+                    localJoint.Scale[1],
+                    localJoint.Scale[2]);
+
+        DebugPrintf("localJoint.Translation = \n"
+                    "{%f,%f,%f}\n",
+                    localJoint.Translation[0],
+                    localJoint.Translation[1],
+                    localJoint.Translation[2]);
+
+        DebugPrintf("globalJoint.Rotation = \n"
+                    "{%f,%f,%f,%f}\n",
+                    globalJoint.Rotation.Components[0],
+                    globalJoint.Rotation.Components[1],
+                    globalJoint.Rotation.Components[2],
+                    globalJoint.Rotation.Components[3]);
+
+        DebugPrintf("globalJoint.Scale = \n"
+                    "{%f,%f,%f}\n",
+                    globalJoint.Scale[0],
+                    globalJoint.Scale[1],
+                    globalJoint.Scale[2]);
+
+        DebugPrintf("globalJoint.Translation = \n"
+                    "{%f,%f,%f}\n",
+                    globalJoint.Translation[0],
+                    globalJoint.Translation[1],
+                    globalJoint.Translation[2]);
 
         globalPose.GlobalPoses.push_back(globalJoint);
     }

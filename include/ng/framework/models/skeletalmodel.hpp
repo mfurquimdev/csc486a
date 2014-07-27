@@ -49,7 +49,7 @@ public:
     static SkeletonLocalPose FromMD5AnimFrame(
             const Skeleton& skeleton,
             const MD5Anim& anim,
-            int frame);
+            int frameIndex);
 
     std::vector<SkeletonJointPose> JointPoses;
 };

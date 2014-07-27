@@ -1092,7 +1092,7 @@ class MD5AnimParser : public MD5ParserBase
             }
 
             if (start >= numAcceptedAnimationComponents ||
-                start + componentCount >= numAcceptedAnimationComponents)
+                start + componentCount > numAcceptedAnimationComponents)
             {
                 mError = "joint's frame data is out of range";
                 return false;

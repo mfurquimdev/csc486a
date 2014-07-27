@@ -4,12 +4,12 @@ commandline ""
 numFrames 1
 numJoints 3
 frameRate 1
-numAnimatedComponents 1
+numAnimatedComponents 18
 
 hierarchy {
-    "first" -1 0 0
-    "second" 0 0 0
-    "third"  1 0 0
+    "first" -1 63 0
+    "second" 0 63 6
+    "third"  1 63 12
 }
 
 bounds {
@@ -23,5 +23,7 @@ baseframe {
 }
 
 frame 0 {
-    0
+    0 0 0 0 0 0
+    0 2 0 0 0 0
+    0 1 0 0 0 0
 }

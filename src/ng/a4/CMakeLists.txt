@@ -10,7 +10,9 @@ include_directories(${NG_INCLUDE_DIR} ${NG_SRC_DIR})
 set(ASSETS
     robotarm.obj
     robotarm.md5mesh
-    robotarm.md5anim)
+    robotarm.md5anim
+    bob_lamp_update_export.md5anim
+    bob_lamp_update_export.md5mesh)
 
 set_source_files_properties(${ASSETS} PROPERTIES HEADER_FILE_ONLY TRUE)
 
