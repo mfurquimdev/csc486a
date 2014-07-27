@@ -38,6 +38,11 @@ LoopSubdivisionMesh::LoopSubdivisionMesh(
     {
         throw std::logic_error("Subdivision only works with float positions");
     }
+
+    if (baseFmt.PrimitiveType != PrimitiveType::Triangles)
+    {
+        throw std::logic_error("Subdivision only works on triangles");
+    }
 }
 
 namespace

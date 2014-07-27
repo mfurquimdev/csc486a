@@ -24,6 +24,8 @@ VertexFormat SquareMesh::GetVertexFormat() const
 {
     VertexFormat fmt;
 
+    fmt.PrimitiveType = PrimitiveType::Triangles;
+
     fmt.Position = VertexAttribute(
                 2,
                 ArithmeticType::Float,

@@ -17,6 +17,7 @@ enum class MaterialType
     Null,
     Colored,
     NormalColored,
+    VertexColored,
     Textured,
     Wireframe
 };

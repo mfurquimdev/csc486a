@@ -20,6 +20,7 @@
 
 #include "ng/framework/meshes/skeletalmesh.hpp"
 #include "ng/framework/meshes/md5mesh.hpp"
+#include "ng/framework/meshes/basismesh.hpp"
 
 #include "ng/framework/models/skeletalmodel.hpp"
 #include "ng/framework/models/md5model.hpp"
@@ -66,6 +67,7 @@ public:
 
         // setup materials
         ng::Material normalColoredMaterial(ng::MaterialType::NormalColored);
+        ng::Material vertexColoredMaterial(ng::MaterialType::VertexColored);
 
         ng::Material checkeredMaterial(ng::MaterialType::Textured);
         checkeredMaterial.Texture0 =
@@ -110,8 +112,14 @@ public:
             ng::LoadMD5Anim(mRobotAnim, *robotMD5AnimFile);
         }
 
-        mRobotArmNode->Material = checkeredMaterial;
-        rootNode->Children.push_back(mRobotArmNode);
+        mRobotArmNode->Material = normalColoredMaterial;
+         rootNode->Children.push_back(mRobotArmNode);
+
+        std::shared_ptr<ng::SceneGraphNode> basisNode =
+                std::make_shared<ng::SceneGraphNode>();
+        basisNode->Mesh = std::make_shared<ng::BasisMesh>();
+        basisNode->Material = vertexColoredMaterial;
+        rootNode->Children.push_back(basisNode);
 
         mMainCamera = std::make_shared<ng::SceneGraphCameraNode>();
         rootNode->Children.push_back(mMainCamera);
@@ -170,7 +178,7 @@ public:
     }
 
 private:
-    ng::vec3 mCameraPosition{0.0f,0.0f,10.0f};
+    ng::vec3 mCameraPosition{5.0f};
     ng::vec3 mCameraTarget{0.0f,0.0f,0.0f};
 
     void HandleEvent(const ng::WindowEvent&)
@@ -201,7 +209,7 @@ private:
 
     void UpdateCameraTransform(std::chrono::milliseconds dt)
     {
-        dt = std::chrono::milliseconds(0);
+//        dt = std::chrono::milliseconds(0);
 
         mCameraPosition = ng::vec3(ng::rotate4x4(ng::Radiansf(3.14f * dt.count() / 1000),
                                               0.0f, 1.0f, 0.0f)

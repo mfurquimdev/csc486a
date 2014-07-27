@@ -2,6 +2,7 @@
 #define NG_OPENGLENUMCONVERSION_HPP
 
 #include "ng/engine/rendering/sampler.hpp"
+#include "ng/engine/rendering/vertexformat.hpp"
 
 #include "ng/engine/util/arithmetictype.hpp"
 
@@ -37,6 +38,13 @@ constexpr GLenum ToGLTextureWrap(TextureWrap w)
     return w == TextureWrap::Repeat ? GL_REPEAT
          : w == TextureWrap::ClampToEdge ? GL_CLAMP_TO_EDGE
          : throw std::logic_error("No GL equivalent to this TextureWrap");
+}
+
+constexpr GLenum ToGLPrimitive(PrimitiveType p)
+{
+    return p == PrimitiveType::Triangles ? GL_TRIANGLES
+         : p == PrimitiveType::Lines ? GL_LINES
+         : throw std::logic_error("No GL equivalent to this PrimitiveType");
 }
 
 } // end namespace ng

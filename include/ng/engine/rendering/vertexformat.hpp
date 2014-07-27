@@ -9,6 +9,13 @@
 namespace ng
 {
 
+enum class PrimitiveType
+{
+    Invalid,
+    Triangles,
+    Lines
+};
+
 class VertexAttribute
 {
 public:
@@ -38,10 +45,13 @@ public:
 
 class VertexFormat
 {
-public:  
+public:
+    ng::PrimitiveType PrimitiveType = ng::PrimitiveType::Invalid;
+
     VertexAttribute Position;  // usually 2-4 floats
     VertexAttribute Normal;    // usually 3 floats
     VertexAttribute TexCoord0; // usually 2-3 floats
+    VertexAttribute Color;     // usually 3-4 floats or unsigned bytes
 
     // for skeletal meshes
     VertexAttribute JointIndices; // usually 4 unsigned bytes

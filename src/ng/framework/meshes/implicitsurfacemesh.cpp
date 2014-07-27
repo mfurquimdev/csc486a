@@ -47,6 +47,8 @@ VertexFormat ImplicitSurfaceMesh::GetVertexFormat() const
 {
     VertexFormat fmt;
 
+    fmt.PrimitiveType = PrimitiveType::Triangles;
+
     fmt.Position = VertexAttribute(
                 3,
                 ArithmeticType::Float,

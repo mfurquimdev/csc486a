@@ -259,6 +259,34 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
 
     mTexturedProgram = CompileProgram(
                 texturedVSrc, texturedFSrc);
+
+    static const char* vertexColoredVSrc =
+            "#version 100\n"
+
+            "uniform highp mat4 uProjection;\n"
+            "uniform highp mat4 uModelView;\n"
+
+            "attribute highp vec4 iPosition;\n"
+            "attribute highp vec4 iColor;\n"
+
+            "varying highp vec4 fColor;\n"
+
+            "void main() {\n"
+            "    gl_Position = uProjection * uModelView * iPosition;\n"
+            "    fColor = iColor;\n"
+            "}\n";
+
+    static const char* vertexColoredFSrc =
+            "#version 100\n"
+
+            "varying highp vec4 fColor;\n"
+
+            "void main() {\n"
+            "    gl_FragColor = fColor;\n"
+            "}\n";
+
+    mVertexColoredProgram = CompileProgram(
+                vertexColoredVSrc, vertexColoredFSrc);
 }
 
 #undef GetGLExtension
@@ -353,6 +381,14 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
             else if (mat.Type == MaterialType::Textured)
             {
                 program = *mTexturedProgram;
+            }
+            else if (mat.Type == MaterialType::VertexColored)
+            {
+                program = *mVertexColoredProgram;
+            }
+            else
+            {
+                throw std::logic_error("Unhandled material type");
             }
 
             glUseProgram(program);
@@ -610,6 +646,26 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                 }
             }
 
+            if (fmt.Color.Enabled)
+            {
+                const VertexAttribute& cAttr = fmt.Color;
+
+                GLint cLoc = glGetAttribLocation(program, "iColor");
+
+                if (cLoc != -1)
+                {
+                    glEnableVertexAttribArray(cLoc);
+
+                    glVertexAttribPointer(
+                                cLoc,
+                                cAttr.Cardinality,
+                                ToGLArithmeticType(cAttr.Type),
+                                cAttr.Normalized,
+                                cAttr.Stride,
+                                reinterpret_cast<const GLvoid*>(cAttr.Offset));
+                }
+            }
+
             // glPolygonMode not supported in GLES
 #ifndef NG_USE_EMSCRIPTEN
             if (mat.Type == MaterialType::Wireframe)
@@ -622,10 +678,12 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
             }
 #endif
 
+            GLenum primitiveType = ToGLPrimitive(fmt.PrimitiveType);
+
             if (numElements > 0)
             {
                 glDrawElements(
-                            GL_TRIANGLES,
+                            primitiveType,
                             numElements,
                             ToGLArithmeticType(fmt.IndexType),
                             reinterpret_cast<const GLvoid*>(fmt.IndexOffset));
@@ -633,7 +691,7 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
             else if (numVertices > 0)
             {
                 glDrawArrays(
-                            GL_TRIANGLES,
+                            primitiveType,
                             0,
                             numVertices);
             }

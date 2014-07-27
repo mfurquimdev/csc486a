@@ -48,6 +48,8 @@ VertexFormat ObjMesh::GetVertexFormat() const
 {
     VertexFormat fmt;
 
+    fmt.PrimitiveType = PrimitiveType::Triangles;
+
     std::size_t vertexSize = GetVertexSize(mShape);
 
     std::size_t offset = 0;

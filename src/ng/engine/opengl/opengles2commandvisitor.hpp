@@ -79,6 +79,7 @@ class OpenGLES2CommandVisitor : public IRendererCommandVisitor
     ProgramPtr mColoredProgram;
     ProgramPtr mNormalColoredProgram;
     ProgramPtr mTexturedProgram;
+    ProgramPtr mVertexColoredProgram;
 
 public:
     OpenGLES2CommandVisitor(
