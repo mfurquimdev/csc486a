@@ -118,7 +118,7 @@ private:
     {
         mMainCamera->Projection =
                 ng::perspective(
-                    70.0f,
+                    ng::Radiansf(ng::Degreesf(70.0f)),
                     mWindow->GetAspect(),
                     0.1f, 1000.0f);
 
@@ -132,8 +132,9 @@ private:
     {
         dt = std::chrono::milliseconds(0);
 
-        mCameraPosition = ng::vec3(ng::rotate4x4(3.14f * dt.count() / 1000,
-                                              0.0f, 1.0f, 0.0f)
+        mCameraPosition = ng::vec3(ng::rotate4x4(
+                                       ng::Radiansf(3.14f * dt.count() / 1000),
+                                       0.0f, 1.0f, 0.0f)
                                  * ng::vec4(mCameraPosition,1.0f));
 
         mMainCamera->Transform = inverse(ng::lookAt(mCameraPosition,

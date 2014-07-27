@@ -14,26 +14,46 @@ public:
 
     static Quaternion FromAxisAndRotation(
             vec<T,3> axisOfRotation,
-            float angleOfRotationInRadians)
+            Radians<T> angleOfRotation)
     {
-          return {{
-                  normalize(axisOfRotation) * std::sin(angleOfRotationInRadians / 2),
-                  std::cos(angleOfRotationInRadians / 2)
-              }};
+        Quaternion q;
+
+        vec<T,3> normalizedAxis = normalize(axisOfRotation);
+        T s = std::sin(angleOfRotation.Value / 2);
+        q.Components.x = normalizedAxis.x * s;
+        q.Components.y = normalizedAxis.x * s;
+        q.Components.z = normalizedAxis.x * s;
+        q.Components.w = std::cos(angleOfRotation.Value / 2);
+
+        return q;
     }
 
     static Quaternion FromComponents(vec<T,4> components)
     {
-        return { components };
+        Quaternion q;
+        q.Components = components;
+        return q;
+    }
+
+    static Quaternion FromComponents(T x,  T y, T z, T w)
+    {
+        Quaternion q;
+        q.Components.x = x;
+        q.Components.y = y;
+        q.Components.z = z;
+        q.Components.w = w;
+        return q;
     }
 
     Quaternion& operator*=(Quaternion other)
     {
-        // evil but whatever
-        vec<T,3> pv = reinterpret_cast<vec<T,3>&>(Components[0]);
+        vec<T,3> pv(Components);
+
         float ps = Components[3];
-        vec<T,3> qv = reinterpret_cast<vec<T,3>&>(other.Components[0]);
-        float qs = Components[3];
+
+        vec<T,3> qv(other.Components);
+
+        float qs = other.Components[3];
 
         Components = vec<T,4>(
                     ps * qv + qs * pv + cross(pv,qv),
@@ -95,12 +115,12 @@ Quaternion<T> operator/(Quaternion<T> q, T s)
 template<class T>
 Quaternion<T> conjugate(Quaternion<T> q)
 {
-    return {{
+    return Quaternion<T>::FromComponents(
             -q.Components[0],
             -q.Components[1],
             -q.Components[2],
              q.Components[3]
-        }};
+        );
 }
 
 template<class T>
@@ -112,7 +132,7 @@ T length(Quaternion<T> q)
 template<class T>
 Quaternion<T> normalize(Quaternion<T> q)
 {
-    return { normalize(q.Components) };
+    return Quaternion<T>::FromComponents(normalize(q.Components));
 }
 
 // note: if you know that the quaternion is a unit quaternion,
@@ -130,7 +150,7 @@ Quaternion<T> inverse(Quaternion<T> q)
 template<class T>
 Quaternion<T> rotate(Quaternion<T> q, vec<T,3> v)
 {
-    Quaternion<T> qv(Quaternion<T>::FromComponents(vec4(v, T(0))));
+    Quaternion<T> qv(Quaternion<T>::FromComponents(vec<T,4>(v, T(0))));
     return q * qv * inverse(q);
 }
 

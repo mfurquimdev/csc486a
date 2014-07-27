@@ -85,7 +85,7 @@ public:
 
         {
             std::shared_ptr<ng::IReadFile> robotMD5MeshFile =
-                    mFileSystem->GetReadFile("robotarm.md5mesh",
+                    mFileSystem->GetReadFile("bob_lamp_update_export.md5mesh",
                                              ng::FileReadMode::Text);
 
             ng::MD5Model robotModel;
@@ -104,7 +104,7 @@ public:
 
         {
             std::shared_ptr<ng::IReadFile> robotMD5AnimFile =
-                    mFileSystem->GetReadFile("robotarm.md5anim",
+                    mFileSystem->GetReadFile("bob_lamp_update_export.md5anim",
                                              ng::FileReadMode::Text);
 
             ng::LoadMD5Anim(mRobotAnim, *robotMD5AnimFile);
@@ -182,7 +182,7 @@ private:
     {
         mMainCamera->Projection =
                 ng::perspective(
-                    70.0f,
+                    ng::Radiansf(ng::Degreesf(70.0f)),
                     mWindow->GetAspect(),
                     0.1f, 1000.0f);
 
@@ -203,7 +203,7 @@ private:
     {
         dt = std::chrono::milliseconds(0);
 
-        mCameraPosition = ng::vec3(ng::rotate4x4(3.14f * dt.count() / 1000,
+        mCameraPosition = ng::vec3(ng::rotate4x4(ng::Radiansf(3.14f * dt.count() / 1000),
                                               0.0f, 1.0f, 0.0f)
                                  * ng::vec4(mCameraPosition,1.0f));
 
@@ -217,9 +217,13 @@ private:
         UpdateCameraToWindow();
         UpdateCameraTransform(dt);
 
+        static int frame = -1;
+
+        frame = (frame + 1) % mRobotAnim.Frames.size();
+
         ng::SkeletonLocalPose localRobotPose(
                     ng::SkeletonLocalPose::FromMD5AnimFrame(
-                        mRobotSkeleton->get(), mRobotAnim, 0));
+                        mRobotSkeleton->get(), mRobotAnim, frame));
 
         ng::SkeletonGlobalPose globalRobotPose(
                     ng::SkeletonGlobalPose::FromLocalPose(

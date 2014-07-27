@@ -1,6 +1,8 @@
 #ifndef NG_LINEARALGEBRA_HPP
 #define NG_LINEARALGEBRA_HPP
 
+#include "ng/engine/math/angles.hpp"
+
 #include <cmath>
 #include <cstdint>
 #include <type_traits>
@@ -893,10 +895,10 @@ mat<T,4,4>>::type translate4x4(vec<T,3> v)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-mat<T,3,3>>::type rotate3x3(T angle, vec<T,3> v)
+mat<T,3,3>>::type rotate3x3(Radians<T> angle, vec<T,3> v)
 {
-    T c = std::cos(angle);
-    T s = std::sin(angle);
+    T c = std::cos(angle.Value);
+    T s = std::sin(angle.Value);
     v = normalize(v);
     T x = v.x;
     T y = v.y;
@@ -910,14 +912,14 @@ mat<T,3,3>>::type rotate3x3(T angle, vec<T,3> v)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-mat<T,4,4>>::type rotate4x4(T angle, vec<T,3> v)
+mat<T,4,4>>::type rotate4x4(Radians<T> angle, vec<T,3> v)
 {
     return mat<T,4,4>(rotate3x3(angle,v));
 }
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-mat<T,4,4>>::type rotate4x4(T angle, T x, T y, T z)
+mat<T,4,4>>::type rotate4x4(Radians<T> angle, T x, T y, T z)
 {
     return rotate4x4(angle, { x, y, z });
 }
@@ -965,9 +967,9 @@ mat<T,4,4>>::type ortho2D(T left, T right, T bottom, T top)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-mat<T,4,4>>::type perspective(T fovy, T aspect, T zNear, T zFar)
+mat<T,4,4>>::type perspective(Radians<T> fovy, T aspect, T zNear, T zFar)
 {
-    auto f = 1 / std::tan(fovy / 2);
+    auto f = 1 / std::tan(fovy.Value / 2);
     return {
         { f / aspect, 0, 0, 0 },
         { 0, f, 0, 0 },
@@ -978,9 +980,10 @@ mat<T,4,4>>::type perspective(T fovy, T aspect, T zNear, T zFar)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
-vec<T,3>>::type unProject(vec<T,3> windowCoordinate,
-                      mat<T,4,4> modelView, mat<T,4,4> projection,
-                      ivec4 viewport)
+vec<T,3>>::type unProject(
+             vec<T,3> windowCoordinate,
+             mat<T,4,4> modelView, mat<T,4,4> projection,
+             ivec4 viewport)
 {
     mat<T,4,4> mvp = projection * modelView;
 

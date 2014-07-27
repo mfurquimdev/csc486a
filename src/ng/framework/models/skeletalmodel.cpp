@@ -62,7 +62,8 @@ SkeletonLocalPose SkeletonLocalPose::FromMD5AnimFrame(
                     "between skeleton and animation.");
     }
 
-    if (frameIndex || frameIndex >= (int) anim.Frames.size())
+    if (frameIndex < 0 ||
+        frameIndex >= (int) anim.Frames.size())
     {
         throw std::logic_error("frame out of bounds");
     }
@@ -136,8 +137,8 @@ SkeletonLocalPose SkeletonLocalPose::FromMD5AnimFrame(
             frameDataOffset++;
         }
 
-        DebugPrintf("quat xyz: {%f,%f,%f}\n",
-                    quat.Components[0], quat.Components[1], quat.Components[2]);
+//        DebugPrintf("quat xyz: {%f,%f,%f}\n",
+//                    quat.Components[0], quat.Components[1], quat.Components[2]);
 
         float t = 1.0f - dot(vec3(quat.Components),
                              vec3(quat.Components));
@@ -192,52 +193,88 @@ SkeletonGlobalPose SkeletonGlobalPose::FromLocalPose(
 
             globalJoint.Scale = parentJoint.Scale * localJoint.Scale;
 
+//            DebugPrintf("dicks\n\n\n");
+
+//            DebugPrintf("localJoint.Rotation = \n"
+//                        "{%f,%f,%f,%f}\n",
+//                        localJoint.Rotation.Components[0],
+//                        localJoint.Rotation.Components[1],
+//                        localJoint.Rotation.Components[2],
+//                        localJoint.Rotation.Components[3]);
+
+//            DebugPrintf("parentJoint.Rotation = \n"
+//                        "{%f,%f,%f,%f}\n",
+//                        parentJoint.Rotation.Components[0],
+//                        parentJoint.Rotation.Components[1],
+//                        parentJoint.Rotation.Components[2],
+//                        parentJoint.Rotation.Components[3]);
+
+//            DebugPrintf("localJoint.Translation = \n"
+//                        "{%f,%f,%f}\n",
+//                        localJoint.Translation[0],
+//                        localJoint.Translation[1],
+//                        localJoint.Translation[2]);
+
+//            DebugPrintf("parentJoint.Translation = \n"
+//                        "{%f,%f,%f}\n",
+//                        parentJoint.Translation[0],
+//                        parentJoint.Translation[1],
+//                        parentJoint.Translation[2]);
+
             globalJoint.Rotation = normalize(
                         parentJoint.Rotation * localJoint.Rotation);
 
             globalJoint.Translation = vec3(rotate(
                         parentJoint.Rotation,
-                        parentJoint.Scale * localJoint.Translation).Components)
+                        localJoint.Scale * localJoint.Translation).Components)
                     + parentJoint.Translation;
+
+//            DebugPrintf("globalJoint.Translation = \n"
+//                        "{%f,%f,%f}\n",
+//                        globalJoint.Translation[0],
+//                        globalJoint.Translation[1],
+//                        globalJoint.Translation[2]);
+
+//            DebugPrintf("");
         }
 
-        DebugPrintf("localJoint.Rotation = \n"
-                    "{%f,%f,%f,%f}\n",
-                    localJoint.Rotation.Components[0],
-                    localJoint.Rotation.Components[1],
-                    localJoint.Rotation.Components[2],
-                    localJoint.Rotation.Components[3]);
+//        DebugPrintf("localJoint.Rotation = \n"
+//                    "{%f,%f,%f,%f}\n",
+//                    localJoint.Rotation.Components[0],
+//                    localJoint.Rotation.Components[1],
+//                    localJoint.Rotation.Components[2],
+//                    localJoint.Rotation.Components[3]);
 
-        DebugPrintf("localJoint.Scale = \n"
-                    "{%f,%f,%f}\n",
-                    localJoint.Scale[0],
-                    localJoint.Scale[1],
-                    localJoint.Scale[2]);
+//        DebugPrintf("localJoint.Scale = \n"
+//                    "{%f,%f,%f}\n",
+//                    localJoint.Scale[0],
+//                    localJoint.Scale[1],
+//                    localJoint.Scale[2]);
 
-        DebugPrintf("localJoint.Translation = \n"
-                    "{%f,%f,%f}\n",
-                    localJoint.Translation[0],
-                    localJoint.Translation[1],
-                    localJoint.Translation[2]);
+//        DebugPrintf("localJoint.Translation = \n"
+//                    "{%f,%f,%f}\n",
+//                    localJoint.Translation[0],
+//                    localJoint.Translation[1],
+//                    localJoint.Translation[2]);
 
-        DebugPrintf("globalJoint.Rotation = \n"
-                    "{%f,%f,%f,%f}\n",
-                    globalJoint.Rotation.Components[0],
-                    globalJoint.Rotation.Components[1],
-                    globalJoint.Rotation.Components[2],
-                    globalJoint.Rotation.Components[3]);
+//        DebugPrintf("globalJoint.Rotation = \n"
+//                    "{%f,%f,%f,%f}\n",
+//                    globalJoint.Rotation.Components[0],
+//                    globalJoint.Rotation.Components[1],
+//                    globalJoint.Rotation.Components[2],
+//                    globalJoint.Rotation.Components[3]);
 
-        DebugPrintf("globalJoint.Scale = \n"
-                    "{%f,%f,%f}\n",
-                    globalJoint.Scale[0],
-                    globalJoint.Scale[1],
-                    globalJoint.Scale[2]);
+//        DebugPrintf("globalJoint.Scale = \n"
+//                    "{%f,%f,%f}\n",
+//                    globalJoint.Scale[0],
+//                    globalJoint.Scale[1],
+//                    globalJoint.Scale[2]);
 
-        DebugPrintf("globalJoint.Translation = \n"
-                    "{%f,%f,%f}\n",
-                    globalJoint.Translation[0],
-                    globalJoint.Translation[1],
-                    globalJoint.Translation[2]);
+//        DebugPrintf("globalJoint.Translation = \n"
+//                    "{%f,%f,%f}\n",
+//                    globalJoint.Translation[0],
+//                    globalJoint.Translation[1],
+//                    globalJoint.Translation[2]);
 
         globalPose.GlobalPoses.push_back(globalJoint);
     }
