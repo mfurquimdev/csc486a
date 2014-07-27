@@ -928,14 +928,14 @@ class MD5AnimParser : public MD5ParserBase
     {
         MD5FrameBounds bounds;
         if (RequireChar('(') &&
-                RequireFloat(bounds.MinimumExtent[0]) &&
-                RequireFloat(bounds.MinimumExtent[1]) &&
-                RequireFloat(bounds.MinimumExtent[2]) &&
+                AcceptFloat(bounds.MinimumExtent[0]) &&
+                AcceptFloat(bounds.MinimumExtent[1]) &&
+                AcceptFloat(bounds.MinimumExtent[2]) &&
             RequireChar(')') &&
             RequireChar('(') &&
-                RequireFloat(bounds.MaximumExtent[0]) &&
-                RequireFloat(bounds.MaximumExtent[1]) &&
-                RequireFloat(bounds.MaximumExtent[2]) &&
+                AcceptFloat(bounds.MaximumExtent[0]) &&
+                AcceptFloat(bounds.MaximumExtent[1]) &&
+                AcceptFloat(bounds.MaximumExtent[2]) &&
             RequireChar(')'))
         {
             if (bounds.MinimumExtent[0] > bounds.MaximumExtent[0] ||
@@ -982,6 +982,8 @@ class MD5AnimParser : public MD5ParserBase
                 mError = "Mismatch between number of bounds and number of frames";
                 return false;
             }
+
+            return true;
         }
 
         return false;

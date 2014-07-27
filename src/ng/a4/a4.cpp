@@ -91,8 +91,7 @@ public:
             ng::MD5Model robotModel;
             ng::LoadMD5Mesh(robotModel, *robotMD5MeshFile);
 
-            ng::Skeleton robotSkeleton;
-            ng::Skeleton::FromMD5Model(robotModel);
+            ng::Skeleton robotSkeleton(ng::Skeleton::FromMD5Model(robotModel));
 
             mRobotSkeleton =
                     std::make_shared<ng::immutable<ng::Skeleton>>(
@@ -101,6 +100,14 @@ public:
             mRobotBindPoseMesh =
                     std::make_shared<ng::MD5Mesh>(
                         std::move(robotModel));
+        }
+
+        {
+            std::shared_ptr<ng::IReadFile> robotMD5AnimFile =
+                    mFileSystem->GetReadFile("robotarm.md5anim",
+                                             ng::FileReadMode::Text);
+
+            ng::LoadMD5Anim(mRobotAnim, *robotMD5AnimFile);
         }
 
         mRobotArmNode->Material = checkeredMaterial;
