@@ -200,10 +200,7 @@ template<class T>
 class genType_storage<T,1>
 {
 public:
-    union {
-        T x;
-        T r;
-    };
+    T x;
 
     constexpr genType_storage()
         : x(0)
@@ -228,14 +225,7 @@ template<class T>
 class genType_storage<T,2>
 {
 public:
-    union {
-        struct {
-            T x,y;
-        };
-        struct {
-            T r,g;
-        };
-    };
+    T x,y;
 
     constexpr genType_storage()
         : x(0), y(0)
@@ -254,14 +244,7 @@ template<class T>
 class genType_storage<T,3>
 {
 public:
-    union {
-        struct {
-            T x,y,z;
-        };
-        struct {
-            T r,g,b;
-        };
-    };
+    T x,y,z;
 
     constexpr genType_storage()
         : x(0), y(0), z(0)
@@ -288,14 +271,7 @@ template<class T>
 class genType_storage<T,4>
 {
 public:
-    union {
-        struct {
-            T x,y,z,w;
-        };
-        struct {
-            T r,g,b,a;
-        };
-    };
+    T x,y,z,w;
 
     constexpr genType_storage()
         : x(0), y(0), z(0), w(1)

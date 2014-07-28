@@ -9,6 +9,8 @@ namespace ng
 
 class MD5Mesh : public IMesh
 {
+    class Vertex;
+
     const MD5Model mModel;
 
 public:

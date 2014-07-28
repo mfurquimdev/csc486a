@@ -148,7 +148,7 @@ SkeletonLocalPose SkeletonLocalPose::FromMD5AnimFrame(
         }
         else
         {
-            quat.Components.w = std::sqrt(t);
+            quat.Components.w = - std::sqrt(t);
         }
 
         localPoseJoint.Rotation = quat;

@@ -1,5 +1,5 @@
-#ifndef NG_SKELETALMESH_HPP
-#define NG_SKELETALMESH_HPP
+#ifndef NG_SKELETONWIREFRAMEMESH_HPP
+#define NG_SKELETONWIREFRAMEMESH_HPP
 
 #include "ng/engine/rendering/mesh.hpp"
 #include "ng/engine/util/immutable.hpp"
@@ -9,17 +9,21 @@
 namespace ng
 {
 
+class Skeleton;
 class SkinningMatrixPalette;
 
-class SkeletalMesh : public IMesh
+class SkeletonWireframeMesh : public IMesh
 {
-    const std::shared_ptr<IMesh> mBindPoseMesh;
-    const std::shared_ptr<immutable<SkinningMatrixPalette>> mSkinningPalette;
+    class Vertex;
+
+    const std::shared_ptr<immutable<Skeleton>> mSkeleton;
+    const std::shared_ptr<immutable<SkinningMatrixPalette>> mPalette;
+
 
 public:
-    SkeletalMesh(
-            std::shared_ptr<IMesh> bindPoseMesh,
-            std::shared_ptr<immutable<SkinningMatrixPalette>> skinningPalette);
+    SkeletonWireframeMesh(
+        std::shared_ptr<immutable<Skeleton>> skeleton,
+        std::shared_ptr<immutable<SkinningMatrixPalette>> palette);
 
     VertexFormat GetVertexFormat() const override;
 
@@ -32,4 +36,4 @@ public:
 
 } // end namespace ng
 
-#endif // NG_SKELETALMESH_HPP
+#endif // NG_SKELETONWIREFRAMEMESH_HPP

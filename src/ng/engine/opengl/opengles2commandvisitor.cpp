@@ -294,7 +294,7 @@ OpenGLES2CommandVisitor::OpenGLES2CommandVisitor(
 void OpenGLES2CommandVisitor::Visit(BeginFrameCommand& cmd)
 {
     vec3 clear = cmd.ClearColor;
-    glClearColor(clear.r, clear.g, clear.b, 1.0f);
+    glClearColor(clear.x, clear.y, clear.z, 1.0f);
 
     glClear(GL_COLOR_BUFFER_BIT  |
             GL_DEPTH_BUFFER_BIT  |

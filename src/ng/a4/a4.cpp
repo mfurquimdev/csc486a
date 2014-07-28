@@ -21,6 +21,7 @@
 #include "ng/framework/meshes/skeletalmesh.hpp"
 #include "ng/framework/meshes/md5mesh.hpp"
 #include "ng/framework/meshes/basismesh.hpp"
+#include "ng/framework/meshes/skeletonwireframemesh.hpp"
 
 #include "ng/framework/models/skeletalmodel.hpp"
 #include "ng/framework/models/md5model.hpp"
@@ -46,10 +47,11 @@ class A4 : public ng::IApp
     std::shared_ptr<ng::SceneGraphCameraNode> mMainCamera;
     std::shared_ptr<ng::SceneGraphCameraNode> mOverlayCamera;
 
-    std::shared_ptr<ng::SceneGraphNode> mRobotArmNode;
-    std::shared_ptr<ng::immutable<ng::Skeleton>> mRobotSkeleton;
-    std::shared_ptr<ng::IMesh> mRobotBindPoseMesh;
-    ng::MD5Anim mRobotAnim;
+    std::shared_ptr<ng::SceneGraphNode> mAnimationNode;
+    std::shared_ptr<ng::SceneGraphNode> mSkeletonNode;
+    std::shared_ptr<ng::immutable<ng::Skeleton>> mAnimationSkeleton;
+    std::shared_ptr<ng::IMesh> mAnimationBindPoseMesh;
+    ng::MD5Anim mAnimationAnim;
 
     ng::FixedStepUpdate mFixedStepUpdate{std::chrono::milliseconds(1000/60)};
 
@@ -68,6 +70,7 @@ public:
         // setup materials
         ng::Material normalColoredMaterial(ng::MaterialType::NormalColored);
         ng::Material vertexColoredMaterial(ng::MaterialType::VertexColored);
+        ng::Material wireframeMaterial(ng::MaterialType::Wireframe);
 
         ng::Material checkeredMaterial(ng::MaterialType::Textured);
         checkeredMaterial.Texture0 =
@@ -83,25 +86,32 @@ public:
                 std::make_shared<ng::SceneGraphNode>();
         mScene.Root = rootNode;
 
-        mRobotArmNode = std::make_shared<ng::SceneGraphNode>();
+        mAnimationNode = std::make_shared<ng::SceneGraphNode>();
 
         {
             std::shared_ptr<ng::IReadFile> robotMD5MeshFile =
                     mFileSystem->GetReadFile("bob_lamp_update_export.md5mesh",
                                              ng::FileReadMode::Text);
 
-            ng::MD5Model robotModel;
-            ng::LoadMD5Mesh(robotModel, *robotMD5MeshFile);
+            ng::MD5Model animationModel;
+            ng::LoadMD5Mesh(animationModel, *robotMD5MeshFile);
 
-            ng::Skeleton robotSkeleton(ng::Skeleton::FromMD5Model(robotModel));
+            ng::Skeleton animationSkeleton(ng::Skeleton::FromMD5Model(animationModel));
 
-            mRobotSkeleton =
+            mAnimationSkeleton =
                     std::make_shared<ng::immutable<ng::Skeleton>>(
-                        std::move(robotSkeleton));
+                        std::move(animationSkeleton));
 
-            mRobotBindPoseMesh =
+            mAnimationBindPoseMesh =
                     std::make_shared<ng::MD5Mesh>(
-                        std::move(robotModel));
+                        std::move(animationModel));
+
+
+            std::shared_ptr<ng::SceneGraphNode> bindPoseNode =
+                std::make_shared<ng::SceneGraphNode>();
+            bindPoseNode->Mesh = mAnimationBindPoseMesh;
+            bindPoseNode->Material = normalColoredMaterial;
+            mAnimationNode->Children.push_back(bindPoseNode);
         }
 
         {
@@ -109,17 +119,58 @@ public:
                     mFileSystem->GetReadFile("bob_lamp_update_export.md5anim",
                                              ng::FileReadMode::Text);
 
-            ng::LoadMD5Anim(mRobotAnim, *robotMD5AnimFile);
+            ng::LoadMD5Anim(mAnimationAnim, *robotMD5AnimFile);
         }
 
-        mRobotArmNode->Material = normalColoredMaterial;
-         rootNode->Children.push_back(mRobotArmNode);
+        mAnimationNode->Material = wireframeMaterial;
+        mAnimationNode->Transform = ng::mat4(
+                                            1,0,0,0,
+                                            0,0,-1,0,
+                                            0,1,0,0,
+                                            0,0,0,1);
+        rootNode->Children.push_back(mAnimationNode);
 
-        std::shared_ptr<ng::SceneGraphNode> basisNode =
+        std::shared_ptr<ng::SceneGraphNode> basisNode1 =
                 std::make_shared<ng::SceneGraphNode>();
-        basisNode->Mesh = std::make_shared<ng::BasisMesh>();
-        basisNode->Material = vertexColoredMaterial;
-        rootNode->Children.push_back(basisNode);
+        basisNode1->Mesh = std::make_shared<ng::BasisMesh>();
+        basisNode1->Material = vertexColoredMaterial;
+        rootNode->Children.push_back(basisNode1);
+        std::shared_ptr<ng::SceneGraphNode> basisNode2 =
+            std::make_shared<ng::SceneGraphNode>();
+        basisNode2->Mesh = std::make_shared<ng::BasisMesh>();
+        basisNode2->Material = vertexColoredMaterial;
+        basisNode2->Transform = ng::translate4x4(0.0f,1.0f,0.0f);
+        basisNode1->Children.push_back(basisNode2);
+        std::shared_ptr<ng::SceneGraphNode> basisNode3 =
+            std::make_shared<ng::SceneGraphNode>();
+        basisNode3->Mesh = std::make_shared<ng::BasisMesh>();
+        basisNode3->Material = vertexColoredMaterial;
+        basisNode3->Transform = ng::translate4x4(0.0f,1.0f,0.0f);
+        basisNode2->Children.push_back(basisNode3);
+        std::shared_ptr<ng::SceneGraphNode> basisNode4 =
+            std::make_shared<ng::SceneGraphNode>();
+        basisNode4->Mesh = std::make_shared<ng::BasisMesh>();
+        basisNode4->Material = vertexColoredMaterial;
+        basisNode4->Transform = ng::translate4x4(0.0f,1.0f,0.0f);
+        basisNode3->Children.push_back(basisNode4);
+
+        mSkeletonNode = std::make_shared<ng::SceneGraphNode>();
+        mSkeletonNode->Material = vertexColoredMaterial;
+        mAnimationNode->Children.push_back(mSkeletonNode);
+
+        std::shared_ptr<ng::SceneGraphNode> basisAtMinus4xThreez=
+            std::make_shared<ng::SceneGraphNode>();
+        basisAtMinus4xThreez->Mesh = std::make_shared<ng::BasisMesh>();
+        basisAtMinus4xThreez->Material = vertexColoredMaterial;
+        basisAtMinus4xThreez->Transform = ng::translate4x4(-4.0f,-0.5f,3.0f);
+        mSkeletonNode->Children.push_back(basisAtMinus4xThreez);
+
+        std::shared_ptr<ng::SceneGraphNode> basisAtMinus6xMinus9y=
+            std::make_shared<ng::SceneGraphNode>();
+        basisAtMinus6xMinus9y->Mesh = std::make_shared<ng::BasisMesh>();
+        basisAtMinus6xMinus9y->Material = vertexColoredMaterial;
+        basisAtMinus6xMinus9y->Transform = ng::translate4x4(-6.0f,-9.0f,5.0f);
+        mSkeletonNode->Children.push_back(basisAtMinus6xMinus9y);
 
         mMainCamera = std::make_shared<ng::SceneGraphCameraNode>();
         rootNode->Children.push_back(mMainCamera);
@@ -178,8 +229,8 @@ public:
     }
 
 private:
-    ng::vec3 mCameraPosition{5.0f};
-    ng::vec3 mCameraTarget{0.0f,0.0f,0.0f};
+    ng::vec3 mCameraPosition{14.0f};
+    ng::vec3 mCameraTarget{0.0f};
 
     void HandleEvent(const ng::WindowEvent&)
     {
@@ -210,6 +261,7 @@ private:
     void UpdateCameraTransform(std::chrono::milliseconds dt)
     {
 //        dt = std::chrono::milliseconds(0);
+        dt /= 10;
 
         mCameraPosition = ng::vec3(ng::rotate4x4(ng::Radiansf(3.14f * dt.count() / 1000),
                                               0.0f, 1.0f, 0.0f)
@@ -225,31 +277,36 @@ private:
         UpdateCameraToWindow();
         UpdateCameraTransform(dt);
 
-        static int frame = -1;
+        static float frame = 0;
 
-        frame = (frame + 1) % mRobotAnim.Frames.size();
+        frame = std::fmod(frame + 1, mAnimationAnim.Frames.size());
 
-        ng::SkeletonLocalPose localRobotPose(
+        ng::SkeletonLocalPose localAnimationPose(
                     ng::SkeletonLocalPose::FromMD5AnimFrame(
-                        mRobotSkeleton->get(), mRobotAnim, frame));
+                        mAnimationSkeleton->get(), mAnimationAnim, frame));
 
-        ng::SkeletonGlobalPose globalRobotPose(
+        ng::SkeletonGlobalPose globalAnimationPose(
                     ng::SkeletonGlobalPose::FromLocalPose(
-                        mRobotSkeleton->get(), localRobotPose));
+                        mAnimationSkeleton->get(), localAnimationPose));
 
-        ng::SkinningMatrixPalette robotSkinningPalette =
+        ng::SkinningMatrixPalette animationSkinningPalette =
                 ng::SkinningMatrixPalette::FromGlobalPose(
-                    mRobotSkeleton->get(), globalRobotPose);
+                    mAnimationSkeleton->get(), globalAnimationPose);
 
         std::shared_ptr<ng::immutable<ng::SkinningMatrixPalette>>
-                robotSkinningPalettePtr =
+                animationSkinningPalettePtr =
                     std::make_shared<ng::immutable<ng::SkinningMatrixPalette>>(
-                        std::move(robotSkinningPalette));
+                        std::move(animationSkinningPalette));
 
-        mRobotArmNode->Mesh =
+        mAnimationNode->Mesh =
                 std::make_shared<ng::SkeletalMesh>(
-                    mRobotBindPoseMesh,
-                    robotSkinningPalettePtr);
+                    mAnimationBindPoseMesh,
+                    animationSkinningPalettePtr);
+
+        mSkeletonNode->Mesh =
+                std::make_shared<ng::SkeletonWireframeMesh>(
+                    mAnimationSkeleton,
+                    animationSkinningPalettePtr);
     }
 };
 
