@@ -116,6 +116,14 @@ std::size_t SkeletalMesh::WriteVertices(void* buffer) const
         const std::vector<mat4>& skinningMatrices =
                 mSkinningPalette->get().SkinningMatrices;
 
+        std::vector<mat3> normalPalette;
+        normalPalette.reserve(skinningMatrices.size());
+        for (std::size_t j = 0; j < skinningMatrices.size(); j++)
+        {
+            normalPalette.push_back(
+                mat3(transpose(inverse(skinningMatrices[j]))));
+        }
+
         for (std::size_t i = 0; i < numBaseVertices; i++)
         {
             const std::uint8_t* pJointIndices =
@@ -130,6 +138,15 @@ std::size_t SkeletalMesh::WriteVertices(void* buffer) const
                         + baseFmt.JointWeights.Offset
                         + baseFmt.JointWeights.Stride * i);
 
+            // compute the weight of the 4th joint using the first 3.
+            vec4 weights(
+                    pJointWeights[0],
+                    pJointWeights[1],
+                    pJointWeights[2],
+                    1.0f - pJointWeights[0]
+                         - pJointWeights[1]
+                         - pJointWeights[2]);
+
             if (baseFmt.Position.Enabled)
             {
                 float* pPosition = reinterpret_cast<float*>(
@@ -138,19 +155,10 @@ std::size_t SkeletalMesh::WriteVertices(void* buffer) const
                                 + baseFmt.Position.Stride * i);
 
                 // get the position of the vertex in the bind pose mesh
-                vec4 bindPose4;
-                std::memcpy(&bindPose4[0], pPosition,
+                vec4 bindPosePosition;
+                std::memcpy(&bindPosePosition[0], pPosition,
                           clampedPositionCardinality
                         * SizeOfArithmeticType(baseFmt.Position.Type));
-
-                // compute the weight of the 4th joint using the first 3.
-                vec4 weights(
-                        pJointWeights[0],
-                        pJointWeights[1],
-                        pJointWeights[2],
-                        1.0f - pJointWeights[0]
-                             - pJointWeights[1]
-                             - pJointWeights[2]);
 
                 // accumulate the influence of the weights
                 vec4 result(0);
@@ -160,13 +168,47 @@ std::size_t SkeletalMesh::WriteVertices(void* buffer) const
                 {
                     std::uint8_t jointIndex = pJointIndices[jointRelativeIndex];
                     mat4 skinningMatrix = skinningMatrices.at(jointIndex);
-                    result += weights[jointRelativeIndex] * skinningMatrix * bindPose4;
+                    result += weights[jointRelativeIndex]
+                            * skinningMatrix * bindPosePosition;
                 }
 
                 // copy the resulting skinned position back into the mesh data
                 std::memcpy(pPosition, &result[0],
                           clampedPositionCardinality
                         * SizeOfArithmeticType(baseFmt.Position.Type));
+            }
+
+            if (baseFmt.Normal.Enabled)
+            {
+                float* pNormal= reinterpret_cast<float*>(
+                                  baseVertices.get()
+                                + baseFmt.Normal.Offset
+                                + baseFmt.Normal.Stride * i);
+
+                // get the normal of the vertex in the bind pose mesh
+                vec3 bindPoseNormal;
+                std::memcpy(&bindPoseNormal[0], pNormal,
+                          std::min(3u,baseFmt.Normal.Cardinality)
+                        * SizeOfArithmeticType(baseFmt.Normal.Type));
+
+                // accumulate the influence of the weights
+                vec3 result(0);
+                for (std::size_t jointRelativeIndex = 0;
+                     jointRelativeIndex < numJointsPerVertex;
+                     jointRelativeIndex++)
+                {
+                    std::uint8_t jointIndex = pJointIndices[jointRelativeIndex];
+                    result += weights[jointRelativeIndex]
+                            * normalPalette.at(jointIndex)
+                            * bindPoseNormal;
+                }
+
+                result = normalize(result);
+
+                // copy the resulting skinned normal back into the mesh data
+                std::memcpy(pNormal, &result[0],
+                          std::min(3u,baseFmt.Normal.Cardinality)
+                        * SizeOfArithmeticType(baseFmt.Normal.Type));
             }
         }
 
