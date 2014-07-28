@@ -107,16 +107,22 @@ public:
             // copy and pasted from emscripten library_browser.js
             function calculateMouseEvent (event) {
                 var rect = Module["canvas"].getBoundingClientRect();
+
                 var cw = Module["canvas"].width;
                 var ch = Module["canvas"].height;
+
                 var scrollX = ((typeof window.scrollX !== 'undefined') ? window.scrollX : window.pageXOffset);
                 var scrollY = ((typeof window.scrollY !== 'undefined') ? window.scrollY : window.pageYOffset);
+
                 var x = event.pageX - (scrollX + rect.left);
                 var y = event.pageY - (scrollY + rect.top);
+
                 var incanvas = x >= 0 && x <= rect.width &&
                                y >= 0 && y <= rect.height;
+
                 x = x * (cw / rect.width);
                 y = y * (ch / rect.height);
+
                 return [x, y, incanvas];
             }
 

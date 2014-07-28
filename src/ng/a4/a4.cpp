@@ -53,9 +53,10 @@ class A4 : public ng::IApp
     std::shared_ptr<ng::SceneGraphNode> mSkeletonNode;
     ng::MD5Anim mAnimationAnim;
     float mCurrentAnimationFrame = 0.0f;
+    bool mInBindPose = false;
 
-    std::vector<std::pair<std::string,ng::Material>> mMaterials;
-    std::size_t mCurrentMaterialIndex = 0;
+    std::vector<std::pair<std::string,ng::Material>> mModes;
+    std::size_t mCurrentModeIndex = 0;
 
     ng::FixedStepUpdate mFixedStepUpdate{std::chrono::milliseconds(1000/60)};
 
@@ -72,13 +73,15 @@ public:
         mFileSystem = ng::CreateFileSystem();
 
         // setup materials
-        mMaterials.emplace_back("NormalColored", ng::MaterialType::NormalColored);
+        mModes.emplace_back("NormalColored", ng::MaterialType::NormalColored);
 
-        mMaterials.emplace_back("Wireframe", ng::MaterialType::Wireframe);
+        mModes.emplace_back("Skeleton", ng::MaterialType::Null);
 
-        mMaterials.emplace_back("Checkered", ng::MaterialType::Textured);
+        mModes.emplace_back("Wireframe", ng::MaterialType::Wireframe);
 
-        ng::Material& checkeredMaterial = mMaterials.back().second;
+        mModes.emplace_back("Checkered", ng::MaterialType::Textured);
+
+        ng::Material& checkeredMaterial = mModes.back().second;
         checkeredMaterial.Texture0 =
             std::make_shared<ng::CheckerboardTexture>(
                 10, 10, 1, ng::vec4(1), ng::vec4(0));
@@ -223,22 +226,30 @@ private:
         {
             ng::Scancode code = we.KeyPress.Scancode;
 
-            int materialIndexDelta =
+            int modeDelta =
                 code == ng::Scancode::LeftArrow ? -1
               : code == ng::Scancode::RightArrow ? 1
               : 0;
 
-            int newMaterialIndex = mCurrentMaterialIndex;
-            newMaterialIndex += materialIndexDelta;
-
-            if (newMaterialIndex < 0)
+            if (modeDelta != 0)
             {
-                newMaterialIndex = (int) mMaterials.size() - 1;
+                int newModeIndex = mCurrentModeIndex;
+                newModeIndex += modeDelta;
+
+                if (newModeIndex < 0)
+                {
+                    newModeIndex = (int) mModes.size() - 1;
+                }
+
+                newModeIndex = newModeIndex % mModes.size();
+
+                mCurrentModeIndex = newModeIndex;
             }
 
-            newMaterialIndex = newMaterialIndex % mMaterials.size();
-
-            mCurrentMaterialIndex = newMaterialIndex;
+            if (code == ng::Scancode::Space)
+            {
+                mInBindPose = !mInBindPose;
+            }
         }
     }
 
@@ -352,18 +363,27 @@ private:
                     std::make_shared<ng::immutable<ng::SkinningMatrixPalette>>(
                         std::move(animationSkinningPalette));
 
-        const std::string& currentMaterialName =
-            mMaterials.at(mCurrentMaterialIndex).first;
+        const std::string& currentModeName =
+            mModes.at(mCurrentModeIndex).first;
         const ng::Material& currentMaterial =
-            mMaterials.at(mCurrentMaterialIndex).second;
+            mModes.at(mCurrentModeIndex).second;
 
         mAnimationNode->Material = currentMaterial;
-        mAnimationNode->Mesh =
-                std::make_shared<ng::SkeletalMesh>(
-                    mAnimationBindPoseMesh,
-                    animationSkinningPalettePtr);
 
-        if (currentMaterialName == "Wireframe")
+        if (mInBindPose)
+        {
+            mAnimationNode->Mesh = mAnimationBindPoseMesh;
+        }
+        else
+        {
+            mAnimationNode->Mesh =
+                    std::make_shared<ng::SkeletalMesh>(
+                        mAnimationBindPoseMesh,
+                        animationSkinningPalettePtr);
+        }
+
+        if (currentModeName == "Wireframe" ||
+            currentModeName == "Skeleton")
         {
             mSkeletonNode->Mesh =
                     std::make_shared<ng::SkeletonWireframeMesh>(
