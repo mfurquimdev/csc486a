@@ -120,6 +120,8 @@ public:
                 return [x, y, incanvas];
             }
 
+            var pressedButtons = {};
+
             function receiveEvent(event) {
                 switch (event.type) {
                 case 'keydown':
@@ -134,12 +136,14 @@ public:
                     cursor = calculateMouseEvent(event);
                     if (cursor[2]) {
                         OnEmMouseButtonDown(event.button, cursor[0], cursor[1]);
+                        pressedButtons[event.button] = true;
                     }
                     break;
                 case 'mouseup':
                     cursor = calculateMouseEvent(event);
                     if (cursor[2]) {
                         OnEmMouseButtonUp(event.button, cursor[0], cursor[1]);
+                        delete pressedButtons[event.button];
                     }
                     break;
                 case 'mousemove':
@@ -149,15 +153,33 @@ public:
                     }
                     break;
                 case 'mousewheel': case 'DOMMouseScroll':
-                    var delta = Math.max(-1, Math.min(1, (event.wheelDelta || -event.detail)));
-                    OnEmMouseScroll(delta);
+                    cursor = calculateMouseEvent(event);
+                    if (cursor[2]) {
+                        event.preventDefault();
+                        var delta = Math.max(-1, Math.min(1, (event.wheelDelta || -event.detail)));
+                        OnEmMouseScroll(delta);
+                    }
+                    break;
+                case 'mouseout':
+                    cursor = calculateMouseEvent(event);
+                    for (var button in pressedButtons) {
+                        OnEmMouseButtonUp(button, cursor[0], cursor[1]);
+                    }
+                    pressedButtons = {};
                     break;
                 default:
                     break;
                 }
             }
 
-            ['keydown', 'keyup', 'mousedown', 'mouseup', 'mousemove', 'mousewheel', 'DOMMouseScroll'].forEach(function (event) {
+            ['keydown',
+             'keyup',
+             'mousedown',
+             'mouseup',
+             'mousemove',
+             'mousewheel',
+             'DOMMouseScroll',
+             'mouseout'].forEach(function (event) {
                 document.addEventListener(event, receiveEvent, true);
             });
         );
