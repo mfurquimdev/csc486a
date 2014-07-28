@@ -235,6 +235,11 @@ private:
 
         int startFrame = (int) mCurrentAnimationFrame;
         int endFrame = (int) (mCurrentAnimationFrame + 1.0f);
+        if (endFrame >= (int) mAnimationAnim.Frames.size())
+        {
+            // loop over
+            endFrame = 0;
+        }
 
         ng::SkeletonLocalPose startLocalPose(
                     ng::SkeletonLocalPose::FromMD5AnimFrame(

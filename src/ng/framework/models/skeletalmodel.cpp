@@ -161,7 +161,41 @@ SkeletonLocalPose SkeletonLocalPose::FromLERPedPoses(
         const SkeletonLocalPose& end,
         float blendPercentage)
 {
-    return start;
+    if (start.JointPoses.size() != end.JointPoses.size())
+    {
+        throw std::logic_error(
+            "LERPing animations requires them both "
+            "to have the same number of joints");
+    }
+
+    if (blendPercentage < 0.0f || blendPercentage > 1.0f)
+    {
+        throw std::logic_error(
+            "blendPercentage should be within [0,1]");
+    }
+
+    SkeletonLocalPose blendedPose;
+
+    for (std::size_t j = 0; j < start.JointPoses.size(); j++)
+    {
+        const SkeletonJointPose& poseA = start.JointPoses[j];
+        const SkeletonJointPose& poseB = end.JointPoses[j];
+
+        SkeletonJointPose jointPose;
+
+        jointPose.Translation = (1.0f - blendPercentage) * poseA.Translation
+                              + blendPercentage * poseB.Translation;
+
+        jointPose.Rotation = slerp(poseA.Rotation, poseB.Rotation,
+                                   blendPercentage);
+
+        jointPose.Scale = (1.0f - blendPercentage) * poseA.Scale
+                        + blendPercentage * poseB.Scale;
+
+        blendedPose.JointPoses.push_back(std::move(jointPose));
+    }
+
+    return std::move(blendedPose);
 }
 
 SkeletonGlobalPose SkeletonGlobalPose::FromLocalPose(

@@ -113,6 +113,12 @@ Quaternion<T> operator/(Quaternion<T> q, T s)
 }
 
 template<class T>
+T dot(Quaternion<T> q, Quaternion<T> p)
+{
+    return dot(q.Components, p.Components);
+}
+
+template<class T>
 Quaternion<T> conjugate(Quaternion<T> q)
 {
     return Quaternion<T>::FromComponents(
@@ -157,17 +163,32 @@ Quaternion<T> rotate(Quaternion<T> q, vec<T,3> v)
 template<class T>
 Quaternion<T> lerp(Quaternion<T> a, Quaternion<T> b, T percent)
 {
-    return normalize((1 - percent) * a + percent * b);
+    return normalize(Quaternion<T>::FromComponents(
+                     (1 - percent) * a.Components
+                   + percent * b.Components));
 }
 
 // this function is notoriously inefficient.
 template<class T>
 Quaternion<T> slerp(Quaternion<T> a, Quaternion<T> b, T percent)
 {
-    T th = std::acos(dot(a,b));
-    T wa = std::sin((1 - percent) * th) / std::sin(th);
-    T wb = std::sin(percent * th) / std::sin(th);
-    return wa * a + wb * b;
+    Quaternion<T> na = normalize(a);
+    Quaternion<T> nb = normalize(b);
+    T d = dot(na,nb);
+    if (d > -0.95f && d < 0.95f)
+    {
+        T th = std::acos(d);
+        T wa = std::sin((1 - percent) * th) / std::sin(th);
+        T wb = std::sin(percent * th) / std::sin(th);
+        return Quaternion<T>::FromComponents(
+                                wa * na.Components
+                              + wb * nb.Components);
+    }
+    else
+    {
+        // small angle. use lerp instead.
+        return lerp(a,b,percent);
+    }
 }
 
 using Quaternionf = Quaternion<float>;
