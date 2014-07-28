@@ -382,8 +382,8 @@ private:
                         animationSkinningPalettePtr);
         }
 
-        if (currentModeName == "Wireframe" ||
-            currentModeName == "Skeleton")
+        if ((currentModeName == "Wireframe" ||
+            currentModeName == "Skeleton") && !mInBindPose)
         {
             mSkeletonNode->Mesh =
                     std::make_shared<ng::SkeletonWireframeMesh>(
