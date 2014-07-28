@@ -212,7 +212,7 @@ private:
     void UpdateCameraTransform(std::chrono::milliseconds dt)
     {
 //        dt = std::chrono::milliseconds(0);
-        dt /= 10;
+        dt /= 3;
 
         mCameraPosition = ng::vec3(ng::rotate4x4(ng::Radiansf(3.14f * dt.count() / 1000),
                                               0.0f, 1.0f, 0.0f)
@@ -233,14 +233,27 @@ private:
         mCurrentAnimationFrame = std::fmod(mCurrentAnimationFrame,
                                            mAnimationAnim.Frames.size());
 
-        ng::SkeletonLocalPose localAnimationPose(
+        int startFrame = (int) mCurrentAnimationFrame;
+        int endFrame = (int) (mCurrentAnimationFrame + 1.0f);
+
+        ng::SkeletonLocalPose startLocalPose(
                     ng::SkeletonLocalPose::FromMD5AnimFrame(
                         mAnimationSkeleton->get(), mAnimationAnim,
-                        mCurrentAnimationFrame));
+                        startFrame));
+
+        ng::SkeletonLocalPose endLocalPose(
+                    ng::SkeletonLocalPose::FromMD5AnimFrame(
+                        mAnimationSkeleton->get(), mAnimationAnim,
+                        endFrame));
+
+        ng::SkeletonLocalPose interpolatedPose(
+                    ng::SkeletonLocalPose::FromLERPedPoses(
+                        startLocalPose, endLocalPose,
+                        std::fmod(mCurrentAnimationFrame, 1.0f)));
 
         ng::SkeletonGlobalPose globalAnimationPose(
                     ng::SkeletonGlobalPose::FromLocalPose(
-                        mAnimationSkeleton->get(), localAnimationPose));
+                        mAnimationSkeleton->get(), interpolatedPose));
 
         ng::SkinningMatrixPalette animationSkinningPalette =
                 ng::SkinningMatrixPalette::FromGlobalPose(

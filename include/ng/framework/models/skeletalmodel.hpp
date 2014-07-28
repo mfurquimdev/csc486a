@@ -51,6 +51,11 @@ public:
             const MD5Anim& anim,
             int frameIndex);
 
+    static SkeletonLocalPose FromLERPedPoses(
+        const SkeletonLocalPose& start,
+        const SkeletonLocalPose& end,
+        float blendPercentage);
+
     std::vector<SkeletonJointPose> JointPoses;
 };
 
