@@ -182,10 +182,32 @@ public:
 private:
     ng::vec3 mCameraPosition{6.0f};
     ng::vec3 mCameraTarget{0.0f,3.0f,0.0f};
+    float mPendingScrolling= 0.0f;
+    bool mIsRightClickHeld = false;
+    float mPendingRotation = 0.0f;
 
-    void HandleEvent(const ng::WindowEvent&)
+    void HandleEvent(const ng::WindowEvent& we)
     {
-
+        if (we.Type == ng::WindowEventType::MouseScroll)
+        {
+            mPendingScrolling += we.Scroll.Delta;
+        }
+        else if (we.Type == ng::WindowEventType::MouseButton)
+        {
+            if (we.Button.Button == ng::MouseButton::Right)
+            {
+                mIsRightClickHeld = we.Button.State == ng::ButtonState::Pressed;
+            }
+        }
+        else if (we.Type == ng::WindowEventType::MouseMotion)
+        {
+            if (mIsRightClickHeld)
+            {
+                int dX = we.Motion.X - we.Motion.OldX;
+                mPendingRotation -= (float) dX / mWindow->GetWidth()
+                                  * ng::pi<float>::value * 4;
+            }
+        }
     }
 
     void UpdateCameraToWindow()
@@ -209,18 +231,47 @@ private:
                     mWindow->GetWidth(), mWindow->GetHeight());
     }
 
-    void UpdateCameraTransform(std::chrono::milliseconds dt)
+    void UpdateCameraZoom()
     {
-//        dt = std::chrono::milliseconds(0);
-        dt /= 3;
+        ng::vec3 toCamera = mCameraPosition - mCameraTarget;
 
-        mCameraPosition = ng::vec3(ng::rotate4x4(ng::Radiansf(3.14f * dt.count() / 1000),
-                                              0.0f, 1.0f, 0.0f)
-                                 * ng::vec4(mCameraPosition,1.0f));
+        ng::vec3 toCameraDelta = normalize(toCamera)
+                               * mPendingScrolling
+                               * ng::vec3(0.1f);
 
-        mMainCamera->Transform = inverse(ng::lookAt(mCameraPosition,
-                                                    mCameraTarget,
-                                                    ng::vec3(0.0f,1.0f,0.0f)));
+        if (dot(toCamera + toCameraDelta, toCamera) > 0)
+        {
+            mCameraPosition = mCameraTarget + toCamera + toCameraDelta;
+            mPendingScrolling -= 0.1f * mPendingScrolling;
+        }
+        else
+        {
+            mPendingScrolling = 0.0f;
+        }
+    }
+
+    void UpdateCameraRotation()
+    {
+        ng::vec3 toCamera = mCameraPosition - mCameraTarget;
+
+        toCamera = ng::rotate3x3(
+                    ng::Radiansf(mPendingRotation * 0.1f),
+                    ng::vec3(0,1,0)) * toCamera;
+
+        mCameraPosition = mCameraTarget + toCamera;
+
+        mPendingRotation -= mPendingRotation * 0.1f;
+    }
+
+    void UpdateCameraTransform(std::chrono::milliseconds)
+    {
+        UpdateCameraZoom();
+        UpdateCameraRotation();
+
+        mMainCamera->Transform =
+            inverse(ng::lookAt(mCameraPosition,
+                               mCameraTarget,
+                               ng::vec3(0.0f,1.0f,0.0f)));
     }
 
     void Update(std::chrono::milliseconds dt)

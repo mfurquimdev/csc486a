@@ -888,6 +888,13 @@ mat<T,3,3>>::type rotate3x3(Radians<T> angle, vec<T,3> v)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,3,3>>::type rotate3x3(Degrees<T> angle, vec<T,3> v)
+{
+    return rotate3x3(Radians<T>(angle), v);
+}
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
 mat<T,4,4>>::type rotate4x4(Radians<T> angle, vec<T,3> v)
 {
     return mat<T,4,4>(rotate3x3(angle,v));
@@ -895,7 +902,21 @@ mat<T,4,4>>::type rotate4x4(Radians<T> angle, vec<T,3> v)
 
 template<class T>
 typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,4,4>>::type rotate4x4(Degrees<T> angle, vec<T,3> v)
+{
+    return mat<T,4,4>(rotate3x3(angle,v));
+}
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
 mat<T,4,4>>::type rotate4x4(Radians<T> angle, T x, T y, T z)
+{
+    return rotate4x4(angle, { x, y, z });
+}
+
+template<class T>
+typename std::enable_if<std::is_same<T,float>::value || std::is_same<T,double>::value,
+mat<T,4,4>>::type rotate4x4(Degrees<T> angle, T x, T y, T z)
 {
     return rotate4x4(angle, { x, y, z });
 }
