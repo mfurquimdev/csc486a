@@ -35,12 +35,12 @@ Skeleton Skeleton::FromMD5Model(const MD5Model& model)
             quat.Components.w = -std::sqrt(t);
         }
 
-        mat4 invBindPose = mat4(transpose(mat3(quat)));
-        invBindPose[3][0] = -md5Joint.Position.x;
-        invBindPose[3][1] = -md5Joint.Position.y;
-        invBindPose[3][2] = -md5Joint.Position.z;
+        mat4 bindPose = mat4(mat3(quat));
+        bindPose[3][0] = md5Joint.Position.x;
+        bindPose[3][1] = md5Joint.Position.y;
+        bindPose[3][2] = md5Joint.Position.z;
 
-        joint.InverseBindPose = invBindPose;
+        joint.InverseBindPose = inverse(bindPose);
 
         skeleton.Joints.push_back(std::move(joint));
     }

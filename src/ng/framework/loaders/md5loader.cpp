@@ -749,7 +749,6 @@ class MD5AnimParser : public MD5ParserBase
 
     int mNumExpectedFrames;
     int mNumExpectedJoints;
-    int mFrameRate;
     int mNumExpectedAnimatedComponents;
 
     bool AcceptNumFrames()
@@ -805,7 +804,7 @@ class MD5AnimParser : public MD5ParserBase
                 return false;
             }
 
-            mFrameRate = frameRate;
+            mAnim.FrameRate = frameRate;
 
             return true;
         }

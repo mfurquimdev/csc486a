@@ -48,10 +48,10 @@ class A4 : public ng::IApp
     std::shared_ptr<ng::SceneGraphCameraNode> mOverlayCamera;
 
     std::shared_ptr<ng::SceneGraphNode> mAnimationNode;
-    std::shared_ptr<ng::SceneGraphNode> mSkeletonNode;
     std::shared_ptr<ng::immutable<ng::Skeleton>> mAnimationSkeleton;
     std::shared_ptr<ng::IMesh> mAnimationBindPoseMesh;
     ng::MD5Anim mAnimationAnim;
+    float mCurrentAnimationFrame = 0.0f;
 
     ng::FixedStepUpdate mFixedStepUpdate{std::chrono::milliseconds(1000/60)};
 
@@ -105,13 +105,6 @@ public:
             mAnimationBindPoseMesh =
                     std::make_shared<ng::MD5Mesh>(
                         std::move(animationModel));
-
-
-            std::shared_ptr<ng::SceneGraphNode> bindPoseNode =
-                std::make_shared<ng::SceneGraphNode>();
-            bindPoseNode->Mesh = mAnimationBindPoseMesh;
-            bindPoseNode->Material = normalColoredMaterial;
-            mAnimationNode->Children.push_back(bindPoseNode);
         }
 
         {
@@ -122,55 +115,13 @@ public:
             ng::LoadMD5Anim(mAnimationAnim, *robotMD5AnimFile);
         }
 
-        mAnimationNode->Material = wireframeMaterial;
+        mAnimationNode->Material = normalColoredMaterial;
         mAnimationNode->Transform = ng::mat4(
                                             1,0,0,0,
                                             0,0,-1,0,
                                             0,1,0,0,
                                             0,0,0,1);
         rootNode->Children.push_back(mAnimationNode);
-
-        std::shared_ptr<ng::SceneGraphNode> basisNode1 =
-                std::make_shared<ng::SceneGraphNode>();
-        basisNode1->Mesh = std::make_shared<ng::BasisMesh>();
-        basisNode1->Material = vertexColoredMaterial;
-        rootNode->Children.push_back(basisNode1);
-        std::shared_ptr<ng::SceneGraphNode> basisNode2 =
-            std::make_shared<ng::SceneGraphNode>();
-        basisNode2->Mesh = std::make_shared<ng::BasisMesh>();
-        basisNode2->Material = vertexColoredMaterial;
-        basisNode2->Transform = ng::translate4x4(0.0f,1.0f,0.0f);
-        basisNode1->Children.push_back(basisNode2);
-        std::shared_ptr<ng::SceneGraphNode> basisNode3 =
-            std::make_shared<ng::SceneGraphNode>();
-        basisNode3->Mesh = std::make_shared<ng::BasisMesh>();
-        basisNode3->Material = vertexColoredMaterial;
-        basisNode3->Transform = ng::translate4x4(0.0f,1.0f,0.0f);
-        basisNode2->Children.push_back(basisNode3);
-        std::shared_ptr<ng::SceneGraphNode> basisNode4 =
-            std::make_shared<ng::SceneGraphNode>();
-        basisNode4->Mesh = std::make_shared<ng::BasisMesh>();
-        basisNode4->Material = vertexColoredMaterial;
-        basisNode4->Transform = ng::translate4x4(0.0f,1.0f,0.0f);
-        basisNode3->Children.push_back(basisNode4);
-
-        mSkeletonNode = std::make_shared<ng::SceneGraphNode>();
-        mSkeletonNode->Material = vertexColoredMaterial;
-        mAnimationNode->Children.push_back(mSkeletonNode);
-
-        std::shared_ptr<ng::SceneGraphNode> basisAtMinus4xThreez=
-            std::make_shared<ng::SceneGraphNode>();
-        basisAtMinus4xThreez->Mesh = std::make_shared<ng::BasisMesh>();
-        basisAtMinus4xThreez->Material = vertexColoredMaterial;
-        basisAtMinus4xThreez->Transform = ng::translate4x4(-4.0f,-0.5f,3.0f);
-        mSkeletonNode->Children.push_back(basisAtMinus4xThreez);
-
-        std::shared_ptr<ng::SceneGraphNode> basisAtMinus6xMinus9y=
-            std::make_shared<ng::SceneGraphNode>();
-        basisAtMinus6xMinus9y->Mesh = std::make_shared<ng::BasisMesh>();
-        basisAtMinus6xMinus9y->Material = vertexColoredMaterial;
-        basisAtMinus6xMinus9y->Transform = ng::translate4x4(-6.0f,-9.0f,5.0f);
-        mSkeletonNode->Children.push_back(basisAtMinus6xMinus9y);
 
         mMainCamera = std::make_shared<ng::SceneGraphCameraNode>();
         rootNode->Children.push_back(mMainCamera);
@@ -229,8 +180,8 @@ public:
     }
 
 private:
-    ng::vec3 mCameraPosition{14.0f};
-    ng::vec3 mCameraTarget{0.0f};
+    ng::vec3 mCameraPosition{6.0f};
+    ng::vec3 mCameraTarget{0.0f,3.0f,0.0f};
 
     void HandleEvent(const ng::WindowEvent&)
     {
@@ -277,13 +228,15 @@ private:
         UpdateCameraToWindow();
         UpdateCameraTransform(dt);
 
-        static float frame = 0;
-
-        frame = std::fmod(frame + 1, mAnimationAnim.Frames.size());
+        mCurrentAnimationFrame += dt.count() / 1000.0f
+                                * mAnimationAnim.FrameRate;
+        mCurrentAnimationFrame = std::fmod(mCurrentAnimationFrame,
+                                           mAnimationAnim.Frames.size());
 
         ng::SkeletonLocalPose localAnimationPose(
                     ng::SkeletonLocalPose::FromMD5AnimFrame(
-                        mAnimationSkeleton->get(), mAnimationAnim, frame));
+                        mAnimationSkeleton->get(), mAnimationAnim,
+                        mCurrentAnimationFrame));
 
         ng::SkeletonGlobalPose globalAnimationPose(
                     ng::SkeletonGlobalPose::FromLocalPose(
@@ -301,11 +254,6 @@ private:
         mAnimationNode->Mesh =
                 std::make_shared<ng::SkeletalMesh>(
                     mAnimationBindPoseMesh,
-                    animationSkinningPalettePtr);
-
-        mSkeletonNode->Mesh =
-                std::make_shared<ng::SkeletonWireframeMesh>(
-                    mAnimationSkeleton,
                     animationSkinningPalettePtr);
     }
 };

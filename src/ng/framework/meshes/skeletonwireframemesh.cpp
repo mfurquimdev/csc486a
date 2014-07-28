@@ -85,10 +85,11 @@ std::size_t SkeletonWireframeMesh::WriteVertices(void* buffer) const
                 continue;
             }
 
-            const mat4& mySkinningMatrix = mPalette->get().SkinningMatrices[j];
-
             const SkeletonJoint& parentJoint =
                 mSkeleton->get().Joints[joint.ParentIndex];
+
+            const mat4& mySkinningMatrix =
+                mPalette->get().SkinningMatrices[j];
 
             const mat4& parentSkinningMatrix =
                 mPalette->get().SkinningMatrices[joint.ParentIndex];
