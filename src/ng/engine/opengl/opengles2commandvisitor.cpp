@@ -318,8 +318,6 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
         glDisable(flag);
     }
 
-    glEnable(GL_TEXTURE_2D);
-
     GLuint vbo;
     glGenBuffers(1, &vbo);
     auto vertexBufferScope = make_scope_guard([&]{
@@ -559,8 +557,10 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                     throw std::logic_error("Invalid TextureWrap");
                 }
 
+#ifndef NG_USE_EMSCRIPTEN
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+#endif
 
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
                     ToGLTextureFilter(sampler.MinFilter));
@@ -580,7 +580,7 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                 tex.WriteTextureData(texData.get());
 
                 glTexImage2D(GL_TEXTURE_2D, 0,
-                    GL_RGBA8, fmt.Width, fmt.Height,
+                    GL_RGBA, fmt.Width, fmt.Height,
                     0,
                     GL_RGBA, GL_UNSIGNED_BYTE, texData.get());
             }
@@ -666,34 +666,52 @@ void OpenGLES2CommandVisitor::RenderPass(const Pass& pass)
                 }
             }
 
-            // glPolygonMode not supported in GLES
-#ifndef NG_USE_EMSCRIPTEN
-            if (mat.Type == MaterialType::Wireframe)
-            {
-                glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            }
-            else
-            {
-                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            }
-#endif
-
             GLenum primitiveType = ToGLPrimitive(fmt.PrimitiveType);
 
             if (numElements > 0)
             {
-                glDrawElements(
-                            primitiveType,
-                            numElements,
+                if (mat.Type == ng::MaterialType::Wireframe &&
+                    primitiveType == GL_TRIANGLES)
+                {
+                    // ouch
+                    for (std::size_t i = 0; i < numElements; i += 3)
+                    {
+                        glDrawElements(
+                            GL_LINE_LOOP,
+                            3,
                             ToGLArithmeticType(fmt.IndexType),
-                            reinterpret_cast<const GLvoid*>(fmt.IndexOffset));
+                            reinterpret_cast<const GLvoid*>(
+                                fmt.IndexOffset
+                              + i * SizeOfArithmeticType(fmt.IndexType)));
+                    }
+                }
+                else
+                {
+                    glDrawElements(
+                                primitiveType,
+                                numElements,
+                                ToGLArithmeticType(fmt.IndexType),
+                                reinterpret_cast<const GLvoid*>(fmt.IndexOffset));
+                }
             }
             else if (numVertices > 0)
             {
-                glDrawArrays(
-                            primitiveType,
-                            0,
-                            numVertices);
+                if (mat.Type == ng::MaterialType::Wireframe &&
+                    primitiveType == GL_TRIANGLES)
+                {
+                    // ouch
+                    for (std::size_t i = 0; i < numVertices; i += 3)
+                    {
+                        glDrawArrays(GL_LINE_LOOP, i, 3);
+                    }
+                }
+                else
+                {
+                    glDrawArrays(
+                                primitiveType,
+                                0,
+                                numVertices);
+                }
             }
         }
     }

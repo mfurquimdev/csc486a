@@ -50,8 +50,12 @@ class A4 : public ng::IApp
     std::shared_ptr<ng::SceneGraphNode> mAnimationNode;
     std::shared_ptr<ng::immutable<ng::Skeleton>> mAnimationSkeleton;
     std::shared_ptr<ng::IMesh> mAnimationBindPoseMesh;
+    std::shared_ptr<ng::SceneGraphNode> mSkeletonNode;
     ng::MD5Anim mAnimationAnim;
     float mCurrentAnimationFrame = 0.0f;
+
+    std::vector<std::pair<std::string,ng::Material>> mMaterials;
+    std::size_t mCurrentMaterialIndex = 0;
 
     ng::FixedStepUpdate mFixedStepUpdate{std::chrono::milliseconds(1000/60)};
 
@@ -68,14 +72,16 @@ public:
         mFileSystem = ng::CreateFileSystem();
 
         // setup materials
-        ng::Material normalColoredMaterial(ng::MaterialType::NormalColored);
-        ng::Material vertexColoredMaterial(ng::MaterialType::VertexColored);
-        ng::Material wireframeMaterial(ng::MaterialType::Wireframe);
+        mMaterials.emplace_back("NormalColored", ng::MaterialType::NormalColored);
 
-        ng::Material checkeredMaterial(ng::MaterialType::Textured);
+        mMaterials.emplace_back("Wireframe", ng::MaterialType::Wireframe);
+
+        mMaterials.emplace_back("Checkered", ng::MaterialType::Textured);
+
+        ng::Material& checkeredMaterial = mMaterials.back().second;
         checkeredMaterial.Texture0 =
             std::make_shared<ng::CheckerboardTexture>(
-                4, 4, 1, ng::vec4(1), ng::vec4(0));
+                10, 10, 1, ng::vec4(1), ng::vec4(0));
         checkeredMaterial.Sampler0.MinFilter = ng::TextureFilter::Nearest;
         checkeredMaterial.Sampler0.MagFilter = ng::TextureFilter::Nearest;
         checkeredMaterial.Sampler0.WrapX = ng::TextureWrap::ClampToEdge;
@@ -115,13 +121,18 @@ public:
             ng::LoadMD5Anim(mAnimationAnim, *robotMD5AnimFile);
         }
 
-        mAnimationNode->Material = normalColoredMaterial;
+        mAnimationNode->Material = checkeredMaterial;
         mAnimationNode->Transform = ng::mat4(
                                             1,0,0,0,
                                             0,0,-1,0,
                                             0,1,0,0,
                                             0,0,0,1);
         rootNode->Children.push_back(mAnimationNode);
+
+        ng::Material vertexColoredMaterial(ng::MaterialType::VertexColored);
+        mSkeletonNode = std::make_shared<ng::SceneGraphCameraNode>();
+        mSkeletonNode->Material = vertexColoredMaterial;
+        mAnimationNode->Children.push_back(mSkeletonNode);
 
         mMainCamera = std::make_shared<ng::SceneGraphCameraNode>();
         rootNode->Children.push_back(mMainCamera);
@@ -207,6 +218,27 @@ private:
                 mPendingRotation -= (float) dX / mWindow->GetWidth()
                                   * ng::pi<float>::value * 4;
             }
+        }
+        else if (we.Type == ng::WindowEventType::KeyPress)
+        {
+            ng::Scancode code = we.KeyPress.Scancode;
+
+            int materialIndexDelta =
+                code == ng::Scancode::LeftArrow ? -1
+              : code == ng::Scancode::RightArrow ? 1
+              : 0;
+
+            int newMaterialIndex = mCurrentMaterialIndex;
+            newMaterialIndex += materialIndexDelta;
+
+            if (newMaterialIndex < 0)
+            {
+                newMaterialIndex = (int) mMaterials.size() - 1;
+            }
+
+            newMaterialIndex = newMaterialIndex % mMaterials.size();
+
+            mCurrentMaterialIndex = newMaterialIndex;
         }
     }
 
@@ -320,10 +352,27 @@ private:
                     std::make_shared<ng::immutable<ng::SkinningMatrixPalette>>(
                         std::move(animationSkinningPalette));
 
+        const std::string& currentMaterialName =
+            mMaterials.at(mCurrentMaterialIndex).first;
+        const ng::Material& currentMaterial =
+            mMaterials.at(mCurrentMaterialIndex).second;
+
+        mAnimationNode->Material = currentMaterial;
         mAnimationNode->Mesh =
                 std::make_shared<ng::SkeletalMesh>(
                     mAnimationBindPoseMesh,
                     animationSkinningPalettePtr);
+
+        if (currentMaterialName == "Wireframe")
+        {
+            mSkeletonNode->Mesh =
+                    std::make_shared<ng::SkeletonWireframeMesh>(
+                        mAnimationSkeleton, animationSkinningPalettePtr);
+        }
+        else
+        {
+            mSkeletonNode->Mesh = nullptr;
+        }
     }
 };
 
